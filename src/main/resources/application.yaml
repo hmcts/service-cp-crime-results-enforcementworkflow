@@ -38,6 +38,13 @@ management:
     health:
       probes:
         enabled: true   # enables liveness / readiness groups
+  health:
+    jms:
+      # The Artemis starter auto-registers a JMS health indicator that opens a broker connection
+      # on every /actuator/health call. Disabled: connectivity is proven via the listener log, and
+      # we don't want the aggregate health (or a broker outage) to flap the service. Probe groups
+      # (liveness/readiness) don't include it anyway.
+      enabled: false
 
 logging:
   level:
