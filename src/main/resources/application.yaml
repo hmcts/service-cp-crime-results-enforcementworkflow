@@ -17,10 +17,12 @@ server:
   port: ${SERVER_PORT:8083}
 
 # CP public-event consumption (connectivity logging; active only under the 'docker' profile).
+# Selector filters to results public events only (e.g. public.results.police-result-generated).
 cp:
   messaging:
     public-event-topic: public.event
     subscription-name: service-cp-crime-results-enforcementworkflow.public.event.logger
+    selector: "CPPNAME LIKE 'public.results%'"
 
 azure:
   application-insights:

@@ -8,10 +8,11 @@ import org.springframework.jms.annotation.JmsListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Connectivity listener: durably subscribes to the CP {@code public.event} topic and logs the name
+ * Connectivity listener: durably subscribes to the CP {@code public.event} topic, selector-filtered
+ * to results public events (e.g. {@code public.results.police-result-generated}), and logs the name
  * ({@code CPPNAME} property) of every event received, to confirm Artemis connectivity from this
  * service. Active only under the {@code docker} profile (i.e. when deployed) — diagnostics only,
- * no filtering or processing.
+ * no filtering or processing beyond the broker-side selector.
  */
 @Slf4j
 @Component
@@ -20,7 +21,8 @@ public class PublicEventLoggingListener {
 
     @JmsListener(
             destination = "${cp.messaging.public-event-topic}",
-            subscription = "${cp.messaging.subscription-name}")
+            subscription = "${cp.messaging.subscription-name}",
+            selector = "${cp.messaging.selector}")
     public void onPublicEvent(final Message message) throws JMSException {
         log.info("Artemis public event received: name={}, jmsMessageId={}",
                 message.getStringProperty("CPPNAME"), message.getJMSMessageID());
