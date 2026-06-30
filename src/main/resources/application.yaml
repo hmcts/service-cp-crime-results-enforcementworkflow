@@ -1,9 +1,28 @@
 spring:
   application:
     name: service-cp-crime-results-enforcementworkflow
+  artemis:
+    mode: native
+    broker-url: ${ARTEMIS_BROKER_URL:tcp://localhost:61616}
+    user: ${ARTEMIS_USER:admin}
+    password: ${ARTEMIS_PASSWORD:admin}
+  jms:
+    pub-sub-domain: true                 # public.event is a multicast topic
+    subscription-durable: true           # durable: events queued while down are still delivered
+    client-id: service-cp-crime-results-enforcementworkflow
+    listener:
+      auto-startup: ${ARTEMIS_LISTENER_ENABLED:true}   # enabled by default (listener only loads under the 'docker' profile)
 
 server:
   port: ${SERVER_PORT:8083}
+
+# CP public-event consumption (connectivity logging; active only under the 'docker' profile).
+# Selector filters to results public events only (e.g. public.results.police-result-generated).
+cp:
+  messaging:
+    public-event-topic: public.event
+    subscription-name: service-cp-crime-results-enforcementworkflow.public.event.logger
+    selector: "CPPNAME LIKE 'public.results%'"
 
 azure:
   application-insights:
