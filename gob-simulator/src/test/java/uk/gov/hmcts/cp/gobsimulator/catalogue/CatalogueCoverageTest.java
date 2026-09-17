@@ -36,14 +36,10 @@ class CatalogueCoverageTest {
         }
     }
 
-    @Test
-    void every_field_label_used_by_a_result_code_has_a_field_path_entry() {
-        for (final String code : catalogue.allCodes()) {
-            for (final String label : catalogue.fieldsFor(code)) {
-                assertThat(catalogue.fieldPath(label))
-                        .as("code %s references label '%s' with no field-paths entry", code, label)
-                        .isNotNull();
-            }
-        }
-    }
+    // every_field_label_used_by_a_result_code_has_a_field_path_entry was removed: it was
+    // tautological. CatalogueLoader.validate() already throws in the field initializer above if
+    // any result code references a field label with no field-paths.yaml entry, so this assertion
+    // could never fail. CatalogueLoaderValidationTest's
+    // rejects_result_code_referencing_unknown_field_label() covers that failure mode instead, by
+    // loading a deliberately broken fixture and asserting validate() actually rejects it.
 }

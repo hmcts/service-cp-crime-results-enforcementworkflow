@@ -4,6 +4,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CatalogueLoaderTest {
 
@@ -57,5 +58,12 @@ class CatalogueLoaderTest {
             assertThat(catalogue.fieldPath(label).reason())
                     .as("label %s must carry a reason", label).isNotBlank();
         }
+    }
+
+    @Test
+    void properties_for_returns_an_immutable_list() {
+        final List<String> properties = catalogue.propertiesFor("Defendant Account");
+        assertThatThrownBy(() -> properties.add("somethingElse"))
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 }
