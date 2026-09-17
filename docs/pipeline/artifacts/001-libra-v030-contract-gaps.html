@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- claude-artifact: created=2026-09-17 project=service-cp-crime-results-enforcementworkflow kind=investigation -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIMD-4372 vs Libra v0.3.0 — Contract Gaps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0b0d; --panel:#131316; --panel-2:#1a1a1f; --edge:#2a2a31;
+    --txt:#b7b7c0; --txt-hi:#f0f0f3; --muted:#6d6d78;
+    --amber:#ffb02e; --red:#ff4d4d; --green:#46d97a; --blue:#5aa9ff;
+    --paper:rgba(255,176,46,.06);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--txt);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:15px;line-height:1.65}
+  /* faint paper-grain + corner classified band */
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+    background:repeating-linear-gradient(115deg,transparent 0 24px,rgba(255,255,255,.012) 24px 25px)}
+  .wrap{max-width:920px;margin:0 auto;padding:40px 24px 110px;position:relative;z-index:1}
+  .mono{font-family:'IBM Plex Mono',monospace}
+
+  /* case-file header */
+  header{border:1px solid var(--edge);border-top:3px solid var(--amber);background:var(--panel);
+    padding:24px 26px;margin-bottom:36px;position:relative}
+  .filebar{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font:600 11px 'IBM Plex Mono',monospace;
+    letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
+  .filebar .case{color:var(--amber)}
+  h1{color:var(--txt-hi);font-size:clamp(22px,3.6vw,32px);font-weight:700;margin-bottom:8px}
+  .summary{color:var(--txt);max-width:70ch}
+  .stamp{position:absolute;top:18px;right:26px;transform:rotate(-9deg);border:2.5px solid var(--red);
+    color:var(--red);font:700 14px 'IBM Plex Mono',monospace;letter-spacing:2px;padding:5px 12px;border-radius:6px;
+    opacity:.85;text-transform:uppercase}
+  .stamp.resolved{border-color:var(--green);color:var(--green)}
+
+  section{margin-bottom:40px}
+  h2{color:var(--txt-hi);font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:18px;
+    padding-bottom:8px;border-bottom:1px solid var(--edge)}
+  h2 .ix{color:var(--amber);font-family:'IBM Plex Mono',monospace;margin-right:8px}
+
+  /* evidence timeline (HERO COMPONENT A) */
+  .timeline{position:relative;padding-left:30px}
+  .timeline::before{content:"";position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--edge)}
+  .ev{position:relative;margin-bottom:20px}
+  .ev::before{content:"";position:absolute;left:-27px;top:5px;width:12px;height:12px;border-radius:50%;
+    background:var(--bg);border:2px solid var(--blue)}
+  .ev.key::before{border-color:var(--amber);box-shadow:0 0 0 4px rgba(255,176,46,.15)}
+  .ev .t{font:600 12px 'IBM Plex Mono',monospace;color:var(--blue)}
+  .ev.key .t{color:var(--amber)}
+  .ev .d{color:var(--txt-hi);font-weight:600;margin:2px 0}
+  .ev .x{font-size:14px}
+
+  /* log block */
+  pre{font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.7;background:#08080a;
+    border:1px solid var(--edge);border-left:3px solid var(--amber);border-radius:6px;padding:14px 16px;
+    overflow-x:auto;margin:12px 0;color:#c9c9d2}
+  pre .err{color:var(--red)} pre .warn{color:var(--amber)} pre .dim{color:var(--muted)} pre .ok{color:var(--green)}
+  code{font-family:'IBM Plex Mono',monospace;font-size:13px;background:var(--panel-2);color:var(--amber);
+    padding:2px 6px;border-radius:5px;border:1px solid var(--edge)}
+
+  /* hypothesis tree (HERO COMPONENT B) */
+  .hyp{border:1px solid var(--edge);border-radius:10px;background:var(--panel);padding:8px 4px;margin-top:10px}
+  .branch{display:flex;align-items:flex-start;gap:12px;padding:11px 16px;border-bottom:1px solid var(--edge)}
+  .branch:last-child{border-bottom:none}
+  .branch .v{font:700 11px 'IBM Plex Mono',monospace;letter-spacing:1px;text-transform:uppercase;padding:4px 9px;
+    border-radius:5px;flex-shrink:0;width:96px;text-align:center}
+  .v.ruled{background:rgba(255,77,77,.12);color:var(--red);border:1px solid var(--red)}
+  .v.conf{background:rgba(70,217,122,.12);color:var(--green);border:1px solid var(--green)}
+  .v.open{background:rgba(255,176,46,.12);color:var(--amber);border:1px solid var(--amber)}
+  .branch .h{color:var(--txt-hi);font-weight:600}
+  .branch.ruled .h{text-decoration:line-through;text-decoration-color:var(--red);color:var(--muted)}
+
+  footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--edge);color:var(--muted);
+    font:500 12px 'IBM Plex Mono',monospace;letter-spacing:1px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="filebar"><span class="case">CASE · CIMD-4372</span><span>OPENED 2026-09-17</span><span>ANALYST · EROL KURELI</span></div>
+    <span class="stamp">Open</span>
+    <h1>CIMD-4372 response examples do not validate against Libra Gateway v0.3.0</h1>
+    <p class="summary">Every example response in the CIMD-4372 ticket fails schema validation against <code>libra-gateway-hearing-events-openapi-v0.3.0.yml</code> &mdash; the contract the ticket states they were generated from. Six of the twelve NOWS entity names it specifies are not properties of <code>NowsDataItems</code>, which declares <code>additionalProperties: false</code>. AC1 and AC2 cannot both be satisfied as written.</p>
+  </header>
+
+  <section>
+    <h2><span class="ix">A.</span> How this was found</h2>
+    <div class="timeline">
+      <div class="ev"><div class="t">Step 1</div><div class="d">Both attachments read in full</div><div class="x">The 15-page CIMD-4372 export and the 1,539-line v0.3.0 OpenAPI document.</div></div>
+      <div class="ev key"><div class="t">Step 2</div><div class="d">AC2 checked against the schema</div><div class="x">AC2 says response keys are the camelCased request names. Each of the 12 <code>NowsDataItemName</code> enum values was camelCased and looked up in <code>NowsDataItems.properties</code>. Six do not exist.</div></div>
+      <div class="ev key"><div class="t">Step 3</div><div class="d">Example bodies checked against the schema</div><div class="x">The remaining six exist but are typed differently from the ticket's examples &mdash; four are scalars where the ticket shows objects.</div></div>
+      <div class="ev"><div class="t">Step 4</div><div class="d">Result codes cross-checked</div><div class="x">The ticket's table holds 30 short codes; the <code>resultCode</code> enum holds 24 values (21 distinct outcomes). The two sets disagree in both directions.</div></div>
+      <div class="ev"><div class="t">Step 5</div><div class="d">Field labels mapped onto schema paths</div><div class="x">Six field labels used by postable codes have no property anywhere in v0.3.0.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="ix">B.</span> Evidence &mdash; the twelve entity names</h2>
+    <pre><span class="dim"># NowsDataItemName (AC2 camelCase) -> property of NowsDataItems in v0.3.0</span>
+<span class="err">"Defendant Account"               -> defendantAccount             ABSENT  (schema: defendant)</span>
+<span class="err">"Account History"                 -> accountHistory               ABSENT  (schema: paymentHistory/transactionHistory)</span>
+<span class="err">"Account Offences and Penalties"  -> accountOffencesAndPenalties   ABSENT  (schema: offences)</span>
+<span class="err">"Account Terms to Pay"            -> accountTermsToPay             ABSENT  (schema: terms)</span>
+<span class="err">"CT Account Bank Details"         -> ctAccountBankDetails          ABSENT  (schema: ctBankDetails)</span>
+<span class="err">"Days Before Release of Warrant"  -> daysBeforeReleaseOfWarrant    ABSENT  (schema: daysBeforeReleaseWarrant)</span>
+<span class="warn">"Account Balance"                 -> accountBalance               present, but typed number</span>
+<span class="warn">"Account Warrant Number"          -> accountWarrantNumber          present, but typed string ^\d{3}/\d{2}/\d{5}$</span>
+<span class="warn">"Account Bail Amount"             -> accountBailAmount             present, but typed number</span>
+<span class="warn">"Warrant Contact Details"         -> warrantContactDetails         present, but fields are Line1..Line5</span>
+"Account Number"                  -> accountNumber                present
+"Account Date Imposed"            -> accountDateImposed           present
+
+<span class="dim"># NowsDataItems declares additionalProperties: false — an ABSENT key is a hard validation failure.</span></pre>
+    <p>The ticket's own worked example for BWTD returns <code>accountWarrantNumber: {"warrantNo": "W000012345"}</code> and <code>daysBeforeReleaseOfWarrant: {"days": 14}</code>. Under v0.3.0 the first must be a string matching <code>NNN/NN/NNNNN</code>, and the second key does not exist at all.</p>
+  </section>
+
+  <section>
+    <h2><span class="ix">C.</span> Evidence &mdash; result-code coverage</h2>
+    <pre><span class="dim"># v0.3.0 resultCode enum: 24 values (21 distinct after GOB/CP aliasing)</span>
+<span class="dim"># CIMD-4372 "Result vs Required Field" table: 30 short codes</span>
+
+covered by both ......... 20  + DW via the table's "WC (DW in GoB)" row = <span class="ok">21</span>
+
+<span class="warn">in the ENUM, no table row ... 3   NOENF, WDN, WWDN</span>
+<span class="dim">                                 CP can post these; no required fields are defined.</span>
+
+<span class="warn">in the TABLE, not in enum .. 10  ACF, AEC, CLAMPS, FIDIC, FIDICT, FTTP,</span>
+<span class="warn">                                 LATG, LATR, PGPAY, PTNV</span>
+<span class="dim">                                 CP cannot post these; the rows are unreachable.</span></pre>
+  </section>
+
+  <section>
+    <h2><span class="ix">D.</span> Evidence &mdash; field labels with no property</h2>
+    <pre><span class="dim"># Required by codes CP CAN post, but absent from the v0.3.0 schema</span>
+<span class="err">Date of Offence</span>        <span class="dim">required by BWTU, NBWT, S136, WC — nearest is offence.dateIssued (the NTO issue date)</span>
+<span class="err">Start time of offence</span>  <span class="dim">required by SUMM — schema has a single timeOfOffence, not a range</span>
+<span class="err">End time of offence</span>    <span class="dim">required by SUMM — no property</span>
+<span class="err">Reserve Terms</span>          <span class="dim">required by AEO, BWTU, MPSO — no property</span>
+<span class="err">Reason for decision</span>    <span class="dim">required by PGPAY — no property</span>
+<span class="err">[Directions]</span>           <span class="dim">bracketed as optional in the table — no property</span></pre>
+    <p>These are not confined to the unreachable rows: <code>BWTU</code>, <code>NBWT</code>, <code>S136</code>, <code>WC</code> and <code>SUMM</code> are all in the enum and all require at least one unmappable label.</p>
+  </section>
+
+  <section>
+    <h2><span class="ix">E.</span> Findings</h2>
+    <div class="hyp">
+      <div class="branch conf"><span class="v conf">Confirmed</span><div><div class="h">AC1 and AC2 are mutually exclusive as written</div>AC1 requires the body to validate under <code>additionalProperties: false</code>; AC2 requires six keys the schema does not declare. No implementation can satisfy both.</div></div>
+      <div class="branch conf"><span class="v conf">Confirmed</span><div><div class="h">AC4's formats contradict the schema in two places</div>Warrant No <code>A(10)</code> (<code>W000012345</code>) against pattern <code>^\d{3}/\d{2}/\d{5}$</code>; Date Imposed <code>YYYY-MM-DD</code> against <code>x-date-format: DD Mon YYYY</code>.</div></div>
+      <div class="branch conf"><span class="v conf">Confirmed</span><div><div class="h">AC7 relies on an undeclared header</div><code>X-Idempotency-Key</code> appears nowhere in v0.3.0 &mdash; only <code>X-Correlation-ID</code> is defined.</div></div>
+      <div class="branch ruled"><span class="v ruled">Ruled out</span><div><div class="h">AC5 needs work to suppress enforcerCode</div>v0.3.0's response schema declares no <code>enforcerCode</code> property at any level, so it cannot be emitted. AC5 is satisfied structurally.</div></div>
+      <div class="branch"><span class="v open">Open</span><div><div class="h">Is "Account History" one entity or two?</div>It camelCases to nothing; the schema offers <code>paymentHistory</code> and <code>transactionHistory</code>. Interim behaviour: emit both.</div></div>
+      <div class="branch"><span class="v open">Open</span><div><div class="h">Are the 10 unreachable rows awaiting a later spec version?</div>The ticket notes a reference-data dependency (CIMD-4336). Interim behaviour: transcribed and marked unpostable, with a test asserting they stay unreachable.</div></div>
+      <div class="branch"><span class="v open">Open</span><div><div class="h">Do amounts need two decimal places on the wire?</div>AC4 says yes, but the schema types amounts as JSON <code>number</code>, which carries no scale. Interim behaviour: <code>BigDecimal</code> scale 2.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="ix">F.</span> Resolution adopted</h2>
+    <p><b>The v0.3.0 schema is treated as the contract of truth.</b> The simulator emits only properties the schema declares; AC2's camelCase rule is re-expressed as an explicit request-name &rarr; schema-property mapping held in <code>entity-names.yaml</code>. Recorded as ADR-002.</p>
+    <p>Rationale: CP will eventually integrate against real Libra, which will serve the published contract. A simulator matching the ticket's examples would train CP against a shape that cannot exist in production.</p>
+    <p><b>Action needed from the GOB integration team:</b> either correct the CIMD-4372 examples to match v0.3.0, or publish a v0.4.0 that adopts the nested shapes the ticket assumes. Until then the nine open questions in the design spec carry stated interim behaviours, so delivery is not blocked.</p>
+  </section>
+
+  <footer>DESIGN GAP · CIMD-4372 vs libra-gateway-hearing-events-openapi-v0.3.0 · spec: docs/superpowers/specs/2026-09-17-gob-libra-simulator-design.md</footer>
+</div>
+</body>
+</html>
