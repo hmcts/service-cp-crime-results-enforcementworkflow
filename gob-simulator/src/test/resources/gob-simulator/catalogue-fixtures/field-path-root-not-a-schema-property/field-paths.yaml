@@ -1,0 +1,44 @@
+"Account No.":            { path: accountNumber,        type: string,  default: "ACC0001" }
+"Total Balance":          { path: bogusRootProperty,   type: number,  default: 1250.00 }
+"Balance Outstanding":    { path: offences.accountTotal, type: number, default: 875.50 }
+"Amount Paid or Cancelled": { path: offences.accountPaid, type: number, default: 375.00 }
+"Amount Imposed":
+  { path: "offences.offence[0].impositions.imposition[0].amountImposed", type: number, default: 1250.00 }
+"Imposition type":
+  { path: "offences.offence[0].impositions.imposition[0].impositionType", type: string, default: "Fine" }
+"Date Imposed":           { path: accountDateImposed,   type: string,  default: "15 Jan 2026" }
+"Time of Offence":        { path: "offences.offence[0].timeOfOffence", type: string, default: "14:00" }
+"Place of offence":       { path: "offences.offence[0].placeOfOffence", type: string, default: "High Street" }
+"Ticket No.":             { path: "offences.offence[0].ticketNumber", type: string, default: "TKT0042" }
+"Vehicle Reg. No.":       { path: "offences.offence[0].vehicleReg", type: string, default: "AB12CDE" }
+"Vehicle Make":           { path: defendant.assetVehicleMake, type: string, default: "Ford" }
+"NTO issued on <date> & <time>":
+  { path: "offences.offence[0].noticeToOwnerNoticeToHirer", type: string, default: "2026-02-01 09:15" }
+"Payment Terms":          { path: terms.english_due,    type: string,  default: "Monthly" }
+"Due Date":               { path: terms.english_firstDate, type: string, default: "31 May 2026" }
+"Instalment Amount":      { path: terms.english_instalment, type: string, default: "20.00" }
+"Lump Sum":               { path: terms.english_lumpsum, type: string,  default: "0.00" }
+"Payment period":         { path: terms.english_instalmetPaymentPeriod, type: string, default: "Monthly" }
+"Warrant No":             { path: accountWarrantNumber, type: string,  default: "012/26/00123" }
+"Bail Amount":            { path: accountBailAmount,    type: number,  default: 500.00 }
+"Days Before Release of Warrant": { path: daysBeforeReleaseWarrant, type: integer, default: 14 }
+"Clamping Contractor name":
+  { path: warrantContactDetails.warrantContactDetailsLine1, type: string, default: "Clamping Contractor Ltd" }
+"Contractor's Name":
+  { path: warrantContactDetails.warrantContactDetailsLine2, type: string, default: "Enforcement Contractor Ltd" }
+"Contractor's Address":
+  { path: warrantContactDetails.warrantContactDetailsLine3, type: string, default: "1 Contractor Way, Testville" }
+"Process Server Name":
+  { path: warrantContactDetails.warrantContactDetailsLine1, type: string, default: "Process Server Ltd" }
+"Parent Name and Address":
+  { path: defendant.parentGuardian.parentGuardianName, type: string, default: "Parent Guardian" }
+"<Notes 1..3>":
+  { path: defendant.accountNotes.accountNote1, type: string, default: "Simulator generated note" }
+
+# Labels with no property in v0.3.0 — emitted nowhere. See spec §6.2 and OQ-7.
+"Date of Offence":        { unmapped: true, reason: "dateIssued is the NTO issue date, not the offence date" }
+"Start time of offence":  { unmapped: true, reason: "schema has a single timeOfOffence, not a range" }
+"End time of offence":    { unmapped: true, reason: "no property in v0.3.0" }
+"Reserve Terms":          { unmapped: true, reason: "no property in v0.3.0" }
+"Reason for decision":    { unmapped: true, reason: "accountNotes are free text, not a decision reason" }
+"[Directions]":           { unmapped: true, reason: "no property in v0.3.0; optional in the CIMD-4372 table" }

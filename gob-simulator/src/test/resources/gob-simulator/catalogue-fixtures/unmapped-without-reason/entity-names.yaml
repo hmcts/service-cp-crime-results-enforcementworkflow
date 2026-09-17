@@ -1,0 +1,16 @@
+# NowsDataItemName (as CP sends it) -> property of NowsDataItems in
+# libra-gateway-hearing-events-openapi-v0.3.0.yml.
+# NOTE: this is NOT a camelCase transform. Six of the twelve names do not
+# camelCase to a real property — see spec §3 and ADR-002.
+"Defendant Account": [defendant]
+"Account History": [paymentHistory, transactionHistory]   # OQ-1: awaiting confirmation
+"Account Offences and Penalties": [offences]
+"Account Terms to Pay": [terms]
+"Account Balance": [accountBalance]
+"Account Warrant Number": [accountWarrantNumber]
+"Warrant Contact Details": [warrantContactDetails]
+"Account Bail Amount": [accountBailAmount]
+"CT Account Bank Details": [ctBankDetails]
+"Days Before Release of Warrant": [daysBeforeReleaseWarrant]
+"Account Number": [accountNumber]
+"Account Date Imposed": [accountDateImposed]

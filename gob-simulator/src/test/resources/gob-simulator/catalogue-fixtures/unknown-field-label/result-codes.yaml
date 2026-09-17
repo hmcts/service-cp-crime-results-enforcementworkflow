@@ -1,0 +1,84 @@
+ABDC:   { fields: ["Account No.", "Total Balance", "Balance Outstanding"] }
+AEO:    { fields: ["Account No.", "Total Balance", "Payment Terms", "Due Date",
+                   "Instalment Amount", "Payment period", "Reserve Terms"] }
+AEOC:   { fields: ["Account No.", "Total Balance", "Payment Terms"] }
+BWTD:   { fields: ["Account No.", "Warrant No", "Total Balance", "Bail Amount",
+                   "Days Before Release of Warrant"] }
+BWTU:   { fields: ["Account No.", "Warrant No", "Total Balance", "Bail Amount",
+                   "Days Before Release of Warrant", "Amount Imposed",
+                   "Amount Paid or Cancelled", "Date Imposed", "Date of Offence",
+                   "Time of Offence", "Payment Terms", "Due Date", "Instalment Amount",
+                   "Lump Sum", "Payment period", "Reserve Terms"] }
+CLAMPO: { fields: ["Account No.", "Warrant No", "Vehicle Reg. No.", "Vehicle Make",
+                   "Total Balance", "Clamping Contractor name", "Contractor's Name",
+                   "Contractor's Address", "Payment Terms", "Due Date",
+                   "Instalment Amount", "[Directions]"] }
+COLLO:  { fields: ["Account No.", "Total Balance", "Balance Outstanding", "Amount Imposed",
+                   "Amount Paid or Cancelled", "Payment Terms", "Due Date",
+                   "Instalment Amount", "Lump Sum"] }
+CW:     { fields: ["Account No.", "Warrant No", "Total Balance", "Bail Amount",
+                   "Days Before Release of Warrant", "Amount Imposed",
+                   "Amount Paid or Cancelled", "Date Imposed", "Payment Terms", "Due Date",
+                   "Instalment Amount", "Lump Sum"] }
+CWN:    { fields: ["Account No.", "Total Balance", "Bail Amount"] }
+FSN:    { fields: ["Account No.", "Total Balance", "Bogus Unmapped Label"] }
+MPSO:   { fields: ["Account No.", "Total Balance", "Balance Outstanding", "Payment Terms",
+                   "Due Date", "Instalment Amount", "Payment period", "Reserve Terms"] }
+NBWT:   { fields: ["Account No.", "Warrant No", "Total Balance", "Bail Amount",
+                   "Days Before Release of Warrant", "Amount Imposed",
+                   "Amount Paid or Cancelled", "Date Imposed", "Date of Offence",
+                   "Time of Offence", "Payment Terms", "Due Date", "Instalment Amount",
+                   "Lump Sum", "<Notes 1..3>", "[Directions]"] }
+REGF:   { fields: ["Account No.", "Total Balance", "Date Imposed"] }
+REM:    { fields: ["Account No.", "Total Balance"] }
+S136:   { fields: ["Account No.", "Warrant No", "Total Balance", "Bail Amount",
+                   "Amount Imposed", "Amount Paid or Cancelled", "Date Imposed",
+                   "Date of Offence", "Time of Offence", "Place of offence", "Ticket No.",
+                   "Vehicle Reg. No."] }
+SC:     { fields: ["Account No.", "Total Balance", "Amount Imposed", "Date Imposed",
+                   "Payment Terms", "Due Date"] }
+SUMM:   { fields: ["Account No.", "Amount Imposed", "Amount Paid or Cancelled",
+                   "Date Imposed", "Date of Offence", "Start time of offence",
+                   "End time of offence", "Imposition type",
+                   "NTO issued on <date> & <time>", "Ticket No.", "Total Balance",
+                   "Vehicle Reg. No."] }
+TFOOUT: { fields: ["Total Balance"] }
+WC:     { fields: ["Account No.", "Warrant No", "Total Balance", "Amount Imposed",
+                   "Amount Paid or Cancelled", "Date Imposed", "Date of Offence",
+                   "Time of Offence", "Place of offence", "Ticket No.", "Vehicle Reg. No.",
+                   "Vehicle Make", "Process Server Name"] }
+
+# GOB/CP synonyms for the same outcome — both spellings are in the resultCode enum.
+DW:     { alias: WC }        # DW (GOB) = WC (CP)
+TFOUT:  { alias: TFOOUT }    # TFOOUT (GOB) = TFOUT (CP)
+WWDN:   { alias: WDN }       # WDN (GOB) = WWDN (CP)
+
+# Postable per the enum, but CIMD-4372 defines no required fields. See spec OQ-2.
+NOENF:  { fields: [], note: "No row in the CIMD-4372 Result vs Required Field table" }
+WDN:    { fields: [], note: "No row in the CIMD-4372 Result vs Required Field table" }
+
+# In the CIMD-4372 table but absent from the v0.3.0 resultCode enum, so CP cannot
+# post them. Transcribed for a future spec version. See spec OQ-3.
+ACF:    { postable: false, fields: ["Account No.", "Amount Imposed", "Date of Offence",
+                   "Time of Offence", "Place of offence", "Vehicle Reg. No.", "Vehicle Make",
+                   "Ticket No.", "NTO issued on <date> & <time>", "Payment Terms", "Due Date",
+                   "Instalment Amount", "Lump Sum", "[Directions]"] }
+AEC:    { postable: false, fields: ["Account No.", "Total Balance"] }
+CLAMPS: { postable: false, fields: ["Account No.", "Warrant No", "Vehicle Reg. No.",
+                   "Vehicle Make", "Total Balance", "Clamping Contractor name",
+                   "Contractor's Name", "Contractor's Address"] }
+FIDIC:  { postable: false, fields: ["Account No.", "Amount Imposed", "Date of Offence",
+                   "Time of Offence", "Start time of offence", "End time of offence",
+                   "Place of offence", "Vehicle Reg. No.", "Vehicle Make", "Ticket No.",
+                   "NTO issued on <date> & <time>", "[Directions]"] }
+FIDICT: { postable: false, alias: FIDIC }
+FTTP:   { postable: false, fields: ["Account No.", "Total Balance"] }
+LATG:   { postable: false, fields: ["Account No."] }
+LATR:   { postable: false, alias: LATG }
+PGPAY:  { postable: false, fields: ["Account No.", "Total Balance", "Amount Imposed",
+                   "Amount Paid or Cancelled", "Date Imposed", "Date of Offence",
+                   "Time of Offence", "Payment Terms", "Due Date", "Instalment Amount",
+                   "Lump Sum", "Payment period", "Parent Name and Address",
+                   "Reason for decision"] }
+PTNV:   { postable: false, fields: ["Account No.", "Total Balance", "Amount Imposed",
+                   "Amount Paid or Cancelled", "Date Imposed", "Payment Terms"] }
