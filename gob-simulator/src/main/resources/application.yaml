@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: gob-simulator
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:gob-simulator}
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: ${SERVER_PORT:8091}
+
+gob:
+  simulator:
+    seed-dir: ${GOB_SIMULATOR_SEED_DIR:}
+
+logging:
+  level:
+    root: INFO

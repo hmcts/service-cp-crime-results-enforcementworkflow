@@ -5,6 +5,7 @@ bin/*
 !bin/run-in-docker.sh
 .gradle
 /build/
+gob-simulator/build/
 /gradlew.bat
 *.class
 bin/main/application.yaml

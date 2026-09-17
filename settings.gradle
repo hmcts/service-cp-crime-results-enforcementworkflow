@@ -1,0 +1,3 @@
+rootProject.name = 'service-cp-crime-results-enforcementworkflow'
+
+include ':gob-simulator'

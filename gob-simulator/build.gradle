@@ -1,0 +1,36 @@
+plugins {
+  id 'java'
+  id 'org.springframework.boot' version '4.1.1'
+  id 'io.spring.dependency-management' version '1.1.7'
+  id 'jacoco'
+}
+
+group = 'uk.gov.hmcts.cp'
+version = rootProject.version
+
+apply {
+  from("$rootDir/gradle/repositories.gradle")
+  from("$rootDir/gradle/java.gradle")
+  from("$rootDir/gradle/pmd.gradle")
+  from("$rootDir/gradle/test.gradle")
+  from("$rootDir/gradle/jar.gradle")
+}
+
+// Deliberately NOT applying gradle/publishing.gradle — the simulator must never
+// be published to Azure Artifacts or GitHub Packages.
+
+dependencies {
+  implementation 'org.springframework.boot:spring-boot-starter-web'
+  implementation 'net.logstash.logback:logstash-logback-encoder:9.0'
+  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
+
+  compileOnly 'org.projectlombok:lombok:1.18.48'
+  annotationProcessor 'org.projectlombok:lombok:1.18.48'
+
+  testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+  testImplementation('org.springframework.boot:spring-boot-starter-test') {
+    exclude group: 'junit', module: 'junit'
+    exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+  }
+  testImplementation 'com.atlassian.oai:swagger-request-validator-mockmvc:2.44.9'
+}

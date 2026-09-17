@@ -2,7 +2,7 @@ apply plugin: 'pmd'
 
 pmd {
   ruleSets = []
-  ruleSetFiles = files(".github/pmd-ruleset.xml")
+  ruleSetFiles = rootProject.files(".github/pmd-ruleset.xml")
   ignoreFailures = false
 }
 
