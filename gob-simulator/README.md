@@ -7,7 +7,7 @@ hearing-result flow without waiting for the real Libra integration.
 ## What it is not
 
 - **Not a security implementation.** `/auth/token` returns a fixed bearer token and validates
-  nothing about the request. No endpoint checks an `Authorization` header. 401/403/404 are
+  nothing about the request. No endpoint checks an `Authorization` header. 401/403 are
   unreachable — see "Known gaps" below.
 - **Not a shape the real Libra necessarily returns.** It follows the **published OpenAPI
   contract** bundled at
@@ -252,10 +252,17 @@ These are current, known limitations — not things to silently work around:
   into it. This is safe today because these records are only ever serialised outward (the
   simulator never parses an inbound Libra response into them), but it becomes a real gap the
   moment something needs creditor data out of this simulator.
-- **401/403/404 are unreachable.** The simulator implements no security by design (this story's
-  scope excludes it) — see the "What it is not" section above. (A framework 404 for an unknown
-  URL — as opposed to an authentication/authorization 401/403 — is reachable: see
-  `GlobalExceptionHandler`.)
+- **401/403 are unreachable.** The simulator implements no security by design (this story's
+  scope excludes it) — see the "What it is not" section above.
+- **404, 405, and 415 are reachable, but 405 and 415 are not among the contract's declared
+  responses for these operations.** The bundled contract only declares 400/401/403/404/500 for
+  `/hearing` and `/hearing/result`. `GlobalExceptionHandler` (Finding I6) maps a framework 404
+  (unknown URL), 405 (unsupported HTTP method), and 415 (unsupported `Content-Type`) to
+  contract-shaped `ErrorResponse` bodies at their real status — 404 is declared and expected, but
+  405/415 are a deliberate, documented deviation: the response *body* still conforms to the
+  contract's `ErrorResponse` shape, and returning the framework's true status beats masking a
+  routine client mistake as a 500 with a stack trace. See `GlobalExceptionHandlerIT` and spec §15
+  for the acceptance of this trade-off.
 - **`SeedStore`'s path-traversal guard is looser than its name suggests.** The only guard against
   `../../application`-style escapes via `GOB_SIMULATOR_SEED_DIR` is the regex
   `^[A-Za-z0-9-]{1,36}$` on the caseUrn — any 1-36 character run of ASCII letters, digits, and

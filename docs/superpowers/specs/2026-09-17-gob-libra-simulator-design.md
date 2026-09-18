@@ -516,3 +516,29 @@ variable, if set, actually points at a readable directory.
   JSON path (`warrantContactDetails.warrantContactDetailsLine1`), and `CatalogueLoader` preserves
   catalogue file order deterministically (not `Map.copyOf`'s per-JVM-randomised order) so that
   tie-break is stable across restarts.
+- **`GlobalExceptionHandler` returns 405 and 415 for their real conditions, neither of which is a
+  declared response for `/hearing` or `/hearing/result`.** The bundled contract's responses for
+  both operations are 400/401/403/404/500 only — 405 (unsupported HTTP method) and 415
+  (unsupported `Content-Type`) are not among them. Finding I6's fix maps Spring's own
+  `HttpRequestMethodNotSupportedException`/`HttpMediaTypeNotSupportedException` to their true
+  status with a contract-shaped `ErrorResponse` body, rather than letting the
+  `@ExceptionHandler(Exception.class)` catch-all turn them into 500s. This is an accepted,
+  deliberate deviation from AC1's "schema-valid body" read narrowly as "declared status code": the
+  response *body* still conforms to `ErrorResponse`, and a true 405/415 is judged more useful to a
+  caller than a 500 masking a routine mistake. See `GlobalExceptionHandlerIT` and the simulator
+  README's "Known gaps" section.
+- **A requested-but-untouched object-typed entity is populated from its `baseline: true` rows
+  only, and is never emitted as `{}`.** Following on from Finding I4 (§ above, `defaultFor()`
+  unions only baseline rows for an object-typed root that no posted code touched), two
+  object-typed entities — `terms` and `warrantContactDetails` — had zero baseline rows and so came
+  back as `{}` in that case. Both now carry one representative baseline row each (`Payment Terms`
+  for `terms`; `Clamping Contractor name`, the pre-existing I3 tie-break's deliberate winner, for
+  `warrantContactDetails`), flagged solely to give those two entities a non-empty floor — neither
+  `Terms` nor `WarrantContactDetails` declares a `required:` list in the contract, so this is not a
+  schema-required backfill in the sense §"6.2" and the `baseline: true` convention otherwise mean;
+  it is a second, independent reason the flag exists (see the simulator README's "`baseline: true`
+  in `field-paths.yaml`" section). No other row was flagged for this: doing so for every row would
+  make every requested entity fully populated regardless of which result codes were posted,
+  destroying the simulator's ability to differentiate result codes by field content — see
+  `NowsDataItemsAssemblerTest#a_requested_but_untouched_object_typed_entity_is_never_empty` and
+  `#unions_required_fields_across_several_posted_codes`.
