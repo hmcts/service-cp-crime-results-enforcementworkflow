@@ -22,7 +22,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class SeedStore {
 
-    /** Case URNs are E followed by 9 digits; anything else cannot name a seed file. */
+    /**
+     * Finding I8: this is the ONLY path-traversal guard in the codebase, so it is documented
+     * exactly, not aspirationally — a real caseUrn (e.g. {@code E011122334}) happens to be "E"
+     * followed by 9 digits, but the guard itself accepts any 1-36 character string of ASCII
+     * letters, digits, and hyphens. It rejects anything containing {@code .}, {@code /}, or
+     * {@code \} (so {@code ../../application} cannot escape {@link #seedDir} via {@code
+     * Path.resolve}), and anything over 36 characters, but it does NOT enforce the "E" + 9
+     * digits shape. See the simulator README's "Known gaps" section.
+     */
     private static final Pattern CASE_URN = Pattern.compile("^[A-Za-z0-9-]{1,36}$");
     private static final String CLASSPATH_BASE = "gob-simulator/seeds/";
 

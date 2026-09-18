@@ -4,10 +4,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import uk.gov.hmcts.cp.gobsimulator.api.model.ErrorResponse;
 
@@ -21,17 +24,34 @@ import uk.gov.hmcts.cp.gobsimulator.api.model.ErrorResponse;
  * <p>Deliberately narrow: only genuine client-input failures — a body that fails bean validation,
  * a body Jackson cannot parse (including an unrecognised property, since every request record is
  * annotated {@code @JsonIgnoreProperties(ignoreUnknown = false)}), a {@code NowsDataItemName}
- * outside the contract's 12-value enum, or a {@code resultCode} outside the contract's {@code
- * resultCode} enum — map to 400. Everything else still surfaces as a 500, so a genuine simulator
- * defect is never hidden behind a client-error status; the fallback keeps only the response
- * *shape* contract-valid, with a description that never leaks a stack trace or internal class
- * name.
+ * outside the contract's 12-value enum, a {@code resultCode} outside the contract's {@code
+ * resultCode} enum, an unknown URL, an unsupported HTTP method, or an unsupported {@code
+ * Content-Type} — map to a client-error status. Everything else still surfaces as a 500, so a
+ * genuine simulator defect is never hidden behind a client-error status; the fallback keeps only
+ * the response *shape* contract-valid, with a description that never leaks a stack trace or
+ * internal class name.
+ *
+ * <p>Finding I6: {@code @ExceptionHandler(Exception.class)} below is registered via {@code
+ * ExceptionHandlerExceptionResolver}, which Spring runs BEFORE its own {@code
+ * DefaultHandlerExceptionResolver} in the resolver chain — so, without the three handlers below,
+ * a typo'd URL ({@link NoResourceFoundException}, framework 404), a wrong HTTP method ({@link
+ * HttpRequestMethodNotSupportedException}, framework 405), and a wrong {@code Content-Type}
+ * ({@link HttpMediaTypeNotSupportedException}, framework 415) were all caught by the catch-all
+ * instead of ever reaching Spring's own resolvers, turning three routine client mistakes into 500s
+ * with a full stack trace logged at ERROR into mandatory JSON stdout logging. Adding a specific
+ * {@code @ExceptionHandler} for each preserves the framework's real status while still emitting
+ * the contract's {@code ErrorResponse} body — {@code ExceptionHandlerMethodResolver} always
+ * prefers the most specific matching handler over the {@code Exception.class} catch-all, so this
+ * needs no change to resolver ordering.
  */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     private static final String BAD_REQUEST_CODE = "BAD_REQUEST";
+    private static final String NOT_FOUND_CODE = "NOT_FOUND";
+    private static final String METHOD_NOT_ALLOWED_CODE = "METHOD_NOT_ALLOWED";
+    private static final String UNSUPPORTED_MEDIA_TYPE_CODE = "UNSUPPORTED_MEDIA_TYPE";
     private static final String INTERNAL_ERROR_CODE = "INTERNAL_ERROR";
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -60,6 +80,27 @@ public class GlobalExceptionHandler {
     public ErrorResponse handleUnknownResultCode(final UnknownResultCodeException exception) {
         log.info("Rejecting a request posting an unknown resultCode: {}", exception.getMessage());
         return new ErrorResponse(BAD_REQUEST_CODE, exception.getMessage());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleNoResourceFound(final NoResourceFoundException exception) {
+        log.info("Rejecting a request for an unknown resource: {}", exception.getMessage());
+        return new ErrorResponse(NOT_FOUND_CODE, "The requested resource does not exist.");
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
+    public ErrorResponse handleMethodNotSupported(final HttpRequestMethodNotSupportedException exception) {
+        log.info("Rejecting a request using an unsupported HTTP method: {}", exception.getMessage());
+        return new ErrorResponse(METHOD_NOT_ALLOWED_CODE, "The HTTP method is not supported for this resource.");
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    @ResponseStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+    public ErrorResponse handleUnsupportedMediaType(final HttpMediaTypeNotSupportedException exception) {
+        log.info("Rejecting a request with an unsupported Content-Type: {}", exception.getMessage());
+        return new ErrorResponse(UNSUPPORTED_MEDIA_TYPE_CODE, "The request's Content-Type is not supported.");
     }
 
     @ExceptionHandler(Exception.class)

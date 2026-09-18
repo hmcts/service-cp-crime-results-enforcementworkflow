@@ -97,6 +97,11 @@ class HearingResultControllerIT {
         assertThat(body).containsPattern("\"timestamp\":\"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z\"");
     }
 
+    // Finding I2: the timestamp is second-truncated and assembly is deterministic, so two
+    // back-to-back posts produce identical bodies whether or not anything is actually cached.
+    // Sleeping past a second boundary between the two posts means a fresh (uncached) second
+    // response would carry a DIFFERENT timestamp — so a matching body here is proof the cache
+    // replayed the first response, not a coincidence of timing.
     @Test
     void repeats_the_same_body_for_the_same_idempotency_key() throws Exception {
         final String first = mockMvc.perform(post("/hearing/result")
@@ -105,6 +110,8 @@ class HearingResultControllerIT {
                         .content(SC_REQUEST))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
+
+        Thread.sleep(1100);
 
         mockMvc.perform(post("/hearing/result")
                         .contentType(APPLICATION_JSON)

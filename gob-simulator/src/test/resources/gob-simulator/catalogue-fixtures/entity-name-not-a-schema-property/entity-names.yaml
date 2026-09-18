@@ -1,5 +1,5 @@
 # NowsDataItemName (as CP sends it) -> property of NowsDataItems in
-# libra-gateway-hearing-events-openapi-v0.3.0.yml.
+# libra-gateway-hearing-events-v0.4.0.yml.
 # NOTE: this is NOT a camelCase transform. Six of the twelve names do not
 # camelCase to a real property — see spec §3 and ADR-002.
 "Defendant Account": [defendant]

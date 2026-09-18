@@ -3,6 +3,7 @@ package uk.gov.hmcts.cp.gobsimulator.catalogue;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,8 +60,16 @@ public class CatalogueLoader {
         final Map<String, ResultCodeEntry> resultCodes = new LinkedHashMap<>();
         rawCodes.forEach((code, row) -> resultCodes.put(code, toResultCode(code, row)));
 
+        // Finding I3: Map.copyOf(...) returns an immutable map whose iteration order is
+        // randomised per JVM (ImmutableCollections' SALT32L). field-paths.yaml has rows that
+        // target the same JSON path (see the "Clamping Contractor name" / "Process Server Name"
+        // comment in that file) so defaultFor()'s unconditional last-write-wins union depends on
+        // map iteration order; wrap the already-ordered LinkedHashMaps instead, so that order is
+        // the deterministic file order every time, on every JVM restart (AC8).
         final Catalogue catalogue = new Catalogue(
-                Map.copyOf(entityNames), Map.copyOf(fieldPaths), Map.copyOf(resultCodes));
+                Collections.unmodifiableMap(entityNames),
+                Collections.unmodifiableMap(fieldPaths),
+                Collections.unmodifiableMap(resultCodes));
 
         final Map<String, Object> openApiSpec = readOpenApiSpec();
         final Set<String> schemaProperties = schemaNowsDataItemProperties(openApiSpec);

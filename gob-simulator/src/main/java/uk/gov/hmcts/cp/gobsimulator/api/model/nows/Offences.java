@@ -6,7 +6,7 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
- * Schema component {@code Offences} in libra-gateway-hearing-events-openapi-v0.3.0.yml.
+ * Schema component {@code Offences} in libra-gateway-hearing-events-v0.4.0.yml.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record Offences(

@@ -64,19 +64,53 @@ public class NowsDataItemsAssembler {
     }
 
     /**
-     * Minimal content for a requested entity no posted code contributed to: the catalogue
-     * defaults that write into it, unioned into one branch, so schema-required fields are
-     * satisfied.
+     * Minimal content for a requested entity no posted code contributed to.
+     *
+     * <p>Finding I4: for an <strong>object-typed</strong> root (its field-paths.yaml rows nest
+     * further under it, e.g. {@code offences.accountTotal}), this must union only the {@code
+     * baseline: true} rows — exactly the set {@link #mergeBaselineGaps} would add on top of a
+     * posted code's own (possibly empty) contribution. Unioning every row here, as before, made
+     * the "nobody touched it" case richer than the "some code touched it a little" case: posting
+     * a {@code fields: []} gap code alone (e.g. {@code ACNOTE}) got the full, rich union (5
+     * fields for {@code terms}), while posting it alongside a code that supplies just one field
+     * to the same entity (e.g. {@code AEOC}, which supplies {@code terms.english_due}) collapsed
+     * back to that one field, because the entity was then non-absent and this method never ran at
+     * all — adding a result code appeared to REMOVE fields. Restricting this method to baseline
+     * rows for object-typed roots makes the "untouched" floor equal to the "partially touched"
+     * floor, so entity content only ever grows as more codes are posted (see {@code
+     * NowsDataItemsAssemblerTest#posting_an_additional_fields_empty_code_never_shrinks_an_entity}).
+     *
+     * <p>A <strong>scalar</strong> root (a row's path IS the root property itself, e.g. {@code
+     * accountBalance}) keeps the full-value write regardless of {@code baseline}: it has exactly
+     * one candidate row, and AC2 ("a requested entity is never missing") requires that single
+     * value to actually be written, whether or not the schema happens to mark it as required —
+     * there is no lesser "baseline-only" floor available for it to fall back to.
      */
     private Object defaultFor(final String caseUrn, final String rootProperty) {
+        final boolean objectTyped = isObjectTyped(rootProperty);
         final Map<String, Object> branch = new LinkedHashMap<>();
         catalogue.fieldPaths().values().stream()
                 .filter(fieldPath -> !fieldPath.unmapped())
                 .filter(fieldPath -> rootProperty.equals(fieldPath.rootProperty()))
+                .filter(fieldPath -> !objectTyped || fieldPath.baseline())
                 .forEach(fieldPath -> put(branch, fieldPath.path(),
                         valueResolver.resolve(caseUrn, fieldPath)));
         final Object value = branch.get(rootProperty);
         return value == null ? newBranch() : value;
+    }
+
+    /**
+     * Whether {@code rootProperty} is an object-typed NowsDataItems property rather than a
+     * scalar leaf. Derived structurally from field-paths.yaml rather than hand-listed: a scalar
+     * root has exactly one kind of row, whose {@code path} equals the root property itself (e.g.
+     * {@code "Total Balance": { path: accountBalance, ... }}); an object-typed root's rows always
+     * nest further under it (e.g. {@code offences.accountTotal}).
+     */
+    private boolean isObjectTyped(final String rootProperty) {
+        return catalogue.fieldPaths().values().stream()
+                .filter(fieldPath -> !fieldPath.unmapped())
+                .filter(fieldPath -> rootProperty.equals(fieldPath.rootProperty()))
+                .anyMatch(fieldPath -> !fieldPath.path().equals(rootProperty));
     }
 
     /**

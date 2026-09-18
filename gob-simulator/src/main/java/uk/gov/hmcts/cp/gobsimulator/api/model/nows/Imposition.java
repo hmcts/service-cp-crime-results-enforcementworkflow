@@ -5,7 +5,7 @@ import java.math.BigDecimal;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
- * Schema component {@code Imposition} in libra-gateway-hearing-events-openapi-v0.3.0.yml.
+ * Schema component {@code Imposition} in libra-gateway-hearing-events-v0.4.0.yml.
  *
  * <p>{@code creditor} is deliberately omitted: no CIMD-4372 field label maps into it.
  */

@@ -3,7 +3,7 @@ package uk.gov.hmcts.cp.gobsimulator.api.model.nows;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
- * Schema component {@code Terms} in libra-gateway-hearing-events-openapi-v0.3.0.yml.
+ * Schema component {@code Terms} in libra-gateway-hearing-events-v0.4.0.yml.
  *
  * <p>{@code english_instalmetPaymentPeriod} preserves the vendor schema's own misspelling
  * of "instalment" verbatim; it is not a typo in this codebase.

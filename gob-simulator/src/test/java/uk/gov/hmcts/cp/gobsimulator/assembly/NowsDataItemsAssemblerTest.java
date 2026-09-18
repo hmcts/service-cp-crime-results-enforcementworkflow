@@ -41,6 +41,24 @@ class NowsDataItemsAssemblerTest {
                 .isNotNull();
     }
 
+    // Finding I3: "Clamping Contractor name" and "Process Server Name" both target
+    // warrantContactDetails.warrantContactDetailsLine1 in field-paths.yaml. When no posted code
+    // supplies either (as here), NowsDataItemsAssembler.defaultFor()'s catalogue-wide union
+    // resolves the collision by file order — CatalogueLoader now preserves that order
+    // deterministically instead of Map.copyOf()'s per-JVM-randomised order. This pins the
+    // resolved value so a reordering of field-paths.yaml (or a regression back to Map.copyOf)
+    // is caught rather than silently flipping between JVM restarts.
+    @Test
+    void pins_the_deterministic_default_for_a_path_written_by_two_field_labels() {
+        final NowsDataItems items = assembler.assemble(
+                "E999999999", List.of("FSN"), List.of("Warrant Contact Details"));
+
+        assertThat(items.warrantContactDetails().warrantContactDetailsLine1())
+                .as("field-paths.yaml deliberately places \"Clamping Contractor name\" last of the "
+                        + "two rows targeting warrantContactDetailsLine1, so it wins the default")
+                .isEqualTo("Clamping Contractor Ltd");
+    }
+
     @Test
     void unions_required_fields_across_several_posted_codes() {
         // Task 8, ruling 2: this test previously used ABDC (Balance Outstanding -> accountTotal)
@@ -87,15 +105,18 @@ class NowsDataItemsAssemblerTest {
                 .isNotNull();
     }
 
-    @Test
-    void deduplicates_a_field_required_by_more_than_one_code() {
-        final NowsDataItems both = assembler.assemble(
-                "E999999999", List.of("FSN", "REM"), List.of("Account Balance"));
-        final NowsDataItems one = assembler.assemble(
-                "E999999999", List.of("FSN"), List.of("Account Balance"));
-
-        assertThat(both.accountBalance()).isEqualByComparingTo(one.accountBalance());
-    }
+    // Finding M8: this test posted FSN + REM, which have IDENTICAL field lists ("Account No.",
+    // "Total Balance" — see result-codes.yaml). A duplicate write of the same value to the same
+    // path by two codes is indistinguishable from a genuinely deduplicated union: the assertion
+    // would pass with or without deduplication, because both codes resolve to the exact same
+    // value regardless. It is deleted rather than "fixed" because there is no way to make it
+    // falsifiable under this architecture: `requiredLabels` in NowsDataItemsAssembler.assemble()
+    // is a java.util.Set, so duplicate labels across posted codes are deduplicated by ordinary Set
+    // semantics before any per-field resolution happens — there is no separate dedup step of the
+    // assembler's own to exercise, and a field's resolved value never depends on which code
+    // requested it (ValueResolver keys only on caseUrn + FieldPath). `unions_required_fields_
+    // across_several_posted_codes` above already covers the real behaviour this test was gesturing
+    // at (multiple codes contributing to one entity) with a genuine negative control.
 
     @Test
     void resolves_gob_and_cp_spellings_of_the_same_code_identically() {
@@ -123,6 +144,53 @@ class NowsDataItemsAssemblerTest {
                 "E999999999", List.of("NOENF"), List.of("Account Balance"));
 
         assertThat(items.accountBalance()).isEqualByComparingTo("1250.00");
+    }
+
+    // Finding I4: posting an additional fields:[] result code must never shrink an entity's
+    // content. ACNOTE has no CIMD-4372 field mapping (fields: []); AEOC contributes exactly one
+    // field to "terms" ("Payment Terms" -> terms.english_due). Before the fix, ACNOTE alone
+    // triggered defaultFor()'s rich union (all 5 terms fields), while ACNOTE + AEOC together
+    // triggered the main union (AEOC's 1 field only) with no baseline gap-fill (terms has no
+    // baseline rows), so adding AEOC on top of ACNOTE APPEARED to remove 4 fields. This is the
+    // exact scenario the whole-branch review found.
+    @Test
+    void posting_an_additional_fields_empty_code_never_shrinks_an_entity() {
+        final NowsDataItems acnoteAlone = assembler.assemble(
+                "E999999999", List.of("ACNOTE"), List.of("Account Terms to Pay"));
+        final NowsDataItems acnotePlusAeoc = assembler.assemble(
+                "E999999999", List.of("ACNOTE", "AEOC"), List.of("Account Terms to Pay"));
+
+        final int fieldsWithAcnoteAlone = countNonNullTermsFields(acnoteAlone);
+        final int fieldsWithBoth = countNonNullTermsFields(acnotePlusAeoc);
+
+        assertThat(fieldsWithBoth)
+                .as("posting AEOC on top of ACNOTE must not leave terms with FEWER populated "
+                        + "fields (%d) than ACNOTE alone had (%d)", fieldsWithBoth, fieldsWithAcnoteAlone)
+                .isGreaterThanOrEqualTo(fieldsWithAcnoteAlone);
+        assertThat(acnotePlusAeoc.terms().english_due())
+                .as("AEOC's own contribution must still be present")
+                .isNotNull();
+    }
+
+    private static int countNonNullTermsFields(final NowsDataItems items) {
+        final var terms = items.terms();
+        int count = 0;
+        if (terms.english_due() != null) {
+            count++;
+        }
+        if (terms.english_firstDate() != null) {
+            count++;
+        }
+        if (terms.english_instalment() != null) {
+            count++;
+        }
+        if (terms.english_lumpsum() != null) {
+            count++;
+        }
+        if (terms.english_instalmetPaymentPeriod() != null) {
+            count++;
+        }
+        return count;
     }
 
     @Test

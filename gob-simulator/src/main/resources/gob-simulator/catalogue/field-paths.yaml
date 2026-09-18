@@ -32,14 +32,27 @@
 "Warrant No":             { path: accountWarrantNumber, type: string,  default: "012/26/00123" }
 "Bail Amount":            { path: accountBailAmount,    type: number,  default: 500.00 }
 "Days Before Release of Warrant": { path: daysBeforeReleaseWarrant, type: integer, default: 14 }
-"Clamping Contractor name":
-  { path: warrantContactDetails.warrantContactDetailsLine1, type: string, default: "Clamping Contractor Ltd" }
+# Finding I3: these two rows deliberately target the SAME schema path
+# (warrantContactDetails.warrantContactDetailsLine1) — a result code posts at most one of them
+# (see result-codes.yaml: "Clamping Contractor name" appears in two codes, "Process Server Name"
+# in one, and never together), so in practice a real posted code's own value always wins via
+# NowsDataItemsAssembler.put(). The collision only surfaces in defaultFor()'s catalogue-wide
+# union, used when an entity is requested but no posted code touches it at all — there, the LAST
+# matching row in this file wins (CatalogueLoader now preserves file order deterministically; see
+# CatalogueLoader.load()). "Clamping Contractor name" is deliberately placed LAST of the two, so
+# it — not "Process Server Name" — is the resolved default: it is the more common of the two in
+# result-codes.yaml (posted by two codes vs. one) and so the more representative default line-1
+# value for an entity nobody actually asked to be populated this way. This is an explicit editorial
+# choice, not an accident of file order — do not reorder without updating the pinning test in
+# CatalogueLoaderTest.
+"Process Server Name":
+  { path: warrantContactDetails.warrantContactDetailsLine1, type: string, default: "Process Server Ltd" }
 "Contractor's Name":
   { path: warrantContactDetails.warrantContactDetailsLine2, type: string, default: "Enforcement Contractor Ltd" }
 "Contractor's Address":
   { path: warrantContactDetails.warrantContactDetailsLine3, type: string, default: "1 Contractor Way, Testville" }
-"Process Server Name":
-  { path: warrantContactDetails.warrantContactDetailsLine1, type: string, default: "Process Server Ltd" }
+"Clamping Contractor name":
+  { path: warrantContactDetails.warrantContactDetailsLine1, type: string, default: "Clamping Contractor Ltd" }
 "Parent Name and Address":
   { path: defendant.parentGuardian.parentGuardianName, type: string, default: "Parent Guardian" }
 "<Notes 1..3>":

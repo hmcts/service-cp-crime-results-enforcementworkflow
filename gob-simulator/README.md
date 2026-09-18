@@ -206,7 +206,16 @@ These are current, known limitations — not things to silently work around:
   simulator never parses an inbound Libra response into them), but it becomes a real gap the
   moment something needs creditor data out of this simulator.
 - **401/403/404 are unreachable.** The simulator implements no security by design (this story's
-  scope excludes it) — see the "What it is not" section above.
+  scope excludes it) — see the "What it is not" section above. (A framework 404 for an unknown
+  URL — as opposed to an authentication/authorization 401/403 — is reachable: see
+  `GlobalExceptionHandler`.)
+- **`SeedStore`'s path-traversal guard is looser than its name suggests.** The only guard against
+  `../../application`-style escapes via `GOB_SIMULATOR_SEED_DIR` is the regex
+  `^[A-Za-z0-9-]{1,36}$` on the caseUrn — any 1-36 character run of ASCII letters, digits, and
+  hyphens, not specifically "E followed by 9 digits" (a real caseUrn's actual shape). It is
+  effective against traversal (no `.`, `/`, or `\` is ever accepted), but it is not a caseUrn
+  format validator, and a future caller should not assume it rejects a malformed-but-traversal-safe
+  caseUrn.
 - **Amounts carry two decimal places by convention, not by contract.** The OpenAPI contract types
   amounts as JSON `number`, which has no scale. `BigDecimal` scale 2 is used throughout to
   preserve pounds-and-pence formatting, but nothing in the schema enforces that.
