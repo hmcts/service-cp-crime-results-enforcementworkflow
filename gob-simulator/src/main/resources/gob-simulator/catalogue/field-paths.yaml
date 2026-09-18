@@ -42,3 +42,25 @@
 "Reserve Terms":          { unmapped: true, reason: "no property in v0.3.0" }
 "Reason for decision":    { unmapped: true, reason: "accountNotes are free text, not a decision reason" }
 "[Directions]":           { unmapped: true, reason: "no property in v0.3.0; optional in the CIMD-4372 table" }
+
+# Baseline entity defaults — belong to no result-code row (CIMD-4372 has no table entry for
+# them). defaultFor() unions every non-unmapped field-paths.yaml entry whose root property
+# matches a requested-but-otherwise-untouched entity, so an entity with a schema `required` block
+# never comes back as an empty (or partial-from-defaults) object failing that block. Verified
+# against v0.4.0 directly (not copied from anywhere): Defendant requires only defName; Offence
+# requires dateImposed/offenceCode/offenceTitle/impositions/offenceTotal; Imposition requires
+# amountImposed/amountPaid/impositionBalance (amountImposed already covered by "Amount Imposed"
+# above); CtBankDetails requires both ct_account_number and ct_sort_code. PaymentHistory and
+# TransactionHistory declare no required properties at all (the `payment`/`transaction` arrays
+# are not themselves required), so `{}` already validates and neither needs an entry here.
+"Defendant Name":         { path: defendant.defName, type: string, default: "Simulated Defendant" }
+"Offence Date Imposed":   { path: "offences.offence[0].dateImposed", type: string, default: "15 Jan 2026" }
+"Offence Code":           { path: "offences.offence[0].offenceCode", type: string, default: "SIM0001" }
+"Offence Title":          { path: "offences.offence[0].offenceTitle", type: string, default: "Simulated Offence" }
+"Offence Total":          { path: "offences.offence[0].offenceTotal", type: number, default: 1250.00 }
+"Imposition Amount Paid":
+  { path: "offences.offence[0].impositions.imposition[0].amountPaid", type: number, default: 375.00 }
+"Imposition Balance":
+  { path: "offences.offence[0].impositions.imposition[0].impositionBalance", type: number, default: 875.50 }
+"CT Account Number":      { path: ctBankDetails.ct_account_number, type: integer, default: 12345678 }
+"CT Sort Code":           { path: ctBankDetails.ct_sort_code, type: integer, default: 112233 }
