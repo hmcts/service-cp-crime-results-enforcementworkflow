@@ -1,0 +1,16 @@
+{
+  "accountNumber": "ACC9001",
+  "accountBalance": 340.00,
+  "offences": {
+    "accountTotal": 340.00,
+    "accountPaid": 0.00
+  },
+  "defendant": {
+    "defName": "Simulated Defendant",
+    "defAddress": {
+      "defAddressLine1": "1 Example Street",
+      "defAddressLine3": "Testville",
+      "defPostcode": "ZZ1 1ZZ"
+    }
+  }
+}
