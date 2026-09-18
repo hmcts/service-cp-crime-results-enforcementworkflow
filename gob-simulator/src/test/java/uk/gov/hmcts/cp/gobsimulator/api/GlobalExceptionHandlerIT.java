@@ -5,8 +5,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import uk.gov.hmcts.cp.gobsimulator.assembly.NowsDataItemsAssembler;
+
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.containsStringIgnoringCase;
+import static org.hamcrest.Matchers.not;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.http.MediaType.APPLICATION_XML;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -28,6 +37,55 @@ class GlobalExceptionHandlerIT {
 
     @Resource
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private NowsDataItemsAssembler assembler;
+
+    // Finding (final wave, item 5): handleUnexpectedFailure — the @ExceptionHandler(Exception.class)
+    // catch-all — was the only handler in this class with no test. A mocked assembler that throws
+    // is the simplest way to reach it deterministically: it forces resultHearing() to throw
+    // AFTER request validation succeeds, so this exercises the catch-all itself rather than one
+    // of the specific handlers above it.
+    @Test
+    void returns_500_with_a_contract_shaped_body_and_no_leaked_internals_for_an_unexpected_failure()
+            throws Exception {
+        when(assembler.assemble(anyString(), any(), any()))
+                .thenThrow(new IllegalStateException(
+                        "deliberately unexpected failure: uk.gov.hmcts.cp.gobsimulator.SomeInternalDetail"));
+
+        mockMvc.perform(post("/hearing/result")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "caseUrn": "E011122334",
+                                  "dateOfHearing": "2026-05-03",
+                                  "courtHearingLocation": "B01BH01",
+                                  "defendantDetails": {
+                                    "prosecutorDefendantId": "1234567890",
+                                    "address1": "1 Example Street"
+                                  },
+                                  "paymentTerms": {
+                                    "paymentDueDate": "2026-05-31",
+                                    "paymentCardRequested": "N",
+                                    "parentToPay": "N"
+                                  },
+                                  "enforcement": { "prisonSentenceIndicator": "N" },
+                                  "results": [ { "resultCode": "SC" } ],
+                                  "nowsDataRequest": {
+                                    "nowsDataItems": [ { "name": "Account Balance" } ]
+                                  }
+                                }
+                                """))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.errorCode").value("INTERNAL_ERROR"))
+                .andExpect(jsonPath("$.errorDescription").isNotEmpty())
+                .andExpect(jsonPath("$.errorDescription")
+                        .value("An unexpected error occurred while processing the request."))
+                .andExpect(jsonPath("$.errorDescription", not(containsStringIgnoringCase("IllegalStateException"))))
+                .andExpect(jsonPath("$.errorDescription", not(containsStringIgnoringCase("SomeInternalDetail"))))
+                .andExpect(jsonPath("$.errorDescription", not(containsStringIgnoringCase("gobsimulator"))))
+                .andExpect(jsonPath("$.errorDescription", not(containsString("\tat "))));
+    }
 
     @Test
     void returns_404_not_500_for_an_unknown_url() throws Exception {
