@@ -23,10 +23,18 @@ class SeedStoreTest {
         assertThat(store.seedFor("E999999999")).isEmpty();
     }
 
-    @Test
-    void does_not_confuse_case_urns_with_path_traversal() {
-        assertThat(store.seedFor("../../application")).isEmpty();
-    }
+    // Finding (final wave, item 3): this test used to assert seedFor("../../application") is
+    // empty with SeedStore("") — seedDir.isBlank() is true, so externalSeed() short-circuits
+    // before Path.resolve ever runs, AND no application.json sits anywhere near the classpath
+    // base or the build tree that classpathSeed() could resolve to either. It passed whether or
+    // not the CASE_URN guard rejected the string — "the guard rejected it" and "the file wasn't
+    // there" were indistinguishable, the exact failure mode this effort has been chasing.
+    // Removed rather than "fixed" here: the_traversal_guard_still_applies_with_a_non_blank_seed_dir
+    // below is the genuinely falsifiable version of this same assertion (a real, non-blank
+    // seedDir and a real file placed where a resolved ".." would actually reach it), so this test
+    // adds no coverage that one doesn't already provide, and constructing an actually-reachable
+    // classpath escape for classpathSeed() (the only path this SeedStore("") instance can reach)
+    // would just duplicate that test's intent against a resource loader instead of a filesystem.
 
     // Finding I7: SeedStore("") — used by every other test in this class and, until now, by
     // every test in the whole suite — never exercises externalSeed()'s Path.of(seedDir).resolve
@@ -63,20 +71,33 @@ class SeedStoreTest {
         assertThat(externalStore.seedFor("E999999999")).isEmpty();
     }
 
-    // Finding I7: the existing traversal test uses SeedStore(""), so seedDir.isBlank() is true
-    // and externalSeed() never even calls Path.resolve — the guard is only proven at the regex
-    // level, not proven to survive an actual Path.resolve call with a non-blank seedDir. This
-    // exercises the real resolve path: if the regex guard were removed, "../../application" would
-    // resolve OUTSIDE seedDir back to a real file (e.g. application.yaml) sitting a few directories
-    // up in the classpath/build output, and could leak it. With the guard in place, the caseUrn is
-    // rejected before Path.resolve is even reached.
+    // Finding I7 / final wave item 3: the previous version of this test used SeedStore("") and
+    // asserted seedFor("../../application") is empty — but with seedDir blank, externalSeed()
+    // never calls Path.resolve at all (seedDir.isBlank() short-circuits first), and no
+    // application.json sits anywhere near the temp dir or the build tree for classpathSeed() to
+    // find either. The test passed whether or not the CASE_URN guard rejected the string —
+    // "the guard rejected it" and "the file wasn't there" were indistinguishable, which is the
+    // exact failure mode this whole effort has been chasing, reintroduced in the test written to
+    // fix it.
+    //
+    // This version makes the guard's absence actually observable: a real file
+    // (root/escaped.json) sits ONE level above a real, non-blank seedDir (root/seeds), so
+    // "../escaped" is a genuinely reachable relative path from seedDir — Path.of(seedDir)
+    // .resolve("../escaped.json") resolves to root/escaped.json, which exists and is readable.
+    // With the CASE_URN regex guard in place, "../escaped" is rejected before externalSeed() ever
+    // calls Path.resolve, so the result must be empty; without the guard, it would return the
+    // escaped file's content. Confirmed by negative control: temporarily relaxing CASE_URN to
+    // also accept '.' and '/' made this test fail (seedFor("../escaped") returned the escaped
+    // file's content, not empty) — see final-wave-report.md for the exact output — before the
+    // guard was restored.
     @Test
-    void the_traversal_guard_still_applies_with_a_non_blank_seed_dir(@TempDir final Path seedDir) throws IOException {
-        Files.writeString(seedDir.resolve("E011122334.json"), "{\"accountNumber\": \"EXTERNAL9999\"}");
+    void the_traversal_guard_still_applies_with_a_non_blank_seed_dir(@TempDir final Path root) throws IOException {
+        Files.writeString(root.resolve("escaped.json"), "{\"accountNumber\": \"ESCAPED9999\"}");
+        final Path seedDir = root.resolve("seeds");
+        Files.createDirectory(seedDir);
 
         final SeedStore externalStore = new SeedStore(seedDir.toString());
 
-        assertThat(externalStore.seedFor("../../application")).isEmpty();
-        assertThat(externalStore.seedFor("..%2F..%2Fapplication")).isEmpty();
+        assertThat(externalStore.seedFor("../escaped")).isEmpty();
     }
 }
