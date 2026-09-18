@@ -1,4 +1,4 @@
-package uk.gov.hmcts.cp.gobsimulator.api;
+package uk.gov.hmcts.cp.gobsimulator.idempotency;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;

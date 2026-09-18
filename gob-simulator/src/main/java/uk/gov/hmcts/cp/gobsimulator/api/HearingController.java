@@ -23,6 +23,7 @@ import uk.gov.hmcts.cp.gobsimulator.api.model.HearingResultedResponse;
 import uk.gov.hmcts.cp.gobsimulator.assembly.NowsDataItemsAssembler;
 import uk.gov.hmcts.cp.gobsimulator.catalogue.Catalogue;
 import uk.gov.hmcts.cp.gobsimulator.catalogue.CatalogueLoader;
+import uk.gov.hmcts.cp.gobsimulator.idempotency.IdempotencyCache;
 
 @Slf4j
 @RestController
