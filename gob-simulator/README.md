@@ -76,35 +76,82 @@ never silently return a wrong or empty answer.
 2. Filters that union to the entities (`NowsDataItemName` values) CP actually requested.
 3. Resolves each field's value from a per-case seed (`SeedStore`/`ValueResolver`) or its catalogue
    default.
-4. Fills in a requested entity no posted code touched at all with catalogue defaults (so a
-   requested entity is never missing from the response).
+4. Fills in a requested entity no posted code touched at all. For an object-typed entity (one
+   whose field-paths.yaml rows nest further under it, e.g. `offences.accountTotal`) this fills
+   only its `baseline: true` rows, not every row mapped to it — see "`baseline: true` in
+   `field-paths.yaml`..." below for why. A scalar entity (a single leaf value, e.g.
+   `accountBalance`) always gets its one value. Either way, a requested entity is never missing
+   from the response — see "the default-content floor" below for why it is also never `{}`.
 5. Fills schema-required gaps left by a posted code's own *partial* contribution to an entity,
    without overwriting anything that code already supplied (`baseline: true` — see below).
 6. Converts the resulting `Map` tree to `NowsDataItems` via Jackson. A path the contract doesn't
    declare fails this conversion rather than reaching CP — the typed records make an
    undeclared property structurally impossible to emit.
 
-### `baseline: true` in `field-paths.yaml` means "schema-required" — nothing else
+### `baseline: true` in `field-paths.yaml` drives two independent things
 
 This is the single easiest thing to get wrong when editing the catalogue, so it is stated here
-plainly: **`baseline: true` means "the OpenAPI schema requires this property", full stop.** It does
-**not** mean "this row was added later", and it does **not** mean "no result code posts this".
-Those are independent facts that happen to coincide for some rows.
+plainly. `baseline: true` does **not** mean "this row was added later", and it does **not** mean
+"no result code posts this" — those are independent facts that happen to coincide for some rows.
+It means one, or both, of:
 
-There are **12** `baseline: true` entries in `field-paths.yaml`. Nine of them (`Defendant Name`,
+1. **The OpenAPI schema requires this property** on its entity.
+   `NowsDataItemsAssembler.mergeBaselineGaps()` reads the flag to backfill a schema-required field
+   that a posted code's own (partial) contribution to an entity left unfilled, without touching
+   anything the posted code did supply. Marking a row `baseline: true` for this reason when the
+   property is not actually schema-required — or missing the flag on one that is — breaks
+   conformance for any result code that only partially populates that entity. If you are unsure
+   whether a property is schema-required, check the bundled OpenAPI contract's `required:` list
+   for that schema component directly; don't infer it from whether a result code happens to post
+   it.
+2. **It is the chosen non-empty floor for an object-typed entity with no other baseline row.**
+   `defaultFor()` unions only `baseline: true` rows for an object-typed entity that no posted code
+   touched at all (see "the default-content floor" below); an entity with zero baseline rows
+   would otherwise come back as `{}` in that case even though its schema has no `required` block
+   forcing it to. `Payment Terms` (`terms`) and `Clamping Contractor name`
+   (`warrantContactDetails`) are flagged for this reason alone — `Terms` and
+   `WarrantContactDetails` declare no `required:` list in the contract, so this is not a
+   schema-required backfill; it exists purely to keep those two entities from ever being emitted
+   empty.
+
+There are **14** `baseline: true` entries in `field-paths.yaml`. Nine of them (`Defendant Name`,
 `Offence Date Imposed`, `Offence Code`, `Offence Title`, `Offence Total`, `Imposition Amount Paid`,
 `Imposition Balance`, `CT Account Number`, `CT Sort Code`) have no CIMD-4372 result-code row of
-their own — they exist purely to satisfy the schema. The other three (`Balance Outstanding`,
+their own and exist purely for reason 1. Three more (`Balance Outstanding`,
 `Amount Paid or Cancelled`, `Amount Imposed`) **do** have result-code rows in the CIMD-4372 table
-**and** are schema-required — both facts are true at once, for unrelated reasons.
+**and** are schema-required — both facts are true at once, for unrelated reasons, but the flag is
+still there for reason 1. The remaining two (`Payment Terms`, `Clamping Contractor name`) exist
+purely for reason 2, as described above.
 
-`NowsDataItemsAssembler.mergeBaselineGaps()` reads this flag to backfill a schema-required field
-that a posted code's own (partial) contribution to an entity left unfilled, without touching
-anything the posted code did supply. Marking a row `baseline: true` when it is not schema-required
-— or missing the flag on one that is — breaks conformance for any result code that only partially
-populates that entity. If you are unsure whether a property is schema-required, check the bundled
-OpenAPI contract's `required:` list for that schema component directly; don't infer it from
-whether a result code happens to post it.
+### The default-content floor: a requested-but-untouched entity is never `{}`
+
+Finding I4 narrowed `defaultFor()` so that, for an object-typed entity, it unions only its
+`baseline: true` rows when no posted code touched that entity at all — otherwise posting an
+additional `fields: []` gap code on top of a code that only partially populated the same entity
+could make it look like adding a result code *removed* fields (see
+`NowsDataItemsAssemblerTest#posting_an_additional_fields_empty_code_never_shrinks_an_entity`).
+That fix is correct for monotonicity, but it means an object-typed entity with **no** `baseline`
+row at all would be emitted as `{}` for a request that never touches it, even where its schema
+imposes no `required` block that would forbid `{}`. Two of the five object-typed entities
+(`terms`, `warrantContactDetails`) had exactly zero baseline rows, so this was live — a requested
+`Account Terms to Pay` or `Warrant Contact Details` with no posted code contributing to it came
+back empty. Both now carry one representative `baseline: true` row (`Payment Terms` and
+`Clamping Contractor name` respectively — see reason 2 above), so every object-typed entity
+(`defendant`, `offences`, `terms`, `warrantContactDetails`, `ctBankDetails`) has at least one
+baseline row and none of them is ever emitted empty.
+
+Deliberately **not** extended beyond those two rows: flagging every field-paths.yaml row
+`baseline: true` would make every requested entity fully populated regardless of which result
+codes were actually posted, destroying the simulator's ability to differentiate result codes by
+their field lists. `NowsDataItemsAssemblerTest` asserts this floor directly (a requested,
+untouched entity is non-empty for every object-typed root) and separately asserts that two
+deliberately non-baseline fields (`Imposition type`, `Place of offence`) stay absent unless their
+own result code is posted — see
+`NowsDataItemsAssemblerTest#unions_required_fields_across_several_posted_codes`.
+
+`paymentHistory`/`transactionHistory` are unaffected: they have no field-paths.yaml rows at all
+(so `NowsDataItemsAssembler#isObjectTyped` does not even class them as object-typed), and their
+schema components declare no `required` block, so `{}` already validates for them.
 
 ## How to add a seed file
 

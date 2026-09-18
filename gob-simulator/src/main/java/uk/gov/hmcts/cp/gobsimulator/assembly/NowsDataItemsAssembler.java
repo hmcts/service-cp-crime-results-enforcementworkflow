@@ -123,8 +123,9 @@ public class NowsDataItemsAssembler {
      * observable, which is exactly what a negative-control test needs to be falsifiable.
      *
      * <p>No-op when {@code rootProperty} is missing from {@code tree} entirely: that case was
-     * already fully populated by {@link #defaultFor} above, which unions every matching row
-     * (baseline or not).
+     * already populated by {@link #defaultFor} above — with the baseline-only floor for an
+     * object-typed root, or the single value for a scalar root — so there is nothing left for
+     * this method to add.
      */
     private void mergeBaselineGaps(final Map<String, Object> tree, final String caseUrn, final String rootProperty) {
         if (tree.get(rootProperty) != null) {

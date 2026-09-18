@@ -24,7 +24,7 @@
 "Vehicle Make":           { path: defendant.assetVehicleMake, type: string, default: "Ford" }
 "NTO issued on <date> & <time>":
   { path: "offences.offence[0].noticeToOwnerNoticeToHirer", type: string, default: "2026-02-01 09:15" }
-"Payment Terms":          { path: terms.english_due,    type: string,  default: "Monthly" }
+"Payment Terms":          { path: terms.english_due,    type: string,  default: "Monthly", baseline: true }
 "Due Date":               { path: terms.english_firstDate, type: string, default: "31 May 2026" }
 "Instalment Amount":      { path: terms.english_instalment, type: string, default: "20.00" }
 "Lump Sum":               { path: terms.english_lumpsum, type: string,  default: "0.00" }
@@ -33,14 +33,10 @@
 "Bail Amount":            { path: accountBailAmount,    type: number,  default: 500.00 }
 "Days Before Release of Warrant": { path: daysBeforeReleaseWarrant, type: integer, default: 14 }
 # Finding I3: these two rows deliberately target the SAME schema path
-# (warrantContactDetails.warrantContactDetailsLine1). Neither is baseline: true, so
-# NowsDataItemsAssembler never resolves this collision itself (defaultFor() only unions
-# baseline: true rows for an object-typed root like warrantContactDetails — Finding I4 — and
-# neither of these is one; mergeBaselineGaps() is baseline-only too). A result code posts at
-# most one of the two in practice (see result-codes.yaml: "Clamping Contractor name" appears in
-# two codes, "Process Server Name" in one, and never together), so the posted code's own value
-# always wins via NowsDataItemsAssembler.put() and this collision does not currently reach a
-# response.
+# (warrantContactDetails.warrantContactDetailsLine1). A result code posts at most one of the two
+# in practice (see result-codes.yaml: "Clamping Contractor name" appears in two codes, "Process
+# Server Name" in one, and never together), so the posted code's own value always wins via
+# NowsDataItemsAssembler.put() and this collision does not currently reach a response that way.
 #
 # The reason this still matters: any consumer that walks catalogue.fieldPaths() in bulk — a
 # future defaultFor()-style union, a diagnostic dump, a codegen step — would encounter both rows
@@ -54,6 +50,14 @@
 # explicit editorial choice, not an accident of file order — do not reorder without updating the
 # pinning test in CatalogueLoaderTest
 # (preserves_catalogue_file_order_deterministically_for_a_path_written_by_two_labels).
+#
+# Only "Clamping Contractor name" — the deliberate winner above — carries `baseline: true`. It was
+# flagged so that warrantContactDetails, an object-typed root with no OTHER baseline row, is never
+# emitted as `{}` for a requested-but-untouched entity (defaultFor() unions only baseline: true
+# rows for an object-typed root — see the comment below and NowsDataItemsAssembler). "Process
+# Server Name" stays non-baseline deliberately: flagging both would recreate exactly the same
+# same-path collision inside defaultFor()'s own union, which the ordering above exists to avoid
+# rather than reproduce.
 "Process Server Name":
   { path: warrantContactDetails.warrantContactDetailsLine1, type: string, default: "Process Server Ltd" }
 "Contractor's Name":
@@ -61,7 +65,10 @@
 "Contractor's Address":
   { path: warrantContactDetails.warrantContactDetailsLine3, type: string, default: "1 Contractor Way, Testville" }
 "Clamping Contractor name":
-  { path: warrantContactDetails.warrantContactDetailsLine1, type: string, default: "Clamping Contractor Ltd" }
+  {
+    path: warrantContactDetails.warrantContactDetailsLine1, type: string,
+    default: "Clamping Contractor Ltd", baseline: true
+  }
 "Parent Name and Address":
   { path: defendant.parentGuardian.parentGuardianName, type: string, default: "Parent Guardian" }
 "<Notes 1..3>":
@@ -79,19 +86,29 @@
 # their own (unlike "Balance Outstanding"/"Amount Paid or Cancelled"/"Amount Imposed" above, which
 # DO have rows but are ALSO schema-required — see the comment above them for what `baseline: true`
 # actually means: schema-required, full stop, regardless of whether the label happens to be posted
-# by some result code too). defaultFor() unions every non-unmapped field-paths.yaml entry whose
-# root property matches a requested-but-otherwise-untouched entity, so an entity with a schema
-# `required` block never comes back as an empty object failing that block. NowsDataItemsAssembler
-# ALSO merges baseline-flagged rows only (never the full defaultFor union) into an entity a posted
-# code left only PARTIALLY populated, filling just the fields that code's own contribution is
-# missing — existing values always win, and non-required fields are deliberately never
-# merge-filled this way, so a code's own contribution stays observable. Verified against v0.4.0
-# directly (not copied from anywhere): Defendant requires only defName; Offence requires
-# dateImposed/offenceCode/offenceTitle/impositions/offenceTotal; Imposition requires
-# amountImposed/amountPaid/impositionBalance (amountImposed is the one above, covered by "Amount
-# Imposed"); CtBankDetails requires both ct_account_number and ct_sort_code. PaymentHistory and
-# TransactionHistory declare no required properties at all (the `payment`/`transaction` arrays are
-# not themselves required), so `{}` already validates and neither needs an entry here.
+# by some result code too). Finding I4 narrowed defaultFor(): for an OBJECT-typed root (one whose
+# rows nest further under it, e.g. offences.accountTotal), it unions ONLY the baseline: true rows
+# for that root, not every non-unmapped row — unioning every row made a requested-but-untouched
+# entity richer than one a posted code only partially populated, which let posting an extra
+# fields:[] code appear to REMOVE fields (see NowsDataItemsAssembler#defaultFor javadoc and
+# NowsDataItemsAssemblerTest#posting_an_additional_fields_empty_code_never_shrinks_an_entity).
+# NowsDataItemsAssembler.mergeBaselineGaps() merges that same baseline-only set into an entity a
+# posted code left only PARTIALLY populated, filling just the fields that code's own contribution
+# is missing — existing values always win, and non-required fields are deliberately never
+# merge-filled this way, so a code's own contribution stays observable. A consequence of the
+# baseline-only union: an entity with NO baseline row at all still comes back as `{}` for a
+# requested-but-untouched entity, even if its schema has a `required` block — this is why "Payment
+# Terms" (terms) and "Clamping Contractor name" (warrantContactDetails) above are also flagged
+# baseline: true, one representative row each, so those two object-typed roots are never emitted
+# empty either. Verified against v0.4.0 directly (not copied from anywhere): Defendant requires
+# only defName; Offence requires dateImposed/offenceCode/offenceTitle/impositions/offenceTotal;
+# Imposition requires amountImposed/amountPaid/impositionBalance (amountImposed is the one above,
+# covered by "Amount Imposed"); CtBankDetails requires both ct_account_number and ct_sort_code.
+# PaymentHistory and TransactionHistory declare no required properties at all (the
+# `payment`/`transaction` arrays are not themselves required) AND have no field-paths.yaml rows of
+# their own at all, so they are not "object-typed" by NowsDataItemsAssembler#isObjectTyped's
+# structural test; they fall back to an empty branch, which already validates, so neither needs a
+# baseline entry here.
 "Defendant Name":
   { path: defendant.defName, type: string, default: "Simulated Defendant", baseline: true }
 "Offence Date Imposed":

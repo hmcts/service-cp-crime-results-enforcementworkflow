@@ -1,6 +1,7 @@
 package uk.gov.hmcts.cp.gobsimulator.assembly;
 
 import java.util.List;
+import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,38 @@ class NowsDataItemsAssemblerTest {
         assertThat(items.warrantContactDetails())
                 .as("AC2 forbids missing keys — the entity must still be present")
                 .isNotNull();
+    }
+
+    // Item 2 (final wave): defaultFor() unions only baseline: true rows for an object-typed root
+    // when no posted code touches it at all (Finding I4). Two of the five object-typed roots —
+    // terms and warrantContactDetails — had zero baseline rows, so a requested-but-untouched
+    // instance of either came back as {}. posting_an_additional_fields_empty_code_never_
+    // shrinks_an_entity above only ever asserts fieldsWithBoth >= fieldsWithAcnoteAlone, which
+    // passes trivially at 0 >= 0 for an entity that is empty both times — it would not have
+    // caught this. This test is the one that would notice emptiness, for every object-typed root
+    // at once. NOENF is a real resultCode with no CIMD-4372 mapping (fields: []), so nothing it
+    // posts touches any of these five entities.
+    @Test
+    void a_requested_but_untouched_object_typed_entity_is_never_empty() {
+        final NowsDataItems items = assembler.assemble(
+                "E999999999", List.of("NOENF"),
+                List.of("Defendant Account", "Account Offences and Penalties", "Account Terms to Pay",
+                        "Warrant Contact Details", "CT Account Bank Details"));
+
+        final ObjectMapper mapper = new ObjectMapper();
+        assertNeverEmpty(mapper, "defendant", items.defendant());
+        assertNeverEmpty(mapper, "offences", items.offences());
+        assertNeverEmpty(mapper, "terms", items.terms());
+        assertNeverEmpty(mapper, "warrantContactDetails", items.warrantContactDetails());
+        assertNeverEmpty(mapper, "ctBankDetails", items.ctBankDetails());
+    }
+
+    private static void assertNeverEmpty(final ObjectMapper mapper, final String entityName, final Object entity) {
+        assertThat(entity).as("%s must be present (AC2)", entityName).isNotNull();
+        final Map<?, ?> asMap = mapper.convertValue(entity, Map.class);
+        assertThat(asMap)
+                .as("%s must never be emitted as {} for a requested-but-untouched entity", entityName)
+                .isNotEmpty();
     }
 
     @Test
