@@ -1,38 +1,52 @@
 package uk.gov.hmcts.cp.gobsimulator.catalogue;
 
 import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Guards the catalogue against drifting away from the v0.3.0 resultCode enum. */
+/**
+ * Guards the catalogue against drifting away from the bundled OpenAPI contract's resultCode
+ * enum. Both sets asserted here are derived from the schema and the loaded catalogue rather than
+ * hand-typed — {@link CatalogueLoader#schemaResultCodes()} is the same parsing path {@link
+ * CatalogueLoader#load()} uses for its own startup validation, so there is exactly one place that
+ * knows how to read the enum out of the contract.
+ */
 class CatalogueCoverageTest {
 
-    /** Every value of the resultCode enum in libra-gateway-hearing-events-v0.3.0.yml. */
-    private static final Set<String> ENUM_CODES = Set.of(
-            "ABDC", "AEO", "AEOC", "BWTD", "BWTU", "CLAMPO", "COLLO", "CW", "CWN", "DW",
-            "FSN", "MPSO", "NBWT", "NOENF", "REGF", "REM", "S136", "SC", "SUMM", "TFOOUT",
-            "WDN", "TFOUT", "WC", "WWDN");
-
-    /** In the CIMD-4372 table but absent from the enum — CP cannot post these. Spec OQ-3. */
-    private static final Set<String> NOT_POSTABLE = Set.of(
-            "ACF", "AEC", "CLAMPS", "FIDIC", "FIDICT", "FTTP", "LATG", "LATR", "PGPAY", "PTNV");
-
-    private final Catalogue catalogue = new CatalogueLoader().load();
+    private final CatalogueLoader loader = new CatalogueLoader();
+    private final Catalogue catalogue = loader.load();
+    private final Set<String> schemaResultCodes = loader.schemaResultCodes();
 
     @Test
-    void every_postable_result_code_is_known_to_the_catalogue() {
-        for (final String code : ENUM_CODES) {
+    void every_schema_result_code_is_known_to_the_catalogue() {
+        for (final String code : schemaResultCodes) {
             assertThat(catalogue.isKnown(code)).as("resultCode %s must be in the catalogue", code).isTrue();
         }
     }
 
+    /**
+     * The inverse relationship: a code the catalogue marks {@code postable: false} is asserting
+     * "the contract does not allow this" — so it must actually be absent from the schema enum, or
+     * the flag would be lying. This does not hold in the other direction: a handful of legacy
+     * CP-spelling codes (see result-codes.yaml's DW/TFOUT/WWDN comment) are absent from the
+     * v0.4.0 enum but intentionally left postable, so we do not assert "absent from enum implies
+     * not postable".
+     */
     @Test
-    void codes_absent_from_the_enum_are_marked_unpostable() {
-        for (final String code : NOT_POSTABLE) {
-            assertThat(catalogue.isPostable(code))
-                    .as("%s is not in the v0.3.0 enum and must be marked postable: false", code)
-                    .isFalse();
+    void every_code_marked_not_postable_is_absent_from_the_schema_enum() {
+        final Set<String> notPostable = catalogue.allCodes().stream()
+                .filter(code -> !catalogue.isPostable(code))
+                .collect(Collectors.toSet());
+
+        assertThat(notPostable).as("expected at least one postable: false catalogue row").isNotEmpty();
+
+        for (final String code : notPostable) {
+            assertThat(schemaResultCodes)
+                    .as("%s is marked postable: false and must not be in the schema resultCode enum", code)
+                    .doesNotContain(code);
         }
     }
 

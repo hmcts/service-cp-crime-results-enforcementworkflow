@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 public class CatalogueLoader {
 
     private static final String DEFAULT_CATALOGUE_BASE = "gob-simulator/catalogue/";
-    private static final String OPENAPI_SPEC_PATH = "openapi/libra-gateway-hearing-events-v0.3.0.yml";
+    private static final String OPENAPI_SPEC_PATH = "openapi/libra-gateway-hearing-events-v0.4.0.yml";
     private static final String UNCHECKED = "unchecked";
 
     private final String catalogueBase;
@@ -68,6 +68,16 @@ public class CatalogueLoader {
 
         validate(catalogue, schemaProperties, schemaResultCodes);
         return catalogue;
+    }
+
+    /**
+     * The bundled OpenAPI contract's {@code resultCode} enum values. Exposed so callers (e.g.
+     * {@code CatalogueCoverageTest}) can assert the catalogue against the schema without
+     * hand-copying a second snapshot of the enum — this is the same parsing path {@link #load()}
+     * uses for startup validation.
+     */
+    public Set<String> schemaResultCodes() {
+        return schemaResultCodeEnum(readOpenApiSpec());
     }
 
     private FieldPath toFieldPath(final String label, final Map<String, Object> row) {

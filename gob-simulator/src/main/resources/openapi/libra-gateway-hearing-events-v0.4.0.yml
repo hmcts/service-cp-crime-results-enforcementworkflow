@@ -3,7 +3,7 @@
 openapi: "3.0.3"
 info:
   title: "Libra Gateway Hearing Event API"
-  version: "0.3.0"
+  version: "0.4.0"
   description: "REST API exposed by Libra Gateway for Common Platform hearing confirmation and hearing result callbacks. Hearing event paths do not carry an external path identifier; the request payload supplies the case/account context."
 servers:
   -
@@ -620,29 +620,47 @@ components:
           type: "string"
           enum:
             - "ABDC"
+            - "ACF"
+            - "ACNOTE"
+            - "ACON"
+            - "ADJNN"
+            - "AEC"
             - "AEO"
             - "AEOC"
+            - "BPOC"
             - "BWTD"
             - "BWTU"
+            - "BPOCRFSD"
             - "CLAMPO"
             - "COLLO"
+            - "CSC"
             - "CW"
             - "CWN"
             - "DW"
+            - "FIDIC"
+            - "FIDICT"
+            - "FIDIP"
             - "FSN"
+            - "FTTP"
+            - "MP"
             - "MPSO"
             - "NBWT"
             - "NOENF"
+            - "ORD"
+            - "PTNV"
             - "REGF"
             - "REM"
+            - "REMCC"
+            - "REMF"
+            - "RT"
             - "S136"
             - "SC"
             - "SUMM"
+            - "TEXT"
+            - "ENF TEXT"
             - "TFOOUT"
             - "WDN"
-            - "TFOUT"
-            - "WC"
-            - "WWDN"
+            - "WDRN"
           maxLength: 10
           description: "A coded value representing the outcome of an enforcement hearing, supplied by Common Platform. Business rules: Selected and applied in CP at hearing conclusion and sent to GoB via the HearingResulted API; mapped to GoB enforcement outcomes via reference data. GoB only uses these results: ABDC, AEO, AEOC, BWTD, BWTU, CLAMPO, COLLO, CW, CWN, DW, FSN, MPSO, NBWT, NOENF, REGF, REM, S136, SC, SUMM, TFOOUT, WDN. TFOOUT (GOB) = TFOUT (CP) DW (GOB) = WC (CP) WDN (GOB) = WWDN (CP) Source: HearingResultedRequest row 58 (from extracted workbook JSON)"
           x-source-row: 58
@@ -787,6 +805,8 @@ components:
           x-source-table: 11
           x-source-row: 2
           x-source-data-item: "Defendant Name"
+        defAddress:
+          $ref: "#/components/schemas/DefAddress"
         nationalInsuranceNumber:
           type: "string"
           description: "Source: NOWS Logical Entities v1.3 table 11, row 6"
@@ -872,8 +892,6 @@ components:
           x-source-table: 11
           x-source-row: 19
           x-source-data-item: "Alias Name 5"
-        defAddress:
-          $ref: "#/components/schemas/DefAddress"
         accountNotes:
           $ref: "#/components/schemas/AccountNotes"
         imposingCourt:

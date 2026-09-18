@@ -6,7 +6,7 @@ import org.springframework.test.web.servlet.ResultMatcher;
 /** Shared access to the bundled Libra Gateway contract for conformance assertions. */
 public final class OpenApiConformance {
 
-    public static final String SPEC_PATH = "openapi/libra-gateway-hearing-events-v0.3.0.yml";
+    public static final String SPEC_PATH = "openapi/libra-gateway-hearing-events-v0.4.0.yml";
 
     private OpenApiConformance() {
     }
