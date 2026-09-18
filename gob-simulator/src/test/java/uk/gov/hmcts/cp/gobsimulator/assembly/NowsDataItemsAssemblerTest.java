@@ -43,18 +43,48 @@ class NowsDataItemsAssemblerTest {
 
     @Test
     void unions_required_fields_across_several_posted_codes() {
-        // Both codes write into the same "offences" entity, so whichever is posted alone still
-        // populates that entity — the AC2 default-fill in assemble() only fires when an entity is
-        // entirely untouched, so it cannot paper over a missing sub-field here (unlike a bare
-        // top-level scalar, where the default-fill would mask a dropped contribution). ABDC alone
-        // supplies Balance Outstanding (accountTotal) but not Amount Paid or Cancelled
-        // (accountPaid); CW alone supplies accountPaid but not accountTotal. Only the union of
-        // both codes leaves neither sub-field null.
-        final NowsDataItems items = assembler.assemble(
-                "E999999999", List.of("ABDC", "CW"), List.of("Account Offences and Penalties"));
+        // Task 8, ruling 2: this test previously used ABDC (Balance Outstanding -> accountTotal)
+        // + CW (Amount Paid or Cancelled -> accountPaid), asserting both are non-null. But
+        // accountTotal/accountPaid are BOTH schema-required on Offences, and Task 8's assembler
+        // fix (ruling 1) merges baseline-flagged defaults into a partially-populated entity to
+        // satisfy exactly that kind of schema-required gap. Once that fix landed, ABDC alone would
+        // already leave neither sub-field null — the test would still pass, but prove nothing about
+        // whether the union across codes actually happened.
+        //
+        // Rewritten onto a pair of NON-required fields the baseline merge deliberately never
+        // fills: SUMM supplies "Imposition type" (offence[0].impositions.imposition[0]
+        // .impositionType) and does NOT supply "Place of offence"; S136 supplies "Place of
+        // offence" (offence[0].placeOfOffence) and does NOT supply "Imposition type". Neither
+        // field is schema-required, so a negative control demonstrates this is falsifiable: SUMM
+        // alone must leave placeOfOffence null, S136 alone must leave impositionType null, and
+        // only posting both together must leave neither null.
+        final NowsDataItems summOnly = assembler.assemble(
+                "E999999999", List.of("SUMM"), List.of("Account Offences and Penalties"));
+        final NowsDataItems s136Only = assembler.assemble(
+                "E999999999", List.of("S136"), List.of("Account Offences and Penalties"));
+        final NowsDataItems both = assembler.assemble(
+                "E999999999", List.of("SUMM", "S136"), List.of("Account Offences and Penalties"));
 
-        assertThat(items.offences().accountTotal()).isNotNull();
-        assertThat(items.offences().accountPaid()).isNotNull();
+        assertThat(summOnly.offences().offence().get(0).impositions().imposition().get(0).impositionType())
+                .as("negative control: SUMM alone supplies Imposition type")
+                .isNotNull();
+        assertThat(summOnly.offences().offence().get(0).placeOfOffence())
+                .as("negative control: SUMM alone must NOT supply Place of offence")
+                .isNull();
+
+        assertThat(s136Only.offences().offence().get(0).placeOfOffence())
+                .as("negative control: S136 alone supplies Place of offence")
+                .isNotNull();
+        assertThat(s136Only.offences().offence().get(0).impositions().imposition().get(0).impositionType())
+                .as("negative control: S136 alone must NOT supply Imposition type")
+                .isNull();
+
+        assertThat(both.offences().offence().get(0).impositions().imposition().get(0).impositionType())
+                .as("union: both codes together supply Imposition type")
+                .isNotNull();
+        assertThat(both.offences().offence().get(0).placeOfOffence())
+                .as("union: both codes together supply Place of offence")
+                .isNotNull();
     }
 
     @Test

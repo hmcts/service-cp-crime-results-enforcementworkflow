@@ -20,11 +20,12 @@ import uk.gov.hmcts.cp.gobsimulator.api.model.ErrorResponse;
  *
  * <p>Deliberately narrow: only genuine client-input failures — a body that fails bean validation,
  * a body Jackson cannot parse (including an unrecognised property, since every request record is
- * annotated {@code @JsonIgnoreProperties(ignoreUnknown = false)}), or a {@code NowsDataItemName}
- * outside the contract's 12-value enum — map to 400. Everything else still surfaces as a 500, so
- * a genuine simulator defect is never hidden behind a client-error status; the fallback keeps
- * only the response *shape* contract-valid, with a description that never leaks a stack trace or
- * internal class name.
+ * annotated {@code @JsonIgnoreProperties(ignoreUnknown = false)}), a {@code NowsDataItemName}
+ * outside the contract's 12-value enum, or a {@code resultCode} outside the contract's {@code
+ * resultCode} enum — map to 400. Everything else still surfaces as a 500, so a genuine simulator
+ * defect is never hidden behind a client-error status; the fallback keeps only the response
+ * *shape* contract-valid, with a description that never leaks a stack trace or internal class
+ * name.
  */
 @Slf4j
 @RestControllerAdvice
@@ -51,6 +52,13 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleUnknownNowsDataItemName(final UnknownNowsDataItemNameException exception) {
         log.info("Rejecting a request naming an unknown NowsDataItemName: {}", exception.getMessage());
+        return new ErrorResponse(BAD_REQUEST_CODE, exception.getMessage());
+    }
+
+    @ExceptionHandler(UnknownResultCodeException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleUnknownResultCode(final UnknownResultCodeException exception) {
+        log.info("Rejecting a request posting an unknown resultCode: {}", exception.getMessage());
         return new ErrorResponse(BAD_REQUEST_CODE, exception.getMessage());
     }
 

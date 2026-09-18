@@ -131,16 +131,6 @@ class AllResultCodesConformanceIT {
                 .andExpect(jsonPath("$.errorDescription").isNotEmpty());
     }
 
-    // NOTE: the natural "out-of-enum value" example here would be an out-of-enum resultCode
-    // (e.g. "NOT-A-REAL-CODE"), but the simulator does not validate resultCode against the
-    // schema's enum before it reaches Catalogue.fieldsFor() — an unknown resultCode currently
-    // surfaces as a 500 (IllegalArgumentException falling through to
-    // GlobalExceptionHandler.handleUnexpectedFailure()), not a 400. That is a real gap, but fixing
-    // it means adding resultCode-enum validation to HearingController/GlobalExceptionHandler,
-    // which is production code outside this task's authorised scope (field-paths.yaml only) — see
-    // the Task 8 report for detail rather than silently patching around it here. The
-    // NowsDataItemName enum is validated the same way this bullet describes, so it stands in as
-    // the "out-of-enum value" example instead.
     @Test
     void rejects_a_request_naming_an_unknown_nows_data_item() throws Exception {
         // Request-invalid: "Not A Real Entity" is outside the NowsDataItemName enum — no
@@ -152,6 +142,24 @@ class AllResultCodesConformanceIT {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").isNotEmpty())
                 .andExpect(jsonPath("$.errorDescription").value("Unknown NowsDataItemName: Not A Real Entity"));
+    }
+
+    // Task 8, ruling 3: restored now that resultCode is validated against the bundled contract's
+    // enum (HearingController.validateResultCodes()) the same way validateRequestedNames() already
+    // handled NowsDataItemName — an out-of-enum resultCode used to surface as a 500
+    // (IllegalArgumentException falling through to Catalogue.resolve()), not a 400. This is the
+    // direct "out-of-enum value" example the original brief called for.
+    @Test
+    void rejects_a_result_code_outside_the_contracts_enum() throws Exception {
+        // Request-invalid: "NOT-A-REAL-CODE" is outside the resultCode enum — no conformsToSpec(),
+        // the request itself violates the schema.
+        mockMvc.perform(post("/hearing/result")
+                        .contentType(APPLICATION_JSON)
+                        .content(requestFor("SC").replace("\"resultCode\": \"SC\"",
+                                "\"resultCode\": \"NOT-A-REAL-CODE\"")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").isNotEmpty())
+                .andExpect(jsonPath("$.errorDescription").value("Unknown resultCode: NOT-A-REAL-CODE"));
     }
 
     @Test

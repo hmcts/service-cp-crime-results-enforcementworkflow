@@ -54,6 +54,12 @@ public class NowsDataItemsAssembler {
         // AC2 — a requested entity is never missing, even when no posted code feeds it.
         requestedRoots.forEach(root -> tree.computeIfAbsent(root, key -> defaultFor(caseUrn, key)));
 
+        // Task 8, ruling 1 — an entity a posted code only PARTIALLY populated (some but not all
+        // of its schema-required fields) is still present after the line above, so the
+        // computeIfAbsent never ran defaultFor() for it. Fill just the gaps a baseline-flagged
+        // row covers, never overwriting what the code itself contributed.
+        requestedRoots.forEach(root -> mergeBaselineGaps(tree, caseUrn, root));
+
         return objectMapper.convertValue(tree, NowsDataItems.class);
     }
 
@@ -74,20 +80,61 @@ public class NowsDataItemsAssembler {
     }
 
     /**
-     * Writes {@code value} into {@code tree} at a dotted path with optional {@code [n]} indexes.
+     * Fills schema-required gaps left by a posted code's own, partial contribution to
+     * {@code rootProperty} (Task 8, ruling 1) — deliberately data-driven rather than the
+     * assembler re-deriving "required" from the OpenAPI contract: only rows the catalogue marks
+     * {@code baseline: true} are considered, and each is written with {@link #putIfAbsent} so a
+     * value the posted code already supplied is never overwritten. Non-required fields have no
+     * baseline row, so they are never filled this way — a code's own contribution stays fully
+     * observable, which is exactly what a negative-control test needs to be falsifiable.
      *
-     * <p>Walks the path one segment at a time, creating intermediate maps (or list slots, for an
-     * indexed segment) as needed, and writes {@code value} at the final segment. The loop tracks
-     * its position with a {@code cursor} that is reseated to the next container on every
-     * non-final segment; PMD's OnlyOneReturn is satisfied by falling out of the loop naturally
-     * (there is no early {@code return} to remove) rather than by any change to this walk. The
-     * three {@code new} call sites that PMD's AvoidInstantiatingObjectsInLoops flagged (the list
-     * and the two branch maps) are factored out to {@link #newList()} and {@link #newBranch()} —
-     * each call still allocates a fresh, independent instance every time it runs, so this is a
-     * pure extraction with no change to how many objects are created or when.
+     * <p>No-op when {@code rootProperty} is missing from {@code tree} entirely: that case was
+     * already fully populated by {@link #defaultFor} above, which unions every matching row
+     * (baseline or not).
+     */
+    private void mergeBaselineGaps(final Map<String, Object> tree, final String caseUrn, final String rootProperty) {
+        if (tree.get(rootProperty) != null) {
+            catalogue.fieldPaths().values().stream()
+                    .filter(fieldPath -> !fieldPath.unmapped() && fieldPath.baseline())
+                    .filter(fieldPath -> rootProperty.equals(fieldPath.rootProperty()))
+                    .forEach(fieldPath -> putIfAbsent(tree, fieldPath.path(),
+                            valueResolver.resolve(caseUrn, fieldPath)));
+        }
+    }
+
+    /**
+     * Writes {@code value} into {@code tree} at a dotted path with optional {@code [n]} indexes,
+     * unconditionally overwriting whatever is already there. See {@link #write} for the shared
+     * traversal both this and {@link #putIfAbsent} delegate to.
+     */
+    private void put(final Map<String, Object> tree, final String path, final Object value) {
+        write(tree, path, value, true);
+    }
+
+    /**
+     * Writes {@code value} into {@code tree} at a dotted path only where nothing is there yet —
+     * used by {@link #mergeBaselineGaps} so a posted code's own contribution is never overwritten
+     * by a baseline default (Task 8, ruling 1). See {@link #write} for the shared traversal.
+     */
+    private void putIfAbsent(final Map<String, Object> tree, final String path, final Object value) {
+        write(tree, path, value, false);
+    }
+
+    /**
+     * Walks {@code path} one segment at a time, creating intermediate maps (or list slots, for an
+     * indexed segment) as needed, and writes {@code value} at the final segment — unconditionally
+     * when {@code overwrite} is {@code true} ({@link #put}), or only if that leaf is currently
+     * absent when {@code false} ({@link #putIfAbsent}). The loop tracks its position with a
+     * {@code cursor} that is reseated to the next container on every non-final segment; PMD's
+     * OnlyOneReturn is satisfied by falling out of the loop naturally (there is no early
+     * {@code return} to remove) rather than by any change to this walk. The three {@code new}
+     * call sites that PMD's AvoidInstantiatingObjectsInLoops flagged (the list and the two branch
+     * maps) are factored out to {@link #newList()} and {@link #newBranch()} — each call still
+     * allocates a fresh, independent instance every time it runs, so this is a pure extraction
+     * with no change to how many objects are created or when.
      */
     @SuppressWarnings("unchecked")
-    private void put(final Map<String, Object> tree, final String path, final Object value) {
+    private void write(final Map<String, Object> tree, final String path, final Object value, final boolean overwrite) {
         final List<String> segments = List.of(path.split("\\."));
         Object cursor = tree;
 
@@ -107,12 +154,18 @@ public class NowsDataItemsAssembler {
                     list.add(newBranch());
                 }
                 if (last) {
-                    list.set(index, value);
+                    if (overwrite || list.get(index) == null) {
+                        list.set(index, value);
+                    }
                 } else {
                     cursor = list.get(index);
                 }
             } else if (last) {
-                parent.put(name, value);
+                if (overwrite) {
+                    parent.put(name, value);
+                } else {
+                    parent.putIfAbsent(name, value);
+                }
             } else {
                 cursor = parent.computeIfAbsent(name, key -> newBranch());
             }

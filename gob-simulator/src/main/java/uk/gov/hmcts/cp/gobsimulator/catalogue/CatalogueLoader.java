@@ -82,13 +82,15 @@ public class CatalogueLoader {
 
     private FieldPath toFieldPath(final String label, final Map<String, Object> row) {
         final boolean unmapped = Boolean.TRUE.equals(row.get("unmapped"));
+        final boolean baseline = Boolean.TRUE.equals(row.get("baseline"));
         return new FieldPath(
                 label,
                 (String) row.get("path"),
                 (String) row.get("type"),
                 row.get("default"),
                 unmapped,
-                (String) row.get("reason"));
+                (String) row.get("reason"),
+                baseline);
     }
 
     @SuppressWarnings(UNCHECKED)
