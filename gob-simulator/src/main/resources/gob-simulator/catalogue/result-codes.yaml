@@ -43,21 +43,27 @@ SUMM:   { fields: ["Account No.", "Amount Imposed", "Amount Paid or Cancelled",
                    "NTO issued on <date> & <time>", "Ticket No.", "Total Balance",
                    "Vehicle Reg. No."] }
 TFOOUT: { fields: ["Total Balance"] }
-WC:     { fields: ["Account No.", "Warrant No", "Total Balance", "Amount Imposed",
-                   "Amount Paid or Cancelled", "Date Imposed", "Date of Offence",
-                   "Time of Offence", "Place of offence", "Ticket No.", "Vehicle Reg. No.",
-                   "Vehicle Make", "Process Server Name"] }
 
 # GOB/CP synonyms for the same outcome. In v0.3.0 both spellings were in the resultCode
-# enum. v0.4.0 dropped the CP spelling from each pair (WC, TFOUT, WWDN are no longer
-# enum values) and kept only the GOB spelling (DW, TFOOUT, WDN). The alias rows below
-# still resolve DW -> WC's field list, so WC's row above must stay even though WC
-# itself can no longer arrive as a resultCode. TFOUT and WWDN, by contrast, are alias
-# *keys* — nothing points at them — so they are simply inert/unreachable rows now,
-# the same as CLAMPS/LATG/LATR/PGPAY below, not something another chain depends on.
+# enum. v0.4.0 dropped the CP spelling from each pair (WC, TFOUT, WWDN are no longer enum
+# values) and kept only the GOB spelling (DW, TFOOUT, WDN). All three CP spellings are
+# marked postable: false below, per the same "absent from the enum -> not postable"
+# convention used for CLAMPS/LATG/LATR/PGPAY.
+#
+# WC is the one load-bearing row of the three: DW (still a live enum value) aliases to
+# it, so WC's field list must stay even though WC itself can never arrive as a
+# resultCode — Catalogue.resolve() only follows entry.alias(), never entry.postable(), so
+# marking WC unpostable cannot break DW's resolution. TFOUT and WWDN are the opposite
+# shape: they are alias *keys*, not alias *targets* — nothing points at them — so they
+# are simply inert/unreachable rows now, the same as CLAMPS/LATG/LATR/PGPAY, not
+# something another chain depends on.
+WC:     { postable: false, fields: ["Account No.", "Warrant No", "Total Balance",
+                   "Amount Imposed", "Amount Paid or Cancelled", "Date Imposed",
+                   "Date of Offence", "Time of Offence", "Place of offence", "Ticket No.",
+                   "Vehicle Reg. No.", "Vehicle Make", "Process Server Name"] }
 DW:     { alias: WC }        # DW (GOB) = WC (CP, removed from the enum in v0.4.0)
-TFOUT:  { alias: TFOOUT }    # TFOUT (CP, removed from the enum in v0.4.0) = TFOOUT (GOB)
-WWDN:   { alias: WDN }       # WWDN (CP, removed from the enum in v0.4.0) = WDN (GOB)
+TFOUT:  { postable: false, alias: TFOOUT } # TFOUT (CP, removed in v0.4.0) = TFOOUT (GOB)
+WWDN:   { postable: false, alias: WDN }    # WWDN (CP, removed in v0.4.0) = WDN (GOB)
 
 # Postable per the enum, but CIMD-4372 defines no required fields. See spec OQ-2.
 NOENF:  { fields: [], note: "No row in the CIMD-4372 Result vs Required Field table" }
