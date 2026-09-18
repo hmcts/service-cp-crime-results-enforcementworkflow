@@ -45,6 +45,7 @@ class HearingControllerIT {
                         .content("""
                                 { "caseUrn": "E011122334" }
                                 """))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(conformsToSpec());
     }
 }

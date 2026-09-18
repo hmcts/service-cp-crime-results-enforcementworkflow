@@ -19,6 +19,15 @@ public record Catalogue(
         return properties;
     }
 
+    /**
+     * Whether {@code nowsDataItemName} is one of the contract's 12 permitted values. The single
+     * source of truth for that enumeration is {@code entityNames}' key set, loaded from
+     * entity-names.yaml — never hand-copied into a second place.
+     */
+    public boolean isKnownNowsDataItemName(final String nowsDataItemName) {
+        return entityNames.containsKey(nowsDataItemName);
+    }
+
     /** Required field labels for a result code, following any alias. */
     public List<String> fieldsFor(final String resultCode) {
         return resolve(resultCode, 0).fields();
