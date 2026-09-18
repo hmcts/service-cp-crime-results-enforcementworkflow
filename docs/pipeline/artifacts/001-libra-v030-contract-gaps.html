@@ -4,7 +4,7 @@
 <!-- claude-artifact: created=2026-09-17 project=service-cp-crime-results-enforcementworkflow kind=investigation -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CIMD-4372 vs Libra v0.3.0 — Contract Gaps</title>
+<title>CIMD-4372 vs Libra Contract — Gaps (v0.3.0, partly updated for v0.4.0)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -81,10 +81,10 @@
 <div class="wrap">
 
   <header>
-    <div class="filebar"><span class="case">CASE · CIMD-4372</span><span>OPENED 2026-09-17</span><span>ANALYST · EROL KURELI</span></div>
+    <div class="filebar"><span class="case">CASE · CIMD-4372</span><span>OPENED 2026-09-17 · UPDATED 2026-09-18 (v0.4.0)</span><span>ANALYST · EROL KURELI</span></div>
     <span class="stamp">Open</span>
-    <h1>CIMD-4372 response examples do not validate against Libra Gateway v0.3.0</h1>
-    <p class="summary">Every example response in the CIMD-4372 ticket fails schema validation against <code>libra-gateway-hearing-events-openapi-v0.3.0.yml</code> &mdash; the contract the ticket states they were generated from. Six of the twelve NOWS entity names it specifies are not properties of <code>NowsDataItems</code>, which declares <code>additionalProperties: false</code>. AC1 and AC2 cannot both be satisfied as written.</p>
+    <h1>CIMD-4372 response examples do not validate against the Libra Gateway contract</h1>
+    <p class="summary">Every example response in the CIMD-4372 ticket fails schema validation against <code>libra-gateway-hearing-events-openapi-v0.3.0.yml</code> &mdash; the contract the ticket states they were generated from. Six of the twelve NOWS entity names it specifies are not properties of <code>NowsDataItems</code>, which declares <code>additionalProperties: false</code>. AC1 and AC2 cannot both be satisfied as written. <b>Update (v0.4.0):</b> the contract has since moved to v0.4.0, which grew the <code>resultCode</code> enum but left <code>NowsDataItems</code> and every nested schema byte-identical to v0.3.0 &mdash; the findings below still hold verbatim. See section G.</p>
   </header>
 
   <section>
@@ -153,7 +153,7 @@ covered by both ......... 20  + DW via the table's "WC (DW in GoB)" row = <span 
       <div class="branch conf"><span class="v conf">Confirmed</span><div><div class="h">AC7 relies on an undeclared header</div><code>X-Idempotency-Key</code> appears nowhere in v0.3.0 &mdash; only <code>X-Correlation-ID</code> is defined.</div></div>
       <div class="branch ruled"><span class="v ruled">Ruled out</span><div><div class="h">AC5 needs work to suppress enforcerCode</div>v0.3.0's response schema declares no <code>enforcerCode</code> property at any level, so it cannot be emitted. AC5 is satisfied structurally.</div></div>
       <div class="branch"><span class="v open">Open</span><div><div class="h">Is "Account History" one entity or two?</div>It camelCases to nothing; the schema offers <code>paymentHistory</code> and <code>transactionHistory</code>. Interim behaviour: emit both.</div></div>
-      <div class="branch"><span class="v open">Open</span><div><div class="h">Are the 10 unreachable rows awaiting a later spec version?</div>The ticket notes a reference-data dependency (CIMD-4336). Interim behaviour: transcribed and marked unpostable, with a test asserting they stay unreachable.</div></div>
+      <div class="branch"><span class="v conf">Confirmed</span><div><div class="h">Are the 10 unreachable rows awaiting a later spec version? &mdash; partly, yes</div>The ticket notes a reference-data dependency (CIMD-4336). <b>v0.4.0 added 6 of the 10</b> (<code>ACF, AEC, FIDIC, FIDICT, FTTP, PTNV</code>) to the <code>resultCode</code> enum &mdash; their field lists, already transcribed from the CIMD-4372 table, are now reachable and postable. The remaining 4 (<code>CLAMPS, LATG, LATR, PGPAY</code>) are still absent from the enum and still marked <code>postable: false</code>. See section G.</div></div>
       <div class="branch"><span class="v open">Open</span><div><div class="h">Do amounts need two decimal places on the wire?</div>AC4 says yes, but the schema types amounts as JSON <code>number</code>, which carries no scale. Interim behaviour: <code>BigDecimal</code> scale 2.</div></div>
     </div>
   </section>
@@ -165,7 +165,14 @@ covered by both ......... 20  + DW via the table's "WC (DW in GoB)" row = <span 
     <p><b>Action needed from the GOB integration team:</b> either correct the CIMD-4372 examples to match v0.3.0, or publish a v0.4.0 that adopts the nested shapes the ticket assumes. Until then the nine open questions in the design spec carry stated interim behaviours, so delivery is not blocked.</p>
   </section>
 
-  <footer>DESIGN GAP · CIMD-4372 vs libra-gateway-hearing-events-openapi-v0.3.0 · spec: docs/superpowers/specs/2026-09-17-gob-libra-simulator-design.md</footer>
+  <section>
+    <h2><span class="ix">G.</span> Update &mdash; v0.4.0 adoption (2026-09-18)</h2>
+    <p>The bundled contract was upgraded from v0.3.0 to v0.4.0. Diffing the two files directly: the only change is the <code>resultCode</code> enum, which grew from 24 to 42 values. <code>NowsDataItems</code> and every schema nested under it (the twelve entity components evidenced in section B) are <b>byte-identical</b> between the two versions.</p>
+    <p>Consequence: <b>one open question is partly answered</b> &mdash; 6 of the 10 rows that were "in the CIMD-4372 table, not in the enum" (<code>ACF, AEC, FIDIC, FIDICT, FTTP, PTNV</code>) are now in the v0.4.0 enum and postable; their field lists needed no correction, since they were already transcribed correctly from the CIMD-4372 table while unreachable. The other 4 (<code>CLAMPS, LATG, LATR, PGPAY</code>) remain absent from the enum and unpostable. v0.4.0 also added 15 further codes with no CIMD-4372 table row at all (mappings pending from the vendor) and dropped the CP-side spellings <code>WC</code>, <code>TFOUT</code>, <code>WWDN</code> in favour of their GOB aliases <code>DW</code>, <code>TFOOUT</code>, <code>WDN</code> (preserved in the catalogue as explicit aliases).</p>
+    <p><b>The core divergence recorded in this document is unchanged and remains open.</b> All of sections B, D and E &mdash; the six absent entity names, the four retyped ones, and the six unmappable field labels &mdash; hold exactly as evidenced, because the schemas they were checked against did not change. The GOB integration team has not yet corrected the CIMD-4372 examples, nor published a contract version that adopts the ticket's nested shapes.</p>
+  </section>
+
+  <footer>DESIGN GAP · CIMD-4372 vs libra-gateway-hearing-events-openapi &middot; evidence: v0.3.0 &middot; still current under v0.4.0 &middot; spec: docs/superpowers/specs/2026-09-17-gob-libra-simulator-design.md</footer>
 </div>
 </body>
 </html>

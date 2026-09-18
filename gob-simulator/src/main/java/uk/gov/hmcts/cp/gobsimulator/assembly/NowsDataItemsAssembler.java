@@ -154,6 +154,15 @@ public class NowsDataItemsAssembler {
                     list.add(newBranch());
                 }
                 if (last) {
+                    // KNOWN LATENT TRAP (see gob-simulator/README.md, "Known gaps"): the padding
+                    // loop above always fills a newly-extended slot with a non-null newBranch(),
+                    // so list.get(index) == null is never true for a slot this call just padded.
+                    // For putIfAbsent (overwrite == false) on a path whose FINAL segment is
+                    // indexed, that means the guard below treats the padding placeholder as an
+                    // existing value and skips writing — silently dropping the value instead of
+                    // protecting an existing one. No current catalogue path has an indexed final
+                    // segment, so this has not fired, but it would misfire silently if one is
+                    // added with baseline: true.
                     if (overwrite || list.get(index) == null) {
                         list.set(index, value);
                     }
