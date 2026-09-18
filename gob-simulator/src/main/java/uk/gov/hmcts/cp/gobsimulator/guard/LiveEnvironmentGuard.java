@@ -18,8 +18,8 @@ import org.springframework.context.ApplicationListener;
  */
 public final class LiveEnvironmentGuard implements ApplicationListener<ApplicationEnvironmentPreparedEvent> {
 
-    static final String REQUIRED_PROFILE = "gob-simulator";
-    static final Set<String> FORBIDDEN_PROFILES =
+    /* default */ static final String REQUIRED_PROFILE = "gob-simulator";
+    /* default */ static final Set<String> FORBIDDEN_PROFILES =
             Set.of("prod", "production", "live", "perf", "preprod");
 
     @Override
@@ -28,7 +28,7 @@ public final class LiveEnvironmentGuard implements ApplicationListener<Applicati
                 .collect(Collectors.toUnmodifiableSet()));
     }
 
-    static void check(final Set<String> activeProfiles) {
+    /* default */ static void check(final Set<String> activeProfiles) {
         final Set<String> normalised = activeProfiles.stream()
                 .map(profile -> profile.toLowerCase(Locale.ROOT))
                 .collect(Collectors.toUnmodifiableSet());

@@ -7,7 +7,13 @@ pmd {
 }
 
 tasks.named("pmdMain").configure {
-  onlyIf { gradle.startParameter.taskNames.contains(name) }
+  // Opt-in task: only runs when explicitly requested, whether invoked as the bare
+  // task name ("pmdMain") or qualified with a subproject path (":gob-simulator:pmdMain").
+  onlyIf {
+    gradle.startParameter.taskNames.any { requested ->
+      requested == name || requested == path || requested.endsWith(":${name}")
+    }
+  }
 }
 
 tasks.named("pmdTest").configure {

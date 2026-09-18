@@ -24,6 +24,7 @@ public class CatalogueLoader {
 
     private static final String DEFAULT_CATALOGUE_BASE = "gob-simulator/catalogue/";
     private static final String OPENAPI_SPEC_PATH = "openapi/libra-gateway-hearing-events-v0.3.0.yml";
+    private static final String UNCHECKED = "unchecked";
 
     private final String catalogueBase;
     private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory());
@@ -43,11 +44,11 @@ public class CatalogueLoader {
 
     public Catalogue load() {
         final Map<String, List<String>> rawEntityNames = read(
-                "entity-names.yaml", new TypeReference<LinkedHashMap<String, List<String>>>() { });
+                "entity-names.yaml", new TypeReference<>() { });
         final Map<String, Map<String, Object>> rawPaths = read(
-                "field-paths.yaml", new TypeReference<LinkedHashMap<String, Map<String, Object>>>() { });
+                "field-paths.yaml", new TypeReference<>() { });
         final Map<String, Map<String, Object>> rawCodes = read(
-                "result-codes.yaml", new TypeReference<LinkedHashMap<String, Map<String, Object>>>() { });
+                "result-codes.yaml", new TypeReference<>() { });
 
         final Map<String, List<String>> entityNames = new LinkedHashMap<>();
         rawEntityNames.forEach((name, properties) -> entityNames.put(name, List.copyOf(properties)));
@@ -80,7 +81,7 @@ public class CatalogueLoader {
                 (String) row.get("reason"));
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings(UNCHECKED)
     private ResultCodeEntry toResultCode(final String code, final Map<String, Object> row) {
         final List<String> fields = (List<String>) row.getOrDefault("fields", List.of());
         return new ResultCodeEntry(
@@ -91,6 +92,11 @@ public class CatalogueLoader {
                 (String) row.get("note"));
     }
 
+    // UseProperClassLoader targets J2EE app-server deployments, where the thread context
+    // classloader can differ from the defining classloader. This is a Spring Boot executable
+    // jar: getClass().getClassLoader() is the classloader that loaded this class (and its
+    // bundled resources), which is correct and more predictable here than the TCCL.
+    @SuppressWarnings("PMD.UseProperClassLoader")
     private <T> T read(final String name, final TypeReference<T> type) {
         final String path = catalogueBase + name;
         try (InputStream in = getClass().getClassLoader().getResourceAsStream(path)) {
@@ -103,19 +109,22 @@ public class CatalogueLoader {
         }
     }
 
+    // See the rationale on read(...) above: getClass().getClassLoader() is correct for this
+    // Spring Boot executable jar's classloading model.
+    @SuppressWarnings("PMD.UseProperClassLoader")
     private Map<String, Object> readOpenApiSpec() {
         try (InputStream in = getClass().getClassLoader().getResourceAsStream(OPENAPI_SPEC_PATH)) {
             if (in == null) {
                 throw new IllegalStateException("OpenAPI spec resource not found: " + OPENAPI_SPEC_PATH);
             }
-            return yaml.readValue(in, new TypeReference<LinkedHashMap<String, Object>>() { });
+            return yaml.readValue(in, new TypeReference<>() { });
         } catch (final IOException e) {
             throw new IllegalStateException("Failed to read OpenAPI spec: " + OPENAPI_SPEC_PATH, e);
         }
     }
 
     /** The property names declared under {@code components.schemas.NowsDataItems.properties}. */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings(UNCHECKED)
     private Set<String> schemaNowsDataItemProperties(final Map<String, Object> spec) {
         final Map<String, Object> nowsDataItems = schema(spec, "NowsDataItems");
         final Map<String, Object> properties = (Map<String, Object>) nowsDataItems.get("properties");
@@ -127,7 +136,7 @@ public class CatalogueLoader {
     }
 
     /** The enum values of {@code components.schemas.HearingResult.properties.resultCode}. */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings(UNCHECKED)
     private Set<String> schemaResultCodeEnum(final Map<String, Object> spec) {
         final Map<String, Object> hearingResult = schema(spec, "HearingResult");
         final Map<String, Object> properties = (Map<String, Object>) hearingResult.get("properties");
@@ -141,7 +150,7 @@ public class CatalogueLoader {
         return Set.copyOf(enumValues);
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings(UNCHECKED)
     private Map<String, Object> schema(final Map<String, Object> spec, final String name) {
         final Map<String, Object> components = (Map<String, Object>) spec.get("components");
         final Map<String, Object> schemas = components == null ? null : (Map<String, Object>) components.get("schemas");
