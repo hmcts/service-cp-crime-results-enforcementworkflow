@@ -1,9 +1,19 @@
 "Account No.":            { path: accountNumber,        type: string,  default: "ACC0001" }
 "Total Balance":          { path: accountBalance,       type: number,  default: 1250.00 }
-"Balance Outstanding":    { path: offences.accountTotal, type: number, default: 875.50 }
-"Amount Paid or Cancelled": { path: offences.accountPaid, type: number, default: 375.00 }
+# `baseline: true` means "this path is schema-required", full stop — not "this entry was added
+# for Task 8" and not "no result code posts this". These next three are schema-required (Offices
+# requires accountTotal/accountPaid; Imposition requires amountImposed) but ALSO carry a normal
+# CIMD-4372 field label used by some result codes' own field lists — a label being posted by some
+# codes and being schema-required are independent facts, and both of the three below happen to be
+# true. NowsDataItemsAssembler.mergeBaselineGaps() reads this flag to fill a schema-required gap
+# left by a posted code's PARTIAL contribution to an entity, regardless of why the row exists.
+"Balance Outstanding":    { path: offences.accountTotal, type: number, default: 875.50, baseline: true }
+"Amount Paid or Cancelled": { path: offences.accountPaid, type: number, default: 375.00, baseline: true }
 "Amount Imposed":
-  { path: "offences.offence[0].impositions.imposition[0].amountImposed", type: number, default: 1250.00 }
+  {
+    path: "offences.offence[0].impositions.imposition[0].amountImposed",
+    type: number, default: 1250.00, baseline: true
+  }
 "Imposition type":
   { path: "offences.offence[0].impositions.imposition[0].impositionType", type: string, default: "Fine" }
 "Date Imposed":           { path: accountDateImposed,   type: string,  default: "15 Jan 2026" }
@@ -43,21 +53,23 @@
 "Reason for decision":    { unmapped: true, reason: "accountNotes are free text, not a decision reason" }
 "[Directions]":           { unmapped: true, reason: "no property in v0.3.0; optional in the CIMD-4372 table" }
 
-# Baseline entity defaults — belong to no result-code row (CIMD-4372 has no table entry for
-# them), and each is flagged `baseline: true` (Task 8, ruling 1). defaultFor() unions every
-# non-unmapped field-paths.yaml entry whose root property matches a requested-but-otherwise-
-# untouched entity, so an entity with a schema `required` block never comes back as an empty
-# object failing that block. NowsDataItemsAssembler ALSO merges baseline-flagged rows only (never
-# the full defaultFor union) into an entity a posted code left only PARTIALLY populated, filling
-# just the fields that code's own contribution is missing — existing values always win, and
-# non-required fields are deliberately never merge-filled this way, so a code's own contribution
-# stays observable. Verified against v0.4.0 directly (not copied from anywhere): Defendant
-# requires only defName; Offence requires dateImposed/offenceCode/offenceTitle/impositions/
-# offenceTotal; Imposition requires amountImposed/amountPaid/impositionBalance (amountImposed
-# already covered by "Amount Imposed" above); CtBankDetails requires both ct_account_number and
-# ct_sort_code. PaymentHistory and TransactionHistory declare no required properties at all (the
-# `payment`/`transaction` arrays are not themselves required), so `{}` already validates and
-# neither needs an entry here.
+# Baseline entity defaults (Task 8, ruling 1). These nine have no CIMD-4372 result-code row of
+# their own (unlike "Balance Outstanding"/"Amount Paid or Cancelled"/"Amount Imposed" above, which
+# DO have rows but are ALSO schema-required — see the comment above them for what `baseline: true`
+# actually means: schema-required, full stop, regardless of whether the label happens to be posted
+# by some result code too). defaultFor() unions every non-unmapped field-paths.yaml entry whose
+# root property matches a requested-but-otherwise-untouched entity, so an entity with a schema
+# `required` block never comes back as an empty object failing that block. NowsDataItemsAssembler
+# ALSO merges baseline-flagged rows only (never the full defaultFor union) into an entity a posted
+# code left only PARTIALLY populated, filling just the fields that code's own contribution is
+# missing — existing values always win, and non-required fields are deliberately never
+# merge-filled this way, so a code's own contribution stays observable. Verified against v0.4.0
+# directly (not copied from anywhere): Defendant requires only defName; Offence requires
+# dateImposed/offenceCode/offenceTitle/impositions/offenceTotal; Imposition requires
+# amountImposed/amountPaid/impositionBalance (amountImposed is the one above, covered by "Amount
+# Imposed"); CtBankDetails requires both ct_account_number and ct_sort_code. PaymentHistory and
+# TransactionHistory declare no required properties at all (the `payment`/`transaction` arrays are
+# not themselves required), so `{}` already validates and neither needs an entry here.
 "Defendant Name":
   { path: defendant.defName, type: string, default: "Simulated Defendant", baseline: true }
 "Offence Date Imposed":
