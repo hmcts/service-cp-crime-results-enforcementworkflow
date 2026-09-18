@@ -63,9 +63,11 @@ public class CatalogueLoader {
         // Finding I3: Map.copyOf(...) returns an immutable map whose iteration order is
         // randomised per JVM (ImmutableCollections' SALT32L). field-paths.yaml has rows that
         // target the same JSON path (see the "Clamping Contractor name" / "Process Server Name"
-        // comment in that file) so defaultFor()'s unconditional last-write-wins union depends on
-        // map iteration order; wrap the already-ordered LinkedHashMaps instead, so that order is
-        // the deterministic file order every time, on every JVM restart (AC8).
+        // comment in that file), so any consumer that walks fieldPaths() in bulk and writes
+        // last-write-wins (or would in the future) depends on map iteration order being stable.
+        // Wrap the already-ordered LinkedHashMaps instead, so that order is the deterministic
+        // file order every time, on every JVM restart (AC8) — see
+        // CatalogueLoaderTest#preserves_catalogue_file_order_deterministically_for_a_path_written_by_two_labels.
         final Catalogue catalogue = new Catalogue(
                 Collections.unmodifiableMap(entityNames),
                 Collections.unmodifiableMap(fieldPaths),

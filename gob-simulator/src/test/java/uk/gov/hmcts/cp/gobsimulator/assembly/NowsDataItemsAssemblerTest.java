@@ -41,24 +41,6 @@ class NowsDataItemsAssemblerTest {
                 .isNotNull();
     }
 
-    // Finding I3: "Clamping Contractor name" and "Process Server Name" both target
-    // warrantContactDetails.warrantContactDetailsLine1 in field-paths.yaml. When no posted code
-    // supplies either (as here), NowsDataItemsAssembler.defaultFor()'s catalogue-wide union
-    // resolves the collision by file order — CatalogueLoader now preserves that order
-    // deterministically instead of Map.copyOf()'s per-JVM-randomised order. This pins the
-    // resolved value so a reordering of field-paths.yaml (or a regression back to Map.copyOf)
-    // is caught rather than silently flipping between JVM restarts.
-    @Test
-    void pins_the_deterministic_default_for_a_path_written_by_two_field_labels() {
-        final NowsDataItems items = assembler.assemble(
-                "E999999999", List.of("FSN"), List.of("Warrant Contact Details"));
-
-        assertThat(items.warrantContactDetails().warrantContactDetailsLine1())
-                .as("field-paths.yaml deliberately places \"Clamping Contractor name\" last of the "
-                        + "two rows targeting warrantContactDetailsLine1, so it wins the default")
-                .isEqualTo("Clamping Contractor Ltd");
-    }
-
     @Test
     void unions_required_fields_across_several_posted_codes() {
         // Task 8, ruling 2: this test previously used ABDC (Balance Outstanding -> accountTotal)

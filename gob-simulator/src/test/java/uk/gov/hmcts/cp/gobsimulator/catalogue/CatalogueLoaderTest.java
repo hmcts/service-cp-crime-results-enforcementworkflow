@@ -66,4 +66,26 @@ class CatalogueLoaderTest {
         assertThatThrownBy(() -> properties.add("somethingElse"))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
+
+    // Finding I3: field-paths.yaml has two rows that deliberately target the same schema path
+    // (warrantContactDetails.warrantContactDetailsLine1) — see the comment above them in that
+    // file. Map.copyOf(...) (the previous implementation) returns a map whose iteration order is
+    // randomised per JVM, so which of the two a last-write-wins consumer sees last would flip
+    // between restarts. CatalogueLoader now wraps the already file-ordered LinkedHashMap instead,
+    // so fieldPaths() iterates in file order deterministically, every time — pinned here so a
+    // regression back to Map.copyOf(), or a reordering of the two rows in field-paths.yaml, is
+    // caught rather than silently reintroducing non-determinism.
+    @Test
+    void preserves_catalogue_file_order_deterministically_for_a_path_written_by_two_labels() {
+        final List<String> labelsTargetingLine1 = catalogue.fieldPaths().values().stream()
+                .filter(fieldPath -> !fieldPath.unmapped())
+                .filter(fieldPath -> "warrantContactDetails.warrantContactDetailsLine1".equals(fieldPath.path()))
+                .map(FieldPath::label)
+                .toList();
+
+        assertThat(labelsTargetingLine1)
+                .as("file order must be preserved, with \"Clamping Contractor name\" placed last "
+                        + "(deliberately, per the comment in field-paths.yaml)")
+                .containsExactly("Process Server Name", "Clamping Contractor name");
+    }
 }

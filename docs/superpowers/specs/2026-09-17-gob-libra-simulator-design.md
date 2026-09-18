@@ -448,3 +448,71 @@ assumed away; each has a stated interim behaviour so implementation is not block
 | AC6 — `correlationId` echo/omit, server `timestamp` | §7 response envelope |
 | AC7 — idempotency by key | §7 idempotency cache; OQ-6 on the undeclared header |
 | AC8 — deterministic defaults when unseeded | §8 |
+
+---
+
+## 15. Changes since the original spec
+
+This section is added, not rewritten in place, so the design history above stays intact. It
+records where the built system diverges from what §§1-14 describe, following the whole-branch
+review that found this document stale at the Stage 6 human gate.
+
+**Contract version.** The bundled contract is now
+`libra-gateway-hearing-events-v0.4.0.yml`, not v0.3.0. The upgrade (commit `6d3c85d`) changed
+only the `resultCode` enum (24 → 42 values); `NowsDataItems` and its nested schemas are
+byte-identical to v0.3.0, so §§4, 6.1, 6.2, 7, 10 remain accurate in substance — only the filename
+and enum-count figures below are stale. `CatalogueLoader.OPENAPI_SPEC_PATH` and
+`OpenApiConformance.SPEC_PATH` both point at the v0.4.0 file.
+
+**§6.4 Result-code coverage is materially wrong for v0.4.0** and should be read as follows
+instead: the bundled enum now has **42** `resultCode` values, not 24/21. Of those, **17** are
+`fields: []` gap rows in `result-codes.yaml` (no CIMD-4372 mapping — 15 are new-in-v0.4.0 codes
+awaiting a vendor mapping, 2 — `NOENF`/`WDN` — are old codes the CIMD-4372 table never covered),
+and **7** table rows are marked `postable: false` because they are absent from the v0.4.0 enum
+(down from the 10 §6.4 lists — v0.4.0 made `ACF`, `AEC`, `FIDIC`, `FIDICT`, `FTTP`, `PTNV`
+postable, resolving that part of OQ-3; the remaining `postable: false` rows are `WC`, `TFOUT`,
+`WWDN`, `CLAMPS`, `LATG`, `LATR`, `PGPAY` — see `result-codes.yaml` for the authoritative list).
+`AllResultCodesConformanceIT` posts and validates all 42 codes, not 21 — see §11 below.
+
+**§11 "post each of the 21 distinct result codes"** is stale for the same reason: the suite posts
+all **42** result codes in the bundled enum and asserts schema conformance for each
+(`AllResultCodesConformanceIT`), plus the entity-shrink invariant added in the whole-branch review
+(`NowsDataItemsAssemblerTest#posting_an_additional_fields_empty_code_never_shrinks_an_entity`).
+
+**§12 OQ-3 is partly resolved.** v0.4.0 made `ACF`, `AEC`, `FIDIC`, `FIDICT`, `FTTP`, and `PTNV`
+postable (they moved out of the `postable: false` set into normal mapped/gap rows). The remaining
+`postable: false` rows are asserted unreachable by `CatalogueCoverageTest`, unchanged in spirit
+from the original design.
+
+**§13 Artefacts table.** ADR-002 was renamed from `002-v030-schema-over-jira-examples.md` to
+`docs/pipeline/adrs/002-contract-over-ticket-examples.md` when it stopped being v0.3.0-specific.
+A third ADR was added and is not listed in §13: `docs/pipeline/adrs/003-jackson-generations.md`,
+recording why Jackson 2 (catalogue loading, response-tree assembly) and Jackson 3 (Spring Boot 4.1's
+HTTP message conversion) deliberately coexist in this module, and the two behavioural gaps that
+forced `@JsonIgnoreProperties`/`additionalProperties: false` to be enforced by hand rather than
+relying on the annotation Jackson 3's record deserialiser does not honour.
+
+**§6.5 bullet 2 overstates what happens at startup.** It reads as though every field-path is
+resolved against the live filesystem/seed data at startup; in the built system, startup validation
+checks each `field-paths.yaml` path's **root property** against the OpenAPI schema's declared
+`NowsDataItems` properties (`CatalogueLoader.validate()`) — it does not walk the full nested path,
+and it does not touch `SeedStore` or `GOB_SIMULATOR_SEED_DIR` at all. A path whose root is valid
+but whose nested structure is wrong (e.g. a typo'd leaf property) is caught later, not at startup:
+either by `NowsDataItemsAssembler`'s conversion to the typed `NowsDataItems` record (Jackson
+rejects an undeclared property), exercised by the integration test suite, or — for `SeedStore`'s
+own `GOB_SIMULATOR_SEED_DIR` handling specifically — only by the tests added under Finding I7 of
+the whole-branch review (see `SeedStoreTest`); there is no startup-time check that the environment
+variable, if set, actually points at a readable directory.
+
+**Also added since this spec, not described above:**
+- `IdempotencyCache` binds a cached response to the *request* as well as the key (a same-key,
+  different-body request is a cache miss, never a cross-case replay) — a safe strengthening of
+  AC7, not a contract change. See the `IdempotencyCache` javadoc and `IdempotencyCacheTest`.
+- `GlobalExceptionHandler` maps framework `NoResourceFoundException` (404),
+  `HttpRequestMethodNotSupportedException` (405), and `HttpMediaTypeNotSupportedException` (415)
+  to contract-shaped `ErrorResponse` bodies at their real status codes, rather than letting the
+  broad `Exception.class` catch-all turn them into 500s.
+- `field-paths.yaml` documents an explicit, deliberate tie-break where two rows target the same
+  JSON path (`warrantContactDetails.warrantContactDetailsLine1`), and `CatalogueLoader` preserves
+  catalogue file order deterministically (not `Map.copyOf`'s per-JVM-randomised order) so that
+  tie-break is stable across restarts.
