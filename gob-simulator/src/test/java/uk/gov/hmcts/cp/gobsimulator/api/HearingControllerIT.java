@@ -40,10 +40,14 @@ class HearingControllerIT {
 
     @Test
     void rejects_a_confirmation_missing_the_mandatory_court_location() throws Exception {
+        // courtHearingLocation is present (satisfying the schema's required-property-key check)
+        // but blank, so the request itself stays contract-valid and conformsToSpec() is checking
+        // only what it should here: that the 400 error BODY is contract-valid too. The blank
+        // value still trips @NotBlank, which is the rejection this test exists to cover.
         mockMvc.perform(post("/hearing")
                         .contentType(APPLICATION_JSON)
                         .content("""
-                                { "caseUrn": "E011122334" }
+                                { "caseUrn": "E011122334", "courtHearingLocation": "" }
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(conformsToSpec());

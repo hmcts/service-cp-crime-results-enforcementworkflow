@@ -144,24 +144,32 @@ class HearingResultControllerIT {
         assertThat(body).doesNotContain("enforcerCode");
     }
 
+    // NOTE: no conformsToSpec() here — the request is deliberately invalid against the contract
+    // (additionalProperties: false), so the harness would fail on the REQUEST side regardless of
+    // how well-shaped the error response is. That is true of both this test and the one below;
+    // conformsToSpec() only usefully checks an error BODY when the fixture that trips the
+    // rejection can itself stay schema-valid (see the fix to
+    // HearingControllerIT.rejects_a_confirmation_missing_the_mandatory_court_location).
     @Test
     void rejects_a_request_carrying_a_property_the_contract_does_not_declare() throws Exception {
         mockMvc.perform(post("/hearing/result")
                         .contentType(APPLICATION_JSON)
                         .content(SC_REQUEST.replace("\"caseUrn\":", "\"unexpectedField\": 1, \"caseUrn\":")))
                 .andExpect(status().isBadRequest())
-                .andExpect(conformsToSpec());
+                .andExpect(jsonPath("$.errorCode").isNotEmpty())
+                .andExpect(jsonPath("$.errorDescription").isNotEmpty());
     }
 
     // Correction 3: an unknown NowsDataItemName must be a 400 (client mistake), not the 500 that
-    // Catalogue.propertiesFor() would otherwise surface, and the error body itself must be
-    // contract-valid (Correction 2).
+    // Catalogue.propertiesFor() would otherwise surface. (No conformsToSpec() — see the note
+    // above; an out-of-enum name is itself a request-side schema violation.)
     @Test
     void rejects_a_request_naming_an_unknown_nows_data_item() throws Exception {
         mockMvc.perform(post("/hearing/result")
                         .contentType(APPLICATION_JSON)
                         .content(SC_REQUEST.replace("\"Account Balance\"", "\"Not A Real Entity\"")))
                 .andExpect(status().isBadRequest())
-                .andExpect(conformsToSpec());
+                .andExpect(jsonPath("$.errorCode").isNotEmpty())
+                .andExpect(jsonPath("$.errorDescription").value("Unknown NowsDataItemName: Not A Real Entity"));
     }
 }
