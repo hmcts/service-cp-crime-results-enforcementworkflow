@@ -43,13 +43,18 @@ class NowsDataItemsAssemblerTest {
 
     @Test
     void unions_required_fields_across_several_posted_codes() {
-        // SC contributes Payment Terms and Due Date to terms; AEO adds Instalment Amount.
+        // Both codes write into the same "offences" entity, so whichever is posted alone still
+        // populates that entity — the AC2 default-fill in assemble() only fires when an entity is
+        // entirely untouched, so it cannot paper over a missing sub-field here (unlike a bare
+        // top-level scalar, where the default-fill would mask a dropped contribution). ABDC alone
+        // supplies Balance Outstanding (accountTotal) but not Amount Paid or Cancelled
+        // (accountPaid); CW alone supplies accountPaid but not accountTotal. Only the union of
+        // both codes leaves neither sub-field null.
         final NowsDataItems items = assembler.assemble(
-                "E999999999", List.of("SC", "AEO"), List.of("Account Terms to Pay"));
+                "E999999999", List.of("ABDC", "CW"), List.of("Account Offences and Penalties"));
 
-        assertThat(items.terms().english_due()).isNotNull();
-        assertThat(items.terms().english_firstDate()).isNotNull();
-        assertThat(items.terms().english_instalment()).isNotNull();
+        assertThat(items.offences().accountTotal()).isNotNull();
+        assertThat(items.offences().accountPaid()).isNotNull();
     }
 
     @Test

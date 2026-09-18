@@ -58,8 +58,9 @@ public class NowsDataItemsAssembler {
     }
 
     /**
-     * Minimal content for a requested entity no posted code contributed to: the first catalogue
-     * default that writes into it, so schema-required fields are satisfied.
+     * Minimal content for a requested entity no posted code contributed to: the catalogue
+     * defaults that write into it, unioned into one branch, so schema-required fields are
+     * satisfied.
      */
     private Object defaultFor(final String caseUrn, final String rootProperty) {
         final Map<String, Object> branch = new LinkedHashMap<>();
