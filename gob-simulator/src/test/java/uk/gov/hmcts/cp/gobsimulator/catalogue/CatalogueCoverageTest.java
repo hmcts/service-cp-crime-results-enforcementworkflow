@@ -16,8 +16,20 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>"In the schema resultCode enum" and "postable" are meant to be the same set: a code CP can
  * actually send is postable, and a code marked postable: false is asserting that CP cannot send
- * it. That equivalence is checked in both directions below, each as its own test so either half
- * can fail independently for a real defect.
+ * it. That is a biconditional — E(c) &lt;=&gt; P(c) — and catching a regression in it requires
+ * asserting both of its two independent directions, not the same implication and its
+ * contrapositive relabelled:
+ *
+ * <ul>
+ *   <li>{@link #every_schema_result_code_is_marked_postable()} asserts E(c) =&gt; P(c): a code in
+ *       the enum must be postable.
+ *   <li>{@link #every_catalogue_code_absent_from_the_schema_enum_is_marked_not_postable()}
+ *       asserts &not;E(c) =&gt; &not;P(c): a code absent from the enum must be marked
+ *       postable: false. This is the direction that actually catches a code the vendor stopped
+ *       accepting (like WC/TFOUT/WWDN in v0.4.0) being left postable by omission — asserting
+ *       &not;P(c) =&gt; &not;E(c) instead (the contrapositive of the first bullet, not a second
+ *       direction) would not.
+ * </ul>
  */
 class CatalogueCoverageTest {
 
@@ -46,17 +58,18 @@ class CatalogueCoverageTest {
     }
 
     @Test
-    void every_code_marked_not_postable_is_absent_from_the_schema_enum() {
-        final Set<String> notPostable = catalogue.allCodes().stream()
-                .filter(code -> !catalogue.isPostable(code))
+    void every_catalogue_code_absent_from_the_schema_enum_is_marked_not_postable() {
+        final Set<String> absentFromSchema = catalogue.allCodes().stream()
+                .filter(code -> !schemaResultCodes.contains(code))
                 .collect(Collectors.toSet());
 
-        assertThat(notPostable).as("sanity: at least one catalogue row must be postable: false").isNotEmpty();
+        assertThat(absentFromSchema).as("sanity: at least one catalogue row must be absent from the schema enum")
+                .isNotEmpty();
 
-        for (final String code : notPostable) {
-            assertThat(schemaResultCodes)
-                    .as("%s is marked postable: false and must not be in the schema resultCode enum", code)
-                    .doesNotContain(code);
+        for (final String code : absentFromSchema) {
+            assertThat(catalogue.isPostable(code))
+                    .as("%s is absent from the schema resultCode enum and must be marked postable: false", code)
+                    .isFalse();
         }
     }
 
