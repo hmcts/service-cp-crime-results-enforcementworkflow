@@ -18,14 +18,19 @@ import jakarta.validation.constraints.NotNull;
  * makes against {@link uk.gov.hmcts.cp.gobsimulator.catalogue.Catalogue}, the single source of
  * truth for that enumeration.
  *
- * <p>{@code results} and {@code nowsDataRequest} carry {@code @Valid} so their nested constraints
- * ({@code HearingResult.resultCode}'s {@code @NotBlank}, {@code NowsDataRequest.nowsDataItems}'s
- * {@code @NotEmpty}, and — one level deeper, so {@code NowsDataRequest.nowsDataItems} itself also
- * carries {@code @Valid} — {@code NowsDataItemRequest.name}'s {@code @NotBlank}) actually cascade.
- * Jakarta Bean Validation never cascades into a nested type without {@code @Valid} on the
- * containing field; without it these three constraints are silently dead, and a malformed
- * {@code results}/{@code nowsDataRequest} entry reaches the assembler and surfaces as a 500
- * instead of the 400 the contract expects for a client input mistake.
+ * <p>{@code results} and {@code nowsDataRequest} carry cascading validation so their nested
+ * constraints ({@code HearingResult.resultCode}'s {@code @NotBlank}, {@code
+ * NowsDataRequest.nowsDataItems}'s {@code @NotEmpty}, and — one level deeper, so {@code
+ * NowsDataRequest.nowsDataItems} cascades too — {@code NowsDataItemRequest.name}'s {@code
+ * @NotBlank}) actually run. Jakarta Bean Validation never cascades into a nested type without
+ * {@code @Valid} somewhere on the path to it; without it these three constraints are silently
+ * dead, and a malformed {@code results}/{@code nowsDataRequest} entry reaches the assembler and
+ * surfaces as a 500 instead of the 400 the contract expects for a client input mistake. For the
+ * two {@code List} fields, {@code @Valid} is placed on the type argument
+ * ({@code List<@Valid X>}) rather than the container, per Jakarta Validation's own container-
+ * element-constraint style (annotating the container directly still works but is deprecated and
+ * logs an HV000271 warning on every startup — undesirable given mandatory JSON logging to
+ * stdout).
  */
 @JsonIgnoreProperties(ignoreUnknown = false)
 public record HearingResultedRequest(
@@ -37,7 +42,7 @@ public record HearingResultedRequest(
         Map<String, Object> parentGuardianDetails,
         @NotNull Map<String, Object> paymentTerms,
         @NotNull Map<String, Object> enforcement,
-        @Valid @NotEmpty List<HearingResult> results,
+        @NotEmpty List<@Valid HearingResult> results,
         @Valid @NotNull NowsDataRequest nowsDataRequest) {
 
     @JsonIgnoreProperties(ignoreUnknown = false)
@@ -45,7 +50,7 @@ public record HearingResultedRequest(
     }
 
     @JsonIgnoreProperties(ignoreUnknown = false)
-    public record NowsDataRequest(@Valid @NotEmpty List<NowsDataItemRequest> nowsDataItems) {
+    public record NowsDataRequest(@NotEmpty List<@Valid NowsDataItemRequest> nowsDataItems) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = false)
