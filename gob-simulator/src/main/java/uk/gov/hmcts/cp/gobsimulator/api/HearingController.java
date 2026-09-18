@@ -55,11 +55,11 @@ public class HearingController {
 
         validateRequestedNames(request);
 
-        final Optional<HearingResultedResponse> cached = idempotencyCache.get(idempotencyKey);
+        final Optional<HearingResultedResponse> cached = idempotencyCache.get(idempotencyKey, request);
         final HearingResultedResponse response = cached.orElseGet(() -> buildResponse(request, correlationId));
 
         if (cached.isEmpty()) {
-            idempotencyCache.put(idempotencyKey, response);
+            idempotencyCache.put(idempotencyKey, request, response);
             log.info("Hearing result processed: caseUrn={}, idempotencyKey={}",
                     request.caseUrn(), idempotencyKey);
         } else {

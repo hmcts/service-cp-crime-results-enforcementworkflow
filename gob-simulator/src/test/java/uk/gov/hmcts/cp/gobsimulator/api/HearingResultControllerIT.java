@@ -114,6 +114,30 @@ class HearingResultControllerIT {
                 .andExpect(content().json(first, true));
     }
 
+    // Finding 2: the same idempotency key reused across two different cases must never replay
+    // the first case's response for the second — that would send someone chasing a phantom data
+    // bug in CP. The cache is bound to the request body (not just the key), so a same-key request
+    // with a different caseUrn is a miss, and the second response must reflect the SECOND request.
+    @Test
+    void does_not_replay_another_cases_response_for_a_reused_idempotency_key() throws Exception {
+        final String otherCaseUrn = "E098765432";
+        final String otherCaseRequest = SC_REQUEST.replace("E012345678", otherCaseUrn);
+
+        mockMvc.perform(post("/hearing/result")
+                        .contentType(APPLICATION_JSON)
+                        .header("X-Idempotency-Key", "shared-key")
+                        .content(SC_REQUEST))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.caseUrn").value("E012345678"));
+
+        mockMvc.perform(post("/hearing/result")
+                        .contentType(APPLICATION_JSON)
+                        .header("X-Idempotency-Key", "shared-key")
+                        .content(otherCaseRequest))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.caseUrn").value(otherCaseUrn));
+    }
+
     @Test
     void issues_a_fresh_timestamp_for_a_different_idempotency_key() throws Exception {
         final String first = mockMvc.perform(post("/hearing/result")
@@ -171,5 +195,37 @@ class HearingResultControllerIT {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").isNotEmpty())
                 .andExpect(jsonPath("$.errorDescription").value("Unknown NowsDataItemName: Not A Real Entity"));
+    }
+
+    // Finding 1: without @Valid cascading onto nowsDataRequest (and, one level deeper, onto its
+    // own nowsDataItems list), NowsDataRequest.nowsDataItems's @NotEmpty is dead, and an empty
+    // list would reach the assembler with no requested entities. An empty list also violates the
+    // schema's minItems: 1, so this is itself a request-side violation — no conformsToSpec().
+    @Test
+    void rejects_a_request_with_no_nows_data_items_requested() throws Exception {
+        mockMvc.perform(post("/hearing/result")
+                        .contentType(APPLICATION_JSON)
+                        .content(SC_REQUEST.replace(
+                                "\"nowsDataItems\": [ { \"name\": \"Account Balance\" }, { \"name\": \"Account Number\" } ]",
+                                "\"nowsDataItems\": []")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").isNotEmpty())
+                .andExpect(jsonPath("$.errorDescription").isNotEmpty());
+    }
+
+    // Finding 1: without @Valid cascading onto results, HearingResult.resultCode's @NotBlank is
+    // dead, and a null resultCode would reach Catalogue.fieldsFor(null) and surface as a 500
+    // instead of the 400 a malformed client payload should produce. resultCode is also required
+    // by the schema, so this is itself a request-side violation too — no conformsToSpec().
+    @Test
+    void rejects_a_hearing_result_missing_its_result_code() throws Exception {
+        mockMvc.perform(post("/hearing/result")
+                        .contentType(APPLICATION_JSON)
+                        .content(SC_REQUEST.replace(
+                                "\"results\": [ { \"resultCode\": \"SC\" } ]",
+                                "\"results\": [ {} ]")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").isNotEmpty())
+                .andExpect(jsonPath("$.errorDescription").isNotEmpty());
     }
 }
