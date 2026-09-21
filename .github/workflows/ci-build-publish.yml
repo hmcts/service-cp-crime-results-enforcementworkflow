@@ -10,6 +10,10 @@ on:
       HMCTS_ADO_PAT:
         required: true
     inputs:
+      environment:
+        required: true
+        type: string
+        default: dev
       is_release:
         required: false
         type: boolean
@@ -28,17 +32,19 @@ on:
 jobs:
   Artefact-Version:
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
     outputs:
       artefact_version: ${{ steps.version.outputs.artefact_version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
       - name: Generate Artefact Version
         id: artefact
-        uses: hmcts/artefact-version-action@v1
+        uses: hmcts/artefact-version-action@43882bf28ee97522e5547cc5e621b2f9e7521b44 # v1
         with:
           release: ${{ inputs.is_release }}
         env:
@@ -73,25 +79,32 @@ jobs:
   Build:
     needs: [Artefact-Version]
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
     outputs:
       repo_name: ${{ steps.repo_vars.outputs.repo_name }}
       artefact_name: ${{ steps.repo_vars.outputs.artefact_name }}
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
           distribution: 'temurin'
           java-version: '25'
 
-      - name: Gradle Build
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+        with:
+          gradle-version: current
+
+      - name: Gradle Assemble
         env:
           ARTEFACT_VERSION: ${{ needs.Artefact-Version.outputs.artefact_version }}
         run: |
-          echo "Building with ARTEFACT_VERSION=$ARTEFACT_VERSION"
-          ./gradlew build -DARTEFACT_VERSION=$ARTEFACT_VERSION
+          echo "Assembling JAR with ARTEFACT_VERSION=$ARTEFACT_VERSION"
+          ./gradlew assemble -DARTEFACT_VERSION=$ARTEFACT_VERSION
 
       - name: Extract repo name
         id: repo_vars
@@ -101,26 +114,65 @@ jobs:
           echo "artefact_name=${repo_name}-${{ needs.Artefact-Version.outputs.artefact_version }}" >> $GITHUB_OUTPUT
 
       - name: Upload JAR Artefact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: app-jar
           path: build/libs/${{ steps.repo_vars.outputs.artefact_name }}.jar
 
-  Provider-Deploy:
-    needs: [ Artefact-Version, Build ]
+  # Runs in parallel with Build. `check` here resolves to the unit and integration tests
+  # only: pmdMain is skipped by an onlyIf guard, pmdTest is disabled, and this repo applies
+  # neither checkstyle nor a jacoco coverage gate. Widen this step's name if that changes.
+  Test:
+    needs: [ Artefact-Version ]
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
           distribution: 'temurin'
           java-version: '25'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+        with:
+          gradle-version: current
+
+      - name: Gradle Check (unit and integration tests)
+        env:
+          ARTEFACT_VERSION: ${{ needs.Artefact-Version.outputs.artefact_version }}
+        run: |
+          echo "Running checks with ARTEFACT_VERSION=$ARTEFACT_VERSION"
+          ./gradlew check jacocoTestReport -DARTEFACT_VERSION=$ARTEFACT_VERSION
+
+      - name: Upload unit and integration test reports
+        if: always()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          artifact_name: unit-integration-test-reports
+          path: |
+            build/reports/tests/test/
+            build/test-results/test/
+
+  Provider-Deploy:
+    needs: [ Artefact-Version, Build, Test ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
         with:
           gradle-version: current
 
@@ -132,7 +184,7 @@ jobs:
           AZURE_DEVOPS_ARTIFACT_USERNAME: ${{ secrets.AZURE_DEVOPS_ARTIFACT_USERNAME }}
           AZURE_DEVOPS_ARTIFACT_TOKEN: ${{ secrets.AZURE_DEVOPS_ARTIFACT_TOKEN }}
         run: |
-          if [ -z "AZURE_DEVOPS_ARTIFACT_USERNAME" ]; then
+          if [ -z "$AZURE_DEVOPS_ARTIFACT_USERNAME" ]; then
             echo "::warning::AZURE_DEVOPS_ARTIFACT_USERNAME is null or not set"
           fi
 
@@ -141,7 +193,7 @@ jobs:
           fi
 
           echo "Publishing artefact for version: $ARTEFACT_VERSION"
-          
+
           ./gradlew publish \
             -DARTEFACT_VERSION=$ARTEFACT_VERSION \
             -DGITHUB_REPOSITORY=${{ github.repository }} \
@@ -156,55 +208,71 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Download JAR Artefact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: app-jar
           path: build/libs
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
 
       - name: Log in to GitHub Packages
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Docker Image to GitHub
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           file: Dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ needs.Artefact-Version.outputs.artefact_version }}
+          # Stands in for the base ADO actually deploys from,
+          # crmdvrepo01.azurecr.io/hmcts/apm-services:25-jre, which is Ubuntu 24.04 and a JRE.
+          # That registry is private (RFC1918), so a GitHub-hosted runner cannot pull it and this
+          # job has to build on the public equivalent. Matching its OS release and its JRE-ness is
+          # what makes the Trivy scan below say anything about the artefact that ships: a JDK on
+          # Ubuntu 26.04 carries a pebble binary that nothing we deploy contains, so a scan of it
+          # reports advisories against an image no environment ever runs. What this still cannot
+          # reproduce is the ACR image's own patch level. Pinned to the multi-arch index digest,
+          # not a platform-specific one.
           build-args: |
-            BASE_IMAGE=eclipse-temurin:25
+            BASE_IMAGE=eclipse-temurin:25-jre-noble@sha256:b4c93a50fc67612798db73d68ca3b0ee4ebdd51736e59cca370e689b9797037e
             JAR_FILENAME=${{ needs.Build.outputs.artefact_name }}.jar
 
       - name: Run Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ghcr.io/${{ github.repository }}:${{ needs.Artefact-Version.outputs.artefact_version }}
           format: 'table'
+          # Report-only for now. This job has never actually executed in this repo: it only runs
+          # on a push to main, and Dependabot's auto-merge pushes with GITHUB_TOKEN, which does
+          # not trigger push workflows. So there is no measured finding count to enforce against
+          # yet. The sibling results-validator enforces exit-code '1', and did so only after
+          # pinning this same base image and moving tomcat-embed-core off three CRITICAL
+          # advisories. Read the table from the first real run here, bump tomcat-embed-core (this
+          # repo is on 11.0.23, the validator is on 11.0.25), then flip this to '1'.
           exit-code: '0'
           ignore-unfixed: true
           severity: 'HIGH,CRITICAL'
 
   Deploy:
-    needs: [ Provider-Deploy, Build, Artefact-Version ]
-    if: ${{ inputs.trigger_deploy }}
+    needs: [ Provider-Deploy, Build, Artefact-Version, Build-Docker ]
+    if: ${{ inputs.trigger_deploy && (needs.Build-Docker.result == 'success' || needs.Build-Docker.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - name: Extract repo name
         run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
       - name: Trigger ADO pipeline
-        uses: hmcts/trigger-ado-pipeline@v2
+        uses: hmcts/trigger-ado-pipeline@5ded370558d366e7de23d69956a76e012220435d # v2
         with:
           pipeline_id: 460
           ado_pat: ${{ secrets.HMCTS_ADO_PAT }}
