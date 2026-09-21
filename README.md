@@ -64,13 +64,19 @@ gradle pmdTest
 
 GitHub Actions workflows live in `.github/workflows`:
 
-- `ci-draft.yml` — build/verify on PRs and branch pushes.
+- `ci-draft.yml` — build/verify on PRs and pushes to `main` and `team/**`.
 - `ci-released.yml` — on a **published GitHub Release** (`release: [published]`), publishes the
   artefact and triggers the Docker build/deploy via `ci-build-publish.yml` (with a Trivy image scan
   and a release-notes appender that records the published image coordinates).
 - `code-analysis.yml`, `codeql.yml`, `secrets-scanner.yml`, `auto-merge-dependabot.yml`.
 
-`main` and `team/*` branches are protected and require at least one approving review.
+`ci-build-publish.yml` is the shared reusable workflow both entry points call. `Build` assembles
+the JAR and `Test` runs `gradle check` alongside it; publishing, the container build and the ADO
+deploy all wait on both.
+
+`main` and `team/**` branches are protected: at least one approving review, plus `ci-draft / Build`
+and `ci-draft / Test` must pass before a merge. Repository admins bypass both, which is the HMCTS
+default across these repos.
 
 ## Contributing
 
