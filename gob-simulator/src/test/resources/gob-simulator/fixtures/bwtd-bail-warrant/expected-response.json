@@ -1,0 +1,43 @@
+{
+  "caseUrn": "E014455667",
+  "timestamp": "2026-09-17T10:30:00Z",
+  "correlationId": "d4e5f6a7-4444-5555-6666-777788889999",
+  "nowsDataItems": {
+    "defendant": {
+      "defName": "Karl Nowak",
+      "DoB": "30 Jun 1972",
+      "nationalInsuranceNumber": "KN338874D",
+      "homeTelNo": "01159472234",
+      "mobileTelNo": "07700900445",
+      "defAddress": {
+        "defAddressLine1": "65 Alfreton Road",
+        "defAddressLine2": "",
+        "defAddressLine3": "Nottingham",
+        "defPostcode": "NG7 3JR"
+      },
+      "accountNotes": {
+        "accountNote1": "FTA 03 Sep 2026 - bail warrant dated to 08 Oct 2026",
+        "accountNote2": "",
+        "accountNote3": ""
+      },
+      "imposingCourt": {
+        "ljaCode": 903,
+        "courtName": "Nottingham Magistrates' Court"
+      },
+      "daysInDefault": 42
+    },
+    "accountNumber": "5588554477",
+    "accountWarrantNumber": "909/26/44821",
+    "warrantContactDetails": {
+      "warrantContactDetailsLine1": "Marston Group",
+      "warrantContactDetailsLine2": "Marston House",
+      "warrantContactDetailsLine3": "Rooksley",
+      "warrantContactDetailsLine4": "Milton Keynes",
+      "warrantContactDetailsLine5": "MK13 8HF"
+    },
+    "daysBeforeReleaseWarrant": 21,
+    "accountBalance": 820,
+    "accountBailAmount": 150,
+    "accountDateImposed": "11 May 2026"
+  }
+}

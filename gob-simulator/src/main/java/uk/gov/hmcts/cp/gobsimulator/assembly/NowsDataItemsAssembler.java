@@ -7,11 +7,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
 
 import uk.gov.hmcts.cp.gobsimulator.api.model.NowsDataItems;
 import uk.gov.hmcts.cp.gobsimulator.catalogue.Catalogue;
+import uk.gov.hmcts.cp.gobsimulator.seed.SeedStore;
 import uk.gov.hmcts.cp.gobsimulator.seed.ValueResolver;
 
 /**
@@ -25,19 +27,35 @@ public class NowsDataItemsAssembler {
 
     private final Catalogue catalogue;
     private final ValueResolver valueResolver;
+    private final SeedStore seedStore;
     private final ObjectMapper objectMapper;
 
     public NowsDataItemsAssembler(final Catalogue catalogue,
                                   final ValueResolver valueResolver,
+                                  final SeedStore seedStore,
                                   final ObjectMapper objectMapper) {
         this.catalogue = catalogue;
         this.valueResolver = valueResolver;
+        this.seedStore = seedStore;
         this.objectMapper = objectMapper;
     }
 
+    /** Assembles with no request-derived overrides — see the four-argument overload. */
     public NowsDataItems assemble(final String caseUrn,
                                   final List<String> resultCodes,
                                   final List<String> requestedNames) {
+        return assemble(caseUrn, resultCodes, requestedNames, Map.of());
+    }
+
+    /**
+     * @param requestOverrides overlay derived from the posted request (see
+     *     {@link DefendantDetailsOverlay}), keyed by NowsDataItems root property. Applied last and
+     *     wins outright: what the court posted beats what the simulator holds.
+     */
+    public NowsDataItems assemble(final String caseUrn,
+                                  final List<String> resultCodes,
+                                  final List<String> requestedNames,
+                                  final Map<String, Object> requestOverrides) {
 
         final Set<String> requestedRoots = new LinkedHashSet<>();
         requestedNames.forEach(name -> requestedRoots.addAll(catalogue.propertiesFor(name)));
@@ -60,7 +78,116 @@ public class NowsDataItemsAssembler {
         // row covers, never overwriting what the code itself contributed.
         requestedRoots.forEach(root -> mergeBaselineGaps(tree, caseUrn, root));
 
+        // The three passes above can only reach a path that field-paths.yaml declares a row for,
+        // so a seed could previously override a value but never contribute a field (the bundled
+        // seed's defAddress was silently dropped for exactly this reason), and could never supply
+        // a SECOND array element, because every catalogue row is pinned to index [0]. These two
+        // final passes fix both, in strict precedence order: seed over catalogue default, posted
+        // request over everything.
+        mergeSeed(tree, caseUrn, requestedRoots);
+        mergeOverrides(tree, requestedRoots, requestOverrides);
+
         return objectMapper.convertValue(tree, NowsDataItems.class);
+    }
+
+    /**
+     * Deep-merges the seed's own subtree for each requested root, filling GAPS ONLY.
+     *
+     * <p>Restricted to REQUESTED roots: a seed may legitimately hold more entities than this
+     * request asked for, and emitting one the caller did not request would break AC2 as surely as
+     * omitting one does.
+     *
+     * <p>Fill-the-gaps rather than overwrite, because overwriting would buy nothing and cost AC4.
+     * For any path a catalogue row covers, {@link ValueResolver} has ALREADY read this same seed
+     * and written the seeded value in the first pass — so the only thing an overwrite would change
+     * is the two-decimal money scale {@code ValueResolver} coerces to, replacing it with whatever
+     * scale the seed file happened to be authored at. AC4 requires amounts at two decimal places,
+     * so the coerced form must win. What this pass exists for is the paths the catalogue cannot
+     * reach at all.
+     */
+    private void mergeSeed(final Map<String, Object> tree, final String caseUrn, final Set<String> requestedRoots) {
+        seedStore.seedFor(caseUrn).ifPresent(seed -> requestedRoots.stream()
+                .filter(seed::hasNonNull)
+                .forEach(root -> tree.put(root, deepMerge(tree.get(root), toJava(seed.get(root)), false))));
+    }
+
+    /**
+     * Applies the request-derived overlay, also restricted to requested roots, overwriting what is
+     * already there — what the court just posted outranks both the seed and the catalogue default.
+     */
+    private void mergeOverrides(final Map<String, Object> tree,
+                                final Set<String> requestedRoots,
+                                final Map<String, Object> requestOverrides) {
+        requestOverrides.entrySet().stream()
+                .filter(entry -> requestedRoots.contains(entry.getKey()))
+                .forEach(entry -> tree.put(entry.getKey(),
+                        deepMerge(tree.get(entry.getKey()), entry.getValue(), true)));
+    }
+
+    /**
+     * Merges {@code incoming} onto {@code existing}, recursing through maps and lists.
+     *
+     * <p>{@code overwrite} decides only what happens at a LEAF: {@code true} lets {@code incoming}
+     * replace a value already present ({@link #mergeOverrides}), {@code false} keeps what is there
+     * and contributes only where nothing is ({@link #mergeSeed}) — the same put/putIfAbsent split
+     * {@link #write} already draws for catalogue-driven writes.
+     *
+     * <p>Maps merge key-wise, so a key only {@code existing} carries survives either way. Lists
+     * merge ELEMENT-wise and extend, which is the whole point: a seed supplying three impositions
+     * must add elements [1] and [2] alongside the [0] the catalogue built, not replace the list
+     * wholesale and lose what a posted result code contributed to [0].
+     */
+    @SuppressWarnings("unchecked")
+    private Object deepMerge(final Object existing, final Object incoming, final boolean overwrite) {
+        final Object merged;
+        if (existing instanceof Map && incoming instanceof Map) {
+            final Map<String, Object> target = (Map<String, Object>) existing;
+            ((Map<String, Object>) incoming)
+                    .forEach((key, value) -> target.put(key, deepMerge(target.get(key), value, overwrite)));
+            merged = target;
+        } else if (existing instanceof List && incoming instanceof List) {
+            final List<Object> target = (List<Object>) existing;
+            final List<Object> source = (List<Object>) incoming;
+            for (int i = 0; i < source.size(); i++) {
+                if (i < target.size()) {
+                    target.set(i, deepMerge(target.get(i), source.get(i), overwrite));
+                } else {
+                    target.add(source.get(i));
+                }
+            }
+            merged = target;
+        } else {
+            merged = overwrite || existing == null ? incoming : existing;
+        }
+        return merged;
+    }
+
+    /**
+     * Converts a seed node to the mutable Map/List tree the merge works on. Numbers become {@link
+     * java.math.BigDecimal} via {@code decimalValue()} — the same choice {@link ValueResolver}
+     * makes — so a money value keeps exactly the scale the seed file authored rather than picking
+     * up binary floating-point noise on the way through.
+     */
+    private Object toJava(final JsonNode node) {
+        final Object value;
+        if (node.isObject()) {
+            final Map<String, Object> branch = newBranch();
+            node.fieldNames().forEachRemaining(name -> branch.put(name, toJava(node.get(name))));
+            value = branch;
+        } else if (node.isArray()) {
+            final List<Object> list = newList();
+            node.forEach(child -> list.add(toJava(child)));
+            value = list;
+        } else if (node.isNumber()) {
+            value = node.decimalValue();
+        } else if (node.isBoolean()) {
+            value = node.booleanValue();
+        } else if (node.isNull()) {
+            value = null;
+        } else {
+            value = node.asText();
+        }
+        return value;
     }
 
     /**

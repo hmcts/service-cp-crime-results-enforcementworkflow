@@ -48,9 +48,14 @@ class ValueResolverTest {
                 .isEqualTo("ACC9001");
     }
 
+    // The datum moved (the bundled seed now carries a full offence set rather than a placeholder),
+    // but the property under test has not: a nested seeded path is read in preference to the
+    // catalogue default, and the value is coerced to the two decimal places AC4 requires — note
+    // the seed authors this as 360.00 and the default for this row is 875.50, so neither a missing
+    // seed read nor a missing coercion would produce this.
     @Test
     void reads_a_seeded_value_from_a_nested_path() {
         assertThat(resolver.resolve("E011122334", catalogue.fieldPath("Balance Outstanding")))
-                .isEqualTo(new BigDecimal("340.00"));
+                .isEqualTo(new BigDecimal("360.00"));
     }
 }

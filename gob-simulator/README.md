@@ -162,16 +162,73 @@ schema components declare no `required` block, so `{}` already validates for the
 2. `gob-simulator/seeds/<caseUrn>.json` on the classpath — bundled seeds, under
    `src/main/resources/gob-simulator/seeds/`.
 
-A seed file is a JSON object whose keys are dotted/indexed paths matching `field-paths.yaml`'s
-`path` values (e.g. `accountNumber`, `offences.accountTotal`,
-`offences.offence[0].impositions.imposition[0].amountImposed`), nested as an object tree rather
-than flat dotted keys — see `E011122334.json` for a worked example covering account, offence and
-defendant fields. Any field the seed doesn't cover falls back to its catalogue default. To add one:
+A seed file is a JSON object shaped like the `NowsDataItems` subtree it seeds — nested objects and
+arrays, not flat dotted keys — see `E011122334.json` for a worked example covering account, offence
+and defendant fields. Any field the seed doesn't cover falls back to its catalogue default. To add one:
 
 1. Create `src/main/resources/gob-simulator/seeds/<caseUrn>.json` (or drop it in the directory
    named by `GOB_SIMULATOR_SEED_DIR` for a non-bundled environment).
 2. Populate only the fields you need to control; everything else defaults.
 3. Post a hearing result with that `caseUrn` and check the response.
+
+**A seed is not limited to paths `field-paths.yaml` declares.** `NowsDataItemsAssembler.mergeSeed()`
+deep-merges the seed's own subtree for each requested entity after the catalogue passes have run, so
+a seed can contribute a field no result code posts (`defendant.imposingCourt`, `offence.caseNumber`)
+and — because every catalogue path is pinned to index `[0]` — additional array elements, such as a
+second and third `imposition`. Before this existed a seed could only ever override a value the
+catalogue already reached, and anything else in the file was silently dropped.
+
+**Write monetary values at two decimal places** (`220.00`, not `220`). AC4 requires amounts at two
+decimal places. `ValueResolver` coerces to that scale, but only for values it resolves from a
+catalogue row — an amount the seed alone contributes reaches the response exactly as authored.
+`SeedStore`'s `ObjectMapper` is configured (`USE_BIG_DECIMAL_FOR_FLOATS` plus
+`JsonNodeFactory.withExactBigDecimals(true)`) so the file's scale survives parsing, and
+`HearingResultFixturePairIT.returns_every_amount_at_two_decimal_places` fails the build if any
+amount reaches the wire at another scale. Integers (`ljaCode`, `daysInDefault`) are unaffected —
+write them without a decimal point.
+
+### Precedence: what wins when three sources disagree
+
+The assembler runs five passes over one tree, in this order:
+
+| # | Pass | Contributes |
+|---|---|---|
+| 1 | posted result codes | the field labels those codes declare, via `field-paths.yaml` |
+| 2 | `defaultFor` | a floor for a requested entity no posted code touched |
+| 3 | `mergeBaselineGaps` | schema-required gaps a code populated only partially |
+| 4 | `mergeSeed` | the seed's own subtree — **gaps only**, never overwriting 1–3 |
+| 5 | `mergeOverrides` | the posted `defendantDetails` — **overwrites** everything above |
+
+So: **posted request > seed > catalogue default.** Pass 4 fills gaps rather than overwriting because
+it would gain nothing by overwriting — `ValueResolver` has already read the same seed for every path
+a catalogue row covers — and would cost AC4 by replacing the coerced two-decimal scale with whatever
+the file was authored at.
+
+Pass 5 (`DefendantDetailsOverlay`) echoes the request: `forename`+`surname` → `defName`,
+`dateOfBirth` → `DoB` (reformatted to the contract's `dd MMM yyyy`), `nationalInsuranceNumber`,
+`homeTelephoneNumber` → `homeTelNo`, `workTelephoneNumber` → `businessTelNo`,
+`mobileTelephoneNumber` → `mobileTelNo`, `address1..3`+`postcode` → `defAddress.*`, and
+`prosecutorDefendantId` → `accountNumber`. A field the caller omits produces no overlay entry, so
+the seed still supplies it. `address4`/`address5` are dropped — `DefAddress` has no property for
+them. All passes are restricted to the entities the request actually asked for, so AC2 holds.
+
+> **Open against the ACs, for the BA:** `prosecutorDefendantId` → `accountNumber` follows the
+> ticket's own sample response, but AC8 names `ACC0001` as the unseeded default for Account No. and
+> AC4 declares Account No. as `A(7)` while a `prosecutorDefendantId` is longer. The bundled contract
+> puts no pattern on `accountNumber`, so both are schema-valid and `conformsToSpec()` cannot settle
+> it. Flagged, not silently resolved.
+
+### Recording a request/response pair as a test
+
+Every request/response pair CP cares about should be pinned. Create a directory under
+`src/test/resources/gob-simulator/fixtures/<name>/` containing `request.json` and
+`expected-response.json`. `HearingResultFixturePairIT` discovers it automatically — **no Java edit
+is needed to add a pair.** Each pair is posted at the real endpoint and compared strictly against
+the recorded body, with three deliberate rules: `timestamp` is excluded (it is `Instant.now()`, and
+nothing in the request supplies a time of day); numbers compare by value, so a recorded `340` matches
+an emitted `340.00`; and a `correlationId` in the recorded body is sent as the `X-Correlation-ID`
+header, keeping the fixture self-describing. Every pair is also checked against the bundled contract,
+so no fixture can record a response the schema forbids.
 
 ## How to change the catalogue
 

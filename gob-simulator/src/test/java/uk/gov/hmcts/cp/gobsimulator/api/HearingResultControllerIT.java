@@ -57,7 +57,15 @@ class HearingResultControllerIT {
                 .andExpect(jsonPath("$.caseUrn").value("E012345678"))
                 .andExpect(jsonPath("$.timestamp").isNotEmpty())
                 .andExpect(jsonPath("$.nowsDataItems.accountBalance").value(1250.00))
-                .andExpect(jsonPath("$.nowsDataItems.accountNumber").value("ACC0001"))
+                // accountNumber echoes the posted prosecutorDefendantId, NOT the catalogue default
+                // "ACC0001" this used to assert. That is the deliberate behaviour the ticket's own
+                // sample response requires, and it is still deterministic — prosecutorDefendantId is
+                // a required request property. It does, however, sit against two ACs and is flagged
+                // for the BA rather than quietly absorbed: AC8 names ACC0001 as the unseeded default
+                // for Account No., and AC4 declares Account No. as A(7) while a prosecutorDefendantId
+                // is longer. The bundled contract puts no pattern on accountNumber, so both values
+                // are schema-valid and conformsToSpec() cannot adjudicate this.
+                .andExpect(jsonPath("$.nowsDataItems.accountNumber").value("1234567890"))
                 .andExpect(conformsToSpec());
     }
 

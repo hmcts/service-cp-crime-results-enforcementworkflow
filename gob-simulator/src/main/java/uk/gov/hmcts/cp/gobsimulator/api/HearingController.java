@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import uk.gov.hmcts.cp.gobsimulator.api.model.HearingConfirmedRequest;
 import uk.gov.hmcts.cp.gobsimulator.api.model.HearingResultedRequest;
 import uk.gov.hmcts.cp.gobsimulator.api.model.HearingResultedResponse;
+import uk.gov.hmcts.cp.gobsimulator.assembly.DefendantDetailsOverlay;
 import uk.gov.hmcts.cp.gobsimulator.assembly.NowsDataItemsAssembler;
 import uk.gov.hmcts.cp.gobsimulator.catalogue.Catalogue;
 import uk.gov.hmcts.cp.gobsimulator.catalogue.CatalogueLoader;
@@ -30,6 +31,7 @@ import uk.gov.hmcts.cp.gobsimulator.idempotency.IdempotencyCache;
 public class HearingController {
 
     private final NowsDataItemsAssembler assembler;
+    private final DefendantDetailsOverlay defendantDetailsOverlay;
     private final IdempotencyCache idempotencyCache;
     private final Catalogue catalogue;
 
@@ -41,10 +43,12 @@ public class HearingController {
     private final Set<String> schemaResultCodes;
 
     public HearingController(final NowsDataItemsAssembler assembler,
+                              final DefendantDetailsOverlay defendantDetailsOverlay,
                               final IdempotencyCache idempotencyCache,
                               final Catalogue catalogue,
                               final CatalogueLoader catalogueLoader) {
         this.assembler = assembler;
+        this.defendantDetailsOverlay = defendantDetailsOverlay;
         this.idempotencyCache = idempotencyCache;
         this.catalogue = catalogue;
         this.schemaResultCodes = catalogueLoader.schemaResultCodes();
@@ -118,7 +122,8 @@ public class HearingController {
                 request.caseUrn(),
                 currentTimestamp(),
                 correlationId,
-                assembler.assemble(request.caseUrn(), resultCodes, requestedNames));
+                assembler.assemble(request.caseUrn(), resultCodes, requestedNames,
+                        defendantDetailsOverlay.from(request.defendantDetails())));
     }
 
     private static String currentTimestamp() {

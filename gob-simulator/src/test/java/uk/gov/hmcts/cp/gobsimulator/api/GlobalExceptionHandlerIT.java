@@ -49,7 +49,11 @@ class GlobalExceptionHandlerIT {
     @Test
     void returns_500_with_a_contract_shaped_body_and_no_leaked_internals_for_an_unexpected_failure()
             throws Exception {
-        when(assembler.assemble(anyString(), any(), any()))
+        // Stubs the FOUR-argument overload, which is the one HearingController calls (the
+        // three-argument one delegates to it). Stubbing the three-argument signature here would
+        // silently never match, the mock would return null instead of throwing, and this test
+        // would pass a 200 while believing it had exercised the catch-all handler.
+        when(assembler.assemble(anyString(), any(), any(), any()))
                 .thenThrow(new IllegalStateException(
                         "deliberately unexpected failure: uk.gov.hmcts.cp.gobsimulator.SomeInternalDetail"));
 

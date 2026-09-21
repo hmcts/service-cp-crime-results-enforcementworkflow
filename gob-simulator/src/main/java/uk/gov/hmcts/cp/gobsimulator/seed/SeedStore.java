@@ -7,8 +7,10 @@ import java.nio.file.Path;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -34,7 +36,24 @@ public class SeedStore {
     private static final Pattern CASE_URN = Pattern.compile("^[A-Za-z0-9-]{1,36}$");
     private static final String CLASSPATH_BASE = "gob-simulator/seeds/";
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    /**
+     * {@code USE_BIG_DECIMAL_FOR_FLOATS} makes the seed file the single source of truth for the
+     * scale of a monetary value. Without it Jackson parses {@code 220.00} into a {@code double},
+     * and the {@code .00} is gone before anything downstream can see it — an amount the catalogue
+     * has no row for (a second or third imposition, which is pinned to index [0] in
+     * field-paths.yaml and so unreachable by {@link ValueResolver}) would then reach the response
+     * as {@code 220.0} and break AC4's "amounts numeric with 2 decimal places". Integers are
+     * unaffected: a seeded {@code 903} has no decimal point, so it stays an integer and still
+     * satisfies the contract's {@code type: integer} properties.
+     *
+     * <p>{@code withExactBigDecimals(true)} is required alongside it and is not optional tidying:
+     * the default {@link JsonNodeFactory} calls {@code stripTrailingZeros()} on every BigDecimal
+     * it wraps, which turns a seeded {@code 220.00} straight back into {@code 220} and undoes the
+     * line above.
+     */
+    private final ObjectMapper mapper = new ObjectMapper()
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .setNodeFactory(JsonNodeFactory.withExactBigDecimals(true));
     private final String seedDir;
 
     public SeedStore(@Value("${gob.simulator.seed-dir:}") final String seedDir) {

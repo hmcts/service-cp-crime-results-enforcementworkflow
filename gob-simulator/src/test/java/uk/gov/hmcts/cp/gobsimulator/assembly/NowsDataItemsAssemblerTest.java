@@ -15,9 +15,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class NowsDataItemsAssemblerTest {
 
+    private static final SeedStore SEED_STORE = new SeedStore("");
+
     private final NowsDataItemsAssembler assembler = new NowsDataItemsAssembler(
             new CatalogueLoader().load(),
-            new ValueResolver(new SeedStore("")),
+            new ValueResolver(SEED_STORE),
+            SEED_STORE,
             new ObjectMapper());
 
     @Test

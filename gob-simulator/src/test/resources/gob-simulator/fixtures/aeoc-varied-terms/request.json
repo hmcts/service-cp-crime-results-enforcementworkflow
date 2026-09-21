@@ -1,0 +1,53 @@
+{
+  "caseUrn": "E013344556",
+  "dateOfHearing": "2026-09-17",
+  "courtHearingLocation": "L02LE01",
+  "defendantDetails": {
+    "prosecutorDefendantId": "5588443366",
+    "forename": "Priya",
+    "surname": "Patel",
+    "dateOfBirth": "1990-02-15",
+    "address1": "7 Belvoir Road",
+    "address3": "Leicester",
+    "postcode": "LE5 4NB",
+    "nationalInsuranceNumber": "PP227891B",
+    "mobileTelephoneNumber": "07700900334"
+  },
+  "paymentTerms": {
+    "paymentTerms": "M",
+    "paymentDueDate": "2026-10-17",
+    "instalmentAmount": 80,
+    "paymentCardRequested": "N",
+    "parentToPay": "N"
+  },
+  "enforcement": {
+    "prisonSentenceIndicator": "N"
+  },
+  "results": [
+    {
+      "resultCode": "AEOC"
+    }
+  ],
+  "nowsDataRequest": {
+    "nowsDataItems": [
+      {
+        "name": "Defendant Account"
+      },
+      {
+        "name": "Account Balance"
+      },
+      {
+        "name": "Account Number"
+      },
+      {
+        "name": "Account Date Imposed"
+      },
+      {
+        "name": "Account Terms to Pay"
+      },
+      {
+        "name": "Account Offences and Penalties"
+      }
+    ]
+  }
+}
