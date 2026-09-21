@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.annotation.Resource;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -26,6 +27,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -68,6 +70,14 @@ class HearingResultFixturePairIT {
     @Resource
     private MockMvc mockMvc;
 
+    /** A genuine token from /auth/token — the hearing endpoints reject anything else (ADR-004). */
+    private String authorization;
+
+    @BeforeEach
+    void obtainBearerToken() throws Exception {
+        authorization = BearerTokens.authorizationHeader(mockMvc);
+    }
+
     static Stream<Arguments> recordedPairs() throws Exception {
         final Path root = Path.of(HearingResultFixturePairIT.class.getResource(FIXTURES_ROOT).toURI());
         try (Stream<Path> entries = Files.list(root)) {
@@ -89,7 +99,7 @@ class HearingResultFixturePairIT {
         final JsonNode expected = MAPPER.readTree(pairDir.resolve("expected-response.json").toFile());
         assertThat(request).as("fixture %s has a request", pairName).isNotBlank();
 
-        MockHttpServletRequestBuilder call = post("/hearing/result")
+        MockHttpServletRequestBuilder call = post("/hearing/result").header(AUTHORIZATION, authorization)
                 .contentType(APPLICATION_JSON)
                 .content(request);
         final JsonNode correlationId = expected.get("correlationId");
@@ -128,7 +138,7 @@ class HearingResultFixturePairIT {
     void returns_every_amount_at_two_decimal_places(final String pairName, final Path pairDir) throws Exception {
         final String request = Files.readString(pairDir.resolve("request.json"), UTF_8);
 
-        final String body = mockMvc.perform(post("/hearing/result")
+        final String body = mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .content(request))
                 .andExpect(status().isOk())

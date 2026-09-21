@@ -1,6 +1,7 @@
 package uk.gov.hmcts.cp.gobsimulator.api;
 
 import jakarta.annotation.Resource;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -8,6 +9,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -50,9 +52,17 @@ class HearingResultControllerIT {
     @Resource
     private MockMvc mockMvc;
 
+    /** A genuine token from /auth/token — the hearing endpoints reject anything else (ADR-004). */
+    private String authorization;
+
+    @BeforeEach
+    void obtainBearerToken() throws Exception {
+        authorization = BearerTokens.authorizationHeader(mockMvc);
+    }
+
     @Test
     void returns_a_schema_valid_response_for_a_suspended_committal() throws Exception {
-        mockMvc.perform(post("/hearing/result").contentType(APPLICATION_JSON).content(SC_REQUEST))
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization).contentType(APPLICATION_JSON).content(SC_REQUEST))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.caseUrn").value("E012345678"))
                 .andExpect(jsonPath("$.timestamp").isNotEmpty())
@@ -71,7 +81,7 @@ class HearingResultControllerIT {
 
     @Test
     void returns_exactly_the_requested_entities_and_nothing_more() throws Exception {
-        mockMvc.perform(post("/hearing/result").contentType(APPLICATION_JSON).content(SC_REQUEST))
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization).contentType(APPLICATION_JSON).content(SC_REQUEST))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nowsDataItems.length()").value(2))
                 .andExpect(jsonPath("$.nowsDataItems.defendant").doesNotExist())
@@ -80,7 +90,7 @@ class HearingResultControllerIT {
 
     @Test
     void echoes_the_correlation_id_when_the_caller_supplies_one() throws Exception {
-        mockMvc.perform(post("/hearing/result")
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .header("X-Correlation-ID", "9f3d2e42-8d30-4d16-9dd6-6d4e26889d5c")
                         .content(SC_REQUEST))
@@ -90,7 +100,7 @@ class HearingResultControllerIT {
 
     @Test
     void omits_the_correlation_id_when_the_caller_supplies_none() throws Exception {
-        mockMvc.perform(post("/hearing/result").contentType(APPLICATION_JSON).content(SC_REQUEST))
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization).contentType(APPLICATION_JSON).content(SC_REQUEST))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.correlationId").doesNotExist());
     }
@@ -98,7 +108,7 @@ class HearingResultControllerIT {
     @Test
     void returns_an_iso_8601_utc_timestamp() throws Exception {
         final String body = mockMvc.perform(
-                        post("/hearing/result").contentType(APPLICATION_JSON).content(SC_REQUEST))
+                        post("/hearing/result").header(AUTHORIZATION, authorization).contentType(APPLICATION_JSON).content(SC_REQUEST))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
@@ -112,7 +122,7 @@ class HearingResultControllerIT {
     // replayed the first response, not a coincidence of timing.
     @Test
     void repeats_the_same_body_for_the_same_idempotency_key() throws Exception {
-        final String first = mockMvc.perform(post("/hearing/result")
+        final String first = mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .header("X-Idempotency-Key", "key-1")
                         .content(SC_REQUEST))
@@ -121,7 +131,7 @@ class HearingResultControllerIT {
 
         Thread.sleep(1100);
 
-        mockMvc.perform(post("/hearing/result")
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .header("X-Idempotency-Key", "key-1")
                         .content(SC_REQUEST))
@@ -138,14 +148,14 @@ class HearingResultControllerIT {
         final String otherCaseUrn = "E098765432";
         final String otherCaseRequest = SC_REQUEST.replace("E012345678", otherCaseUrn);
 
-        mockMvc.perform(post("/hearing/result")
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .header("X-Idempotency-Key", "shared-key")
                         .content(SC_REQUEST))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.caseUrn").value("E012345678"));
 
-        mockMvc.perform(post("/hearing/result")
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .header("X-Idempotency-Key", "shared-key")
                         .content(otherCaseRequest))
@@ -155,7 +165,7 @@ class HearingResultControllerIT {
 
     @Test
     void issues_a_fresh_timestamp_for_a_different_idempotency_key() throws Exception {
-        final String first = mockMvc.perform(post("/hearing/result")
+        final String first = mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .header("X-Idempotency-Key", "key-A")
                         .content(SC_REQUEST))
@@ -163,7 +173,7 @@ class HearingResultControllerIT {
 
         Thread.sleep(1100);
 
-        final String second = mockMvc.perform(post("/hearing/result")
+        final String second = mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .header("X-Idempotency-Key", "key-B")
                         .content(SC_REQUEST))
@@ -174,7 +184,7 @@ class HearingResultControllerIT {
 
     @Test
     void never_returns_an_enforcer_code() throws Exception {
-        final String body = mockMvc.perform(post("/hearing/result")
+        final String body = mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .content(SC_REQUEST.replace("\"Account Balance\"", "\"Defendant Account\"")))
                 .andExpect(status().isOk())
@@ -191,7 +201,7 @@ class HearingResultControllerIT {
     // HearingControllerIT.rejects_a_confirmation_missing_the_mandatory_court_location).
     @Test
     void rejects_a_request_carrying_a_property_the_contract_does_not_declare() throws Exception {
-        mockMvc.perform(post("/hearing/result")
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .content(SC_REQUEST.replace("\"caseUrn\":", "\"unexpectedField\": 1, \"caseUrn\":")))
                 .andExpect(status().isBadRequest())
@@ -204,7 +214,7 @@ class HearingResultControllerIT {
     // above; an out-of-enum name is itself a request-side schema violation.)
     @Test
     void rejects_a_request_naming_an_unknown_nows_data_item() throws Exception {
-        mockMvc.perform(post("/hearing/result")
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .content(SC_REQUEST.replace("\"Account Balance\"", "\"Not A Real Entity\"")))
                 .andExpect(status().isBadRequest())
@@ -218,7 +228,7 @@ class HearingResultControllerIT {
     // schema's minItems: 1, so this is itself a request-side violation — no conformsToSpec().
     @Test
     void rejects_a_request_with_no_nows_data_items_requested() throws Exception {
-        mockMvc.perform(post("/hearing/result")
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .content(SC_REQUEST.replace(
                                 "\"nowsDataItems\": [ { \"name\": \"Account Balance\" }, { \"name\": \"Account Number\" } ]",
@@ -234,7 +244,7 @@ class HearingResultControllerIT {
     // by the schema, so this is itself a request-side violation too — no conformsToSpec().
     @Test
     void rejects_a_hearing_result_missing_its_result_code() throws Exception {
-        mockMvc.perform(post("/hearing/result")
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .content(SC_REQUEST.replace(
                                 "\"results\": [ { \"resultCode\": \"SC\" } ]",

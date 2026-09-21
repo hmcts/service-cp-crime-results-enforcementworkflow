@@ -22,7 +22,11 @@ built. The simulator answers `POST /hearing/result` with a `HearingResultedRespo
 
 ### In scope
 
-- `POST /auth/token` — issues a dummy bearer token. Not validated anywhere.
+- `POST /auth/token` — issues an opaque bearer token, recorded with its expiry.
+- **Bearer token enforcement** on both hearing endpoints: a token this simulator issued and
+  has not expired, or 401. Credentials on `/auth/token` itself are still unchecked.
+  Superseded the original deferral — see
+  [ADR-004](../../pipeline/adrs/004-enforce-issued-bearer-tokens.md).
 - `POST /hearing` — accepts a `HearingConfirmedRequest`, returns `200` with no body.
 - `POST /hearing/result` — accepts a `HearingResultedRequest`, returns `200` with a
   `HearingResultedResponse` assembled from the result-code catalogue.
@@ -31,7 +35,9 @@ built. The simulator answers `POST /hearing/result` with a `HearingResultedRespo
 
 ### Out of scope
 
-- **Security.** No token validation, no TLS/mTLS, no WS-Security equivalent. Explicitly deferred.
+- **Security beyond bearer-token enforcement.** No TLS/mTLS, no WS-Security equivalent, and no
+  client-credential checking on `/auth/token`. Token *validation* was originally deferred here too;
+  ADR-004 reversed that and moved it into scope above.
 - **`enforcerCode`.** Sourced by CP from CP reference data (CIMD-4336). v0.3.0's response schema
   contains no `enforcerCode` property at any level, so the simulator structurally cannot emit one.
 - **NOWs generation** and **email notifications** to Enforcement and Confiscation.
@@ -345,14 +351,15 @@ No default contains real PII, case data, or court reference numbers.
 
 | Endpoint | Behaviour |
 |---|---|
-| `POST /auth/token` | Accepts `application/x-www-form-urlencoded` `OAuthTokenRequest`. Returns `OAuthTokenResponse` with an opaque dummy `access_token`, `token_type: Bearer`, `expires_in: 3600`. Credentials are not checked; the token is never validated on other endpoints. |
-| `POST /hearing` | Accepts `HearingConfirmedRequest`. Returns `200`, no body. |
-| `POST /hearing/result` | Accepts `HearingResultedRequest`. Returns `200` with a `HearingResultedResponse` per §7. |
+| `POST /auth/token` | Accepts `application/x-www-form-urlencoded` `OAuthTokenRequest`. Returns `OAuthTokenResponse` with an opaque `access_token`, `token_type: Bearer`, `expires_in: 3600`. Credentials are not checked, but the token is recorded and IS validated on the hearing endpoints (ADR-004). |
+| `POST /hearing` | Requires `Authorization: Bearer <issued token>`. Accepts `HearingConfirmedRequest`. Returns `200`, no body. |
+| `POST /hearing/result` | Requires `Authorization: Bearer <issued token>`. Accepts `HearingResultedRequest`. Returns `200` with a `HearingResultedResponse` per §7. |
 
 Request validation is schema-driven: a body violating `HearingResultedRequest` (including
-`additionalProperties: false`) returns `400` with the spec's `ErrorResponse`. Other spec-declared
-status codes (`401`, `403`, `404`, `500`) are not produced — there is no auth and every case URN
-resolves to seeded or default data.
+`additionalProperties: false`) returns `400` with the spec's `ErrorResponse`. `401` is produced for a missing, unissued or expired
+bearer token (ADR-004). Of the remaining spec-declared status codes, `403` is not produced — the
+scheme declares no scopes — and `404` is not produced for a case URN, since every URN resolves to
+seeded or default data.
 
 ---
 
@@ -383,6 +390,8 @@ Per the repo's hard rule — at least one integration test per new endpoint, sui
 **Integration**
 
 - One IT per endpoint: `/auth/token`, `/hearing`, `/hearing/result`.
+- **Auth:** 401 for an absent header, a non-`Bearer` scheme, and a well-formed token the
+  simulator never issued; expiry covered at unit level with an offset `Clock`.
 - **Schema conformance:** post each of the 21 distinct result codes and validate every response
   against the bundled OpenAPI document (AC1, AC3, AC4).
 - **Entity-key exactness:** requested names ↔ response keys, no extras, no omissions (AC2).

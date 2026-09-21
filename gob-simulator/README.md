@@ -6,9 +6,12 @@ hearing-result flow without waiting for the real Libra integration.
 
 ## What it is not
 
-- **Not a security implementation.** `/auth/token` returns a fixed bearer token and validates
-  nothing about the request. No endpoint checks an `Authorization` header. 401/403 are
-  unreachable — see "Known gaps" below.
+- **Not an authentication implementation.** `/auth/token` issues a token to anyone who asks —
+  credentials are not checked, because the contract declares no client registry. What *is*
+  enforced is that the token came from here: `/hearing` and `/hearing/result` require
+  `Authorization: Bearer <token>` naming a token this instance issued and has not expired, and
+  return 401 otherwise. See [ADR-004](../docs/pipeline/adrs/004-enforce-issued-bearer-tokens.md).
+  403 remains unreachable — there are no roles or scopes to violate.
 - **Not a shape the real Libra necessarily returns.** It follows the **published OpenAPI
   contract** bundled at
   [`src/main/resources/openapi/libra-gateway-hearing-events-v0.4.0.yml`](src/main/resources/openapi/libra-gateway-hearing-events-v0.4.0.yml)
@@ -309,8 +312,10 @@ These are current, known limitations — not things to silently work around:
   into it. This is safe today because these records are only ever serialised outward (the
   simulator never parses an inbound Libra response into them), but it becomes a real gap the
   moment something needs creditor data out of this simulator.
-- **401/403 are unreachable.** The simulator implements no security by design (this story's
-  scope excludes it) — see the "What it is not" section above.
+- **403 is unreachable.** The contract's `ClientCredentials` scheme declares no scopes, so there
+  is no authorisation decision to fail — only authentication, which returns 401. 401 became
+  reachable in ADR-004; tokens are held in memory, so a restart invalidates every outstanding
+  token and two replicas would not share them.
 - **404, 405, and 415 are reachable, but 405 and 415 are not among the contract's declared
   responses for these operations.** The bundled contract only declares 400/401/403/404/500 for
   `/hearing` and `/hearing/result`. `GlobalExceptionHandler` (Finding I6) maps a framework 404

@@ -49,6 +49,7 @@ import uk.gov.hmcts.cp.gobsimulator.api.model.ErrorResponse;
 public class GlobalExceptionHandler {
 
     private static final String BAD_REQUEST_CODE = "BAD_REQUEST";
+    private static final String UNAUTHORIZED_CODE = "UNAUTHORIZED";
     private static final String NOT_FOUND_CODE = "NOT_FOUND";
     private static final String METHOD_NOT_ALLOWED_CODE = "METHOD_NOT_ALLOWED";
     private static final String UNSUPPORTED_MEDIA_TYPE_CODE = "UNSUPPORTED_MEDIA_TYPE";
@@ -80,6 +81,18 @@ public class GlobalExceptionHandler {
     public ErrorResponse handleUnknownResultCode(final UnknownResultCodeException exception) {
         log.info("Rejecting a request posting an unknown resultCode: {}", exception.getMessage());
         return new ErrorResponse(BAD_REQUEST_CODE, exception.getMessage());
+    }
+
+    /**
+     * The description is the contract's own {@code Unauthorized} wording and is deliberately the
+     * same whichever way the token failed — the reason is logged, never returned, so a caller
+     * cannot use the response to tell an unissued token from an expired one.
+     */
+    @ExceptionHandler(UnauthorizedException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse handleUnauthorized(final UnauthorizedException exception) {
+        log.info("Rejecting a request to a secured endpoint: {}", exception.getMessage());
+        return new ErrorResponse(UNAUTHORIZED_CODE, "Missing, expired or invalid bearer token.");
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

@@ -1,6 +1,7 @@
 package uk.gov.hmcts.cp.gobsimulator.api;
 
 import jakarta.annotation.Resource;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -16,6 +17,7 @@ import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.http.MediaType.APPLICATION_XML;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -38,6 +40,14 @@ class GlobalExceptionHandlerIT {
     @Resource
     private MockMvc mockMvc;
 
+    /** A genuine token from /auth/token — the hearing endpoints reject anything else (ADR-004). */
+    private String authorization;
+
+    @BeforeEach
+    void obtainBearerToken() throws Exception {
+        authorization = BearerTokens.authorizationHeader(mockMvc);
+    }
+
     @MockitoBean
     private NowsDataItemsAssembler assembler;
 
@@ -58,6 +68,7 @@ class GlobalExceptionHandlerIT {
                         "deliberately unexpected failure: uk.gov.hmcts.cp.gobsimulator.SomeInternalDetail"));
 
         mockMvc.perform(post("/hearing/result")
+                        .header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {
@@ -110,7 +121,9 @@ class GlobalExceptionHandlerIT {
 
     @Test
     void returns_415_not_500_for_an_unsupported_content_type() throws Exception {
-        // /hearing consumes only application/json.
+        // /hearing consumes only application/json. Deliberately unauthenticated: a consumes
+        // mismatch is rejected during handler lookup, before any interceptor runs, so this still
+        // has to be 415 rather than 401 — and that ordering is worth pinning.
         mockMvc.perform(post("/hearing")
                         .contentType(APPLICATION_XML)
                         .content("<hearing/>"))
@@ -123,6 +136,7 @@ class GlobalExceptionHandlerIT {
     void still_returns_200_for_a_correctly_shaped_request() throws Exception {
         // Negative control: the new handlers must not swallow a genuinely valid request.
         mockMvc.perform(post("/hearing")
+                        .header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {
