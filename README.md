@@ -63,7 +63,7 @@ gradle pmdTest
 ## GOB (Libra) simulator
 
 A non-live simulator of the Libra Gateway hearing-event API lives in
-[`gob-simulator/`](gob-simulator/README.md). It is a separate Gradle subproject producing its own
+[`enforcement-workflow-simulator/`](enforcement-workflow-simulator/README.md). It is a separate Gradle subproject producing its own
 boot jar; it is never published, never packaged into this service's image, and refuses to start
 under a live Spring profile.
 

@@ -3,7 +3,7 @@
 ## Status
 
 Accepted — reverses the "Security: out of scope" decision recorded in
-[the design spec](../superpowers/specs/2026-09-17-gob-libra-simulator-design.md) §2.
+[the design spec](../superpowers/specs/2026-09-17-enforcement-workflow-simulator-design.md) §2.
 
 ## Context
 

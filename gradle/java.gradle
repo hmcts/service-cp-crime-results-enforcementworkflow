@@ -13,7 +13,7 @@ tasks.withType(JavaExec).configureEach {
 }
 
 // The 'wrapper' task only exists on the root project, but this file is now also applied
-// to subprojects (e.g. :gob-simulator) — match by name instead of tasks.named() so it's a
+// to subprojects (e.g. :enforcement-workflow-simulator) — match by name instead of tasks.named() so it's a
 // no-op there instead of failing configuration.
 tasks.matching { it.name == 'wrapper' }.configureEach {
   delete "${projectDir}/gradlew.bat"
