@@ -1,0 +1,38 @@
+{
+  "accountBalance": 560.00,
+  "accountDateImposed": "20 Apr 2026",
+  "defendant": {
+    "homeTelNo": "01517334562",
+    "accountNotes": {
+      "accountNote1": "Employer: Bright Star Logistics Ltd, employed since Mar 2022",
+      "accountNote2": "",
+      "accountNote3": ""
+    },
+    "imposingCourt": {
+      "ljaCode": 903,
+      "courtName": "Liverpool Magistrates' Court"
+    },
+    "daysInDefault": 88
+  },
+  "offences": {
+    "offence": [
+      {
+        "dateImposed": "20 Apr 2026",
+        "caseNumber": "CASE-2026-0233",
+        "offenceCode": "SP30",
+        "offenceTitle": "Exceeding statutory speed limit on a public road",
+        "vehicleReg": "LV20 KAB",
+        "impositions": {
+          "imposition": [
+            { "impositionType": "Fine",             "amountImposed": 400.00, "amountPaid": 40.00, "impositionBalance": 360.00 },
+            { "impositionType": "Victim Surcharge", "amountImposed": 160.00, "amountPaid":  0.00, "impositionBalance": 160.00 },
+            { "impositionType": "Costs",            "amountImposed":  40.00, "amountPaid":  0.00, "impositionBalance":  40.00 }
+          ]
+        },
+        "offenceTotal": 600.00
+      }
+    ],
+    "accountTotal": 600.00,
+    "accountPaid": 40.00
+  }
+}

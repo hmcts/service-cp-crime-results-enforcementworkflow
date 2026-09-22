@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- claude-artifact: created=2026-09-21 project=service-cp-crime-results-enforcementworkflow kind=report -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bearer Token Enforcement — Implementation Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#071210; --panel:#0c1c19; --panel-2:#103029; --edge:#1d4038;
+    --txt:#9fc7bd; --txt-hi:#e8fff7; --muted:#5f857b;
+    --teal:#2fe6b6; --teal-dim:#179e7c; --cyan:#46d6ff; --gold:#ffce5c; --done:#2fe6b6; --rose:#ff6b8a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:radial-gradient(1000px 500px at 90% -10%,rgba(47,230,182,.07),transparent),var(--bg);
+    color:var(--txt);font-family:'Manrope',system-ui,sans-serif;font-size:15px;line-height:1.65}
+  .wrap{max-width:940px;margin:0 auto;padding:44px 24px 110px}
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  header{margin-bottom:40px}
+  .kicker{font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:3px;text-transform:uppercase;color:var(--teal-dim)}
+  h1{color:var(--txt-hi);font-size:clamp(26px,4.4vw,40px);font-weight:800;letter-spacing:-.5px;margin:12px 0 8px}
+  .sub{color:var(--muted);max-width:64ch}
+
+  /* overall progress bar */
+  .overall{margin-top:24px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px 20px}
+  .overall .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:10px}
+  .overall .top b{color:var(--txt-hi)}
+  .track{height:10px;border-radius:6px;background:#0a1714;overflow:hidden;border:1px solid var(--edge)}
+  .fill{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--teal-dim),var(--teal));
+    box-shadow:0 0 14px rgba(47,230,182,.5);animation:grow 1.4s ease forwards}
+  @keyframes grow{to{width:var(--w,42%)}}
+
+  /* phase timeline (HERO COMPONENT) */
+  .phase{position:relative;padding:0 0 14px 46px;margin-bottom:8px}
+  .phase::before{content:"";position:absolute;left:15px;top:6px;bottom:-8px;width:2px;background:var(--edge)}
+  .phase:last-child::before{display:none}
+  .phase>.pin{position:absolute;left:0;top:2px;width:32px;height:32px;border-radius:50%;background:var(--panel-2);
+    border:2px solid var(--teal-dim);display:grid;place-items:center;font:700 13px 'JetBrains Mono',monospace;color:var(--teal);z-index:2}
+  .phase.done>.pin{background:var(--teal);border-color:var(--teal);color:var(--bg)}
+  .phase.active>.pin{border-color:var(--teal);box-shadow:0 0 0 4px rgba(47,230,182,.15);animation:beat 2s infinite}
+  @keyframes beat{50%{box-shadow:0 0 0 8px rgba(47,230,182,.05)}}
+  .phase .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:18px 20px;margin-left:4px}
+  .phase.active .card{border-color:var(--teal-dim)}
+  .ph-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .ph-head h3{font-size:17px;color:var(--txt-hi);font-weight:700}
+  .tag{font:600 10.5px/1 'JetBrains Mono',monospace;letter-spacing:.5px;padding:5px 9px;border-radius:20px;border:1px solid currentColor}
+  .tag.t{color:var(--cyan)} .tag.o{color:var(--gold)} .tag.d{color:var(--done)} .tag.now{color:var(--teal);background:rgba(47,230,182,.1)}
+  .ph-desc{color:var(--txt);font-size:14px;margin-bottom:14px}
+
+  /* task checklist */
+  ul.tasks{list-style:none;margin:6px 0 14px}
+  ul.tasks li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:14px}
+  ul.tasks .box{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--edge);flex-shrink:0;margin-top:2px;position:relative}
+  ul.tasks li.x .box{background:var(--teal);border-color:var(--teal)}
+  ul.tasks li.x .box::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:var(--bg);font-size:12px;font-weight:800}
+  ul.tasks li.x{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--teal-dim)}
+  ul.tasks li.doing .box{border-color:var(--teal);box-shadow:0 0 0 3px rgba(47,230,182,.12)}
+
+  /* gantt-style effort bars */
+  .gantt{margin-top:14px;border-top:1px dashed var(--edge);padding-top:14px}
+  .gantt .row{display:grid;grid-template-columns:130px 1fr;align-items:center;gap:14px;margin:7px 0;font-size:12.5px}
+  .gantt .lbl{color:var(--muted);font-family:'JetBrains Mono',monospace;text-align:right}
+  .gantt .bar{height:18px;border-radius:5px;background:linear-gradient(90deg,var(--teal-dim),var(--cyan));
+    display:flex;align-items:center;padding:0 8px;font:600 11px 'JetBrains Mono',monospace;color:var(--bg)}
+  .gantt .bar.warn{background:linear-gradient(90deg,#8a6a1f,var(--gold))}
+
+  .milestone{display:inline-flex;align-items:center;gap:8px;margin-top:8px;color:var(--gold);font-size:13px;font-weight:600}
+  .milestone::before{content:"◆";color:var(--gold)}
+
+  footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--edge);color:var(--muted);
+    font:500 12px 'JetBrains Mono',monospace;letter-spacing:1px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">Implementation Plan · CIMD-4372</div>
+    <h1>Bearer token enforcement on hearing endpoints</h1>
+    <p class="sub">Require an <code>AuthController</code>-issued, unexpired bearer token on <code>POST /hearing</code> and <code>POST /hearing/result</code>, closing the gap between the bundled v0.4.0 contract (which declares both endpoints <code>ClientCredentials</code>-secured) and the simulator, which today validates nothing.</p>
+    <div class="overall" style="--w:0%">
+      <div class="top"><span>Overall progress</span><b>0% · 0 of 14 tasks</b></div>
+      <div class="track"><div class="fill"></div></div>
+    </div>
+  </header>
+
+  <div class="phase active">
+    <div class="pin">1</div>
+    <div class="card">
+      <div class="ph-head"><h3>Record the reversal</h3><span class="tag now">Next</span><span class="tag o mono">gate</span></div>
+      <div class="ph-desc">The design spec §2 lists <b>Security</b> as explicitly out of scope and §9 states 401 is never produced. This plan reverses a documented decision, so the reversal is written down before any code — CLAUDE.md requires an ADR when a recorded decision is deviated from.</div>
+      <ul class="tasks">
+        <li><span class="box"></span>ADR <code>004-enforce-issued-bearer-tokens.md</code> — why fidelity beats the original deferral, and what it costs</li>
+        <li><span class="box"></span>Amend design spec §2 (move Security out of "Out of scope") and §9 (401 is now produced)</li>
+      </ul>
+      <span class="milestone">Human gate — approve before Stage 5</span>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="pin">2</div>
+    <div class="card">
+      <div class="ph-head"><h3>Failing tests first</h3><span class="tag t mono">TDD</span></div>
+      <div class="ph-desc">Red before green. The 401 cases are written against the endpoints as they stand, so they fail for the right reason — the simulator returns 200 to an unauthenticated caller — before any production code exists.</div>
+      <ul class="tasks">
+        <li><span class="box"></span><code>TokenStoreTest</code> — issued token valid; unknown token rejected; expired token rejected via an offset <code>Clock</code></li>
+        <li><span class="box"></span><code>HearingControllerIT</code> — 401 on absent header, on a non-<code>Bearer</code> scheme, and on a never-issued token</li>
+        <li><span class="box"></span>Assert the 401 body is the contract's <code>ErrorResponse</code> and passes <code>conformsToSpec()</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="pin">3</div>
+    <div class="card">
+      <div class="ph-head"><h3>Production code</h3><span class="tag t mono">4 new · 2 changed</span></div>
+      <div class="ph-desc">A <code>HandlerInterceptor</code>, not a servlet filter: a filter runs ahead of <code>@RestControllerAdvice</code> and would have to hand-serialise its own JSON, while an interceptor's exception flows through the existing <code>GlobalExceptionHandler</code> and picks up the contract's <code>ErrorResponse</code> shape from the same path as every other error. No <code>spring-boot-starter-security</code> — that starter secures everything by default and would need CSRF and form-login switched off, more configuration than the feature itself.</div>
+      <ul class="tasks">
+        <li><span class="box"></span><code>TokenStore</code> — <code>ConcurrentHashMap&lt;String, Instant&gt;</code> of token→expiry, injected <code>Clock</code> so expiry is testable without sleeping</li>
+        <li><span class="box"></span><code>AuthController</code> delegates minting to <code>TokenStore.issue()</code>; <code>expires_in</code> stops being decorative</li>
+        <li><span class="box"></span><code>UnauthorizedException</code> + <code>BearerTokenInterceptor</code></li>
+        <li><span class="box"></span><code>SecurityConfiguration</code> registers the interceptor on <code>/hearing</code> and <code>/hearing/result</code> only — <code>/auth/token</code> stays open</li>
+        <li><span class="box"></span><code>GlobalExceptionHandler</code> gains a 401 handler, wording taken from the contract's <code>Unauthorized</code> response</li>
+      </ul>
+      <div class="gantt">
+        <div class="row"><span class="lbl">TokenStore</span><div class="bar" style="width:100%">small</div></div>
+        <div class="row"><span class="lbl">interceptor</span><div class="bar" style="width:100%">small</div></div>
+        <div class="row"><span class="lbl">existing ITs</span><div class="bar warn" style="width:100%">widest blast radius</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="pin">4</div>
+    <div class="card">
+      <div class="ph-head"><h3>Repair the existing suite</h3><span class="tag o mono">5 files</span></div>
+      <div class="ph-desc">Every integration test currently posts to a hearing endpoint without an <code>Authorization</code> header, so all five files go red the moment the interceptor is registered. Each gets a real token from <code>/auth/token</code> first — never a hard-coded string, which would pass while proving nothing.</div>
+      <ul class="tasks">
+        <li><span class="box"></span>Shared test helper that fetches a genuine token via <code>/auth/token</code></li>
+        <li><span class="box"></span><code>HearingControllerIT</code>, <code>HearingResultControllerIT</code>, <code>HearingResultFixturePairIT</code></li>
+        <li><span class="box"></span><code>AllResultCodesConformanceIT</code>, <code>GlobalExceptionHandlerIT</code></li>
+        <li><span class="box"></span>Full suite green — <code>:enforcement-workflow-simulator:test</code>, no IT weakened or skipped</li>
+      </ul>
+      <span class="milestone">CLAUDE.md: ≥1 IT per changed endpoint, suite green locally</span>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="pin">5</div>
+    <div class="card">
+      <div class="ph-head"><h3>Open risk</h3><span class="tag o mono">decide</span></div>
+      <div class="ph-desc">Enforcement is unconditional — no opt-out flag. If the Common Platform client is not yet sending <code>Authorization</code>, this breaks that integration on the deploy that carries it. A flag would hedge, at the cost that the thing under test stops being the thing that runs. Flagged for the reviewer rather than silently decided.</div>
+      <ul class="tasks">
+        <li><span class="box"></span>Confirm whether the CP client sends a bearer token today</li>
+        <li><span class="box"></span>If not, agree ordering: client first, or simulator first behind a flag</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>CIMD-4372 · GOB SIMULATOR · IMPLEMENTATION PLAN v1 · 2026-09-21</footer>
+</div>
+</body>
+</html>

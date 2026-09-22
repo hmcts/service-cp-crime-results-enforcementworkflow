@@ -1,0 +1,68 @@
+{
+  "caseUrn": "E011122334",
+  "timestamp": "2026-09-17T10:15:00Z",
+  "correlationId": "a1b2c3d4-1111-2222-3333-444455556666",
+  "nowsDataItems": {
+    "defendant": {
+      "defName": "Jane Willmott",
+      "DoB": "22 Apr 1985",
+      "nationalInsuranceNumber": "JW224781A",
+      "homeTelNo": "01179889812",
+      "mobileTelNo": "07700900112",
+      "defAddress": {
+        "defAddressLine1": "14 Ashley Down",
+        "defAddressLine2": "",
+        "defAddressLine3": "Bristol",
+        "defPostcode": "BS7 9JQ"
+      },
+      "accountNotes": {
+        "accountNote1": "DWP notified of benefit deduction request 17 Sep 2026",
+        "accountNote2": "Prior instalments missed Apr-Aug 2026",
+        "accountNote3": ""
+      },
+      "imposingCourt": {
+        "ljaCode": 903,
+        "courtName": "Bristol Magistrates' Court"
+      },
+      "daysInDefault": 152
+    },
+    "accountNumber": "5588221144",
+    "accountBalance": 340,
+    "accountDateImposed": "05 Jan 2026",
+    "offences": {
+      "offence": [
+        {
+          "dateImposed": "05 Jan 2026",
+          "caseNumber": "CASE-2026-0087",
+          "offenceCode": "RT88155",
+          "offenceTitle": "Failure to provide driver information",
+          "impositions": {
+            "imposition": [
+              {
+                "impositionType": "Fine",
+                "amountImposed": 220,
+                "amountPaid": 20,
+                "impositionBalance": 200
+              },
+              {
+                "impositionType": "Victim Surcharge",
+                "amountImposed": 88,
+                "amountPaid": 0,
+                "impositionBalance": 88
+              },
+              {
+                "impositionType": "Costs",
+                "amountImposed": 52,
+                "amountPaid": 0,
+                "impositionBalance": 52
+              }
+            ]
+          },
+          "offenceTotal": 360
+        }
+      ],
+      "accountTotal": 360,
+      "accountPaid": 20
+    }
+  }
+}

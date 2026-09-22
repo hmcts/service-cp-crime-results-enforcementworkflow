@@ -1,0 +1,69 @@
+{
+  "caseUrn": "E012233445",
+  "timestamp": "2026-09-17T10:20:00Z",
+  "correlationId": "b2c3d4e5-2222-3333-4444-555566667777",
+  "nowsDataItems": {
+    "defendant": {
+      "defName": "David O'Connor",
+      "DoB": "11 Aug 1979",
+      "nationalInsuranceNumber": "DO119855C",
+      "homeTelNo": "01517334562",
+      "mobileTelNo": "07700900223",
+      "defAddress": {
+        "defAddressLine1": "32 Sefton Park Road",
+        "defAddressLine2": "",
+        "defAddressLine3": "Liverpool",
+        "defPostcode": "L8 3SB"
+      },
+      "accountNotes": {
+        "accountNote1": "Employer: Bright Star Logistics Ltd, employed since Mar 2022",
+        "accountNote2": "",
+        "accountNote3": ""
+      },
+      "imposingCourt": {
+        "ljaCode": 903,
+        "courtName": "Liverpool Magistrates' Court"
+      },
+      "daysInDefault": 88
+    },
+    "accountNumber": "5588332255",
+    "accountBalance": 560,
+    "accountDateImposed": "20 Apr 2026",
+    "offences": {
+      "offence": [
+        {
+          "dateImposed": "20 Apr 2026",
+          "caseNumber": "CASE-2026-0233",
+          "offenceCode": "SP30",
+          "offenceTitle": "Exceeding statutory speed limit on a public road",
+          "vehicleReg": "LV20 KAB",
+          "impositions": {
+            "imposition": [
+              {
+                "impositionType": "Fine",
+                "amountImposed": 400,
+                "amountPaid": 40,
+                "impositionBalance": 360
+              },
+              {
+                "impositionType": "Victim Surcharge",
+                "amountImposed": 160,
+                "amountPaid": 0,
+                "impositionBalance": 160
+              },
+              {
+                "impositionType": "Costs",
+                "amountImposed": 40,
+                "amountPaid": 0,
+                "impositionBalance": 40
+              }
+            ]
+          },
+          "offenceTotal": 600
+        }
+      ],
+      "accountTotal": 600,
+      "accountPaid": 40
+    }
+  }
+}

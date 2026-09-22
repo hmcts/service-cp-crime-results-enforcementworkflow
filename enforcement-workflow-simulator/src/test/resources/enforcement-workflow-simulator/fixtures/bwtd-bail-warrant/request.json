@@ -1,0 +1,63 @@
+{
+  "caseUrn": "E014455667",
+  "dateOfHearing": "2026-09-17",
+  "courtHearingLocation": "N09NM01",
+  "defendantDetails": {
+    "prosecutorDefendantId": "5588554477",
+    "forename": "Karl",
+    "surname": "Nowak",
+    "dateOfBirth": "1972-06-30",
+    "address1": "65 Alfreton Road",
+    "address3": "Nottingham",
+    "postcode": "NG7 3JR",
+    "nationalInsuranceNumber": "KN338874D",
+    "mobileTelephoneNumber": "07700900445"
+  },
+  "paymentTerms": {
+    "paymentTerms": "M",
+    "paymentDueDate": "2026-10-17",
+    "instalmentAmount": 40,
+    "paymentCardRequested": "N",
+    "parentToPay": "N"
+  },
+  "enforcement": {
+    "prisonSentenceIndicator": "N",
+    "nextHearingDate": "2026-10-08",
+    "nextHearingCourtCode": "N09NM01",
+    "nextHearingReason": "Bail warrant return"
+  },
+  "results": [
+    {
+      "resultCode": "BWTD",
+      "enforcerCode": 906
+    }
+  ],
+  "nowsDataRequest": {
+    "nowsDataItems": [
+      {
+        "name": "Defendant Account"
+      },
+      {
+        "name": "Account Balance"
+      },
+      {
+        "name": "Account Warrant Number"
+      },
+      {
+        "name": "Warrant Contact Details"
+      },
+      {
+        "name": "Days Before Release of Warrant"
+      },
+      {
+        "name": "Account Bail Amount"
+      },
+      {
+        "name": "Account Number"
+      },
+      {
+        "name": "Account Date Imposed"
+      }
+    ]
+  }
+}

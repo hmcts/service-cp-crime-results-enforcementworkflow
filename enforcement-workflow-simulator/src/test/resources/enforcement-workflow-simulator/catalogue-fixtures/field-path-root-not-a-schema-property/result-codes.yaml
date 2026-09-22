@@ -1,0 +1,121 @@
+ABDC:   { fields: ["Account No.", "Total Balance", "Balance Outstanding"] }
+AEO:    { fields: ["Account No.", "Total Balance", "Payment Terms", "Due Date",
+                   "Instalment Amount", "Payment period", "Reserve Terms"] }
+AEOC:   { fields: ["Account No.", "Total Balance", "Payment Terms"] }
+BWTD:   { fields: ["Account No.", "Warrant No", "Total Balance", "Bail Amount",
+                   "Days Before Release of Warrant"] }
+BWTU:   { fields: ["Account No.", "Warrant No", "Total Balance", "Bail Amount",
+                   "Days Before Release of Warrant", "Amount Imposed",
+                   "Amount Paid or Cancelled", "Date Imposed", "Date of Offence",
+                   "Time of Offence", "Payment Terms", "Due Date", "Instalment Amount",
+                   "Lump Sum", "Payment period", "Reserve Terms"] }
+CLAMPO: { fields: ["Account No.", "Warrant No", "Vehicle Reg. No.", "Vehicle Make",
+                   "Total Balance", "Clamping Contractor name", "Contractor's Name",
+                   "Contractor's Address", "Payment Terms", "Due Date",
+                   "Instalment Amount", "[Directions]"] }
+COLLO:  { fields: ["Account No.", "Total Balance", "Balance Outstanding", "Amount Imposed",
+                   "Amount Paid or Cancelled", "Payment Terms", "Due Date",
+                   "Instalment Amount", "Lump Sum"] }
+CW:     { fields: ["Account No.", "Warrant No", "Total Balance", "Bail Amount",
+                   "Days Before Release of Warrant", "Amount Imposed",
+                   "Amount Paid or Cancelled", "Date Imposed", "Payment Terms", "Due Date",
+                   "Instalment Amount", "Lump Sum"] }
+CWN:    { fields: ["Account No.", "Total Balance", "Bail Amount"] }
+FSN:    { fields: ["Account No.", "Total Balance"] }
+MPSO:   { fields: ["Account No.", "Total Balance", "Balance Outstanding", "Payment Terms",
+                   "Due Date", "Instalment Amount", "Payment period", "Reserve Terms"] }
+NBWT:   { fields: ["Account No.", "Warrant No", "Total Balance", "Bail Amount",
+                   "Days Before Release of Warrant", "Amount Imposed",
+                   "Amount Paid or Cancelled", "Date Imposed", "Date of Offence",
+                   "Time of Offence", "Payment Terms", "Due Date", "Instalment Amount",
+                   "Lump Sum", "<Notes 1..3>", "[Directions]"] }
+REGF:   { fields: ["Account No.", "Total Balance", "Date Imposed"] }
+REM:    { fields: ["Account No.", "Total Balance"] }
+S136:   { fields: ["Account No.", "Warrant No", "Total Balance", "Bail Amount",
+                   "Amount Imposed", "Amount Paid or Cancelled", "Date Imposed",
+                   "Date of Offence", "Time of Offence", "Place of offence", "Ticket No.",
+                   "Vehicle Reg. No."] }
+SC:     { fields: ["Account No.", "Total Balance", "Amount Imposed", "Date Imposed",
+                   "Payment Terms", "Due Date"] }
+SUMM:   { fields: ["Account No.", "Amount Imposed", "Amount Paid or Cancelled",
+                   "Date Imposed", "Date of Offence", "Start time of offence",
+                   "End time of offence", "Imposition type",
+                   "NTO issued on <date> & <time>", "Ticket No.", "Total Balance",
+                   "Vehicle Reg. No."] }
+TFOOUT: { fields: ["Total Balance"] }
+
+# GOB/CP synonyms for the same outcome. In v0.3.0 both spellings were in the resultCode
+# enum. v0.4.0 dropped the CP spelling from each pair (WC, TFOUT, WWDN are no longer enum
+# values) and kept only the GOB spelling (DW, TFOOUT, WDN). All three CP spellings are
+# marked postable: false below, per the same "absent from the enum -> not postable"
+# convention used for CLAMPS/LATG/LATR/PGPAY.
+#
+# WC is the one load-bearing row of the three: DW (still a live enum value) aliases to
+# it, so WC's field list must stay even though WC itself can never arrive as a
+# resultCode — Catalogue.resolve() only follows entry.alias(), never entry.postable(), so
+# marking WC unpostable cannot break DW's resolution. TFOUT and WWDN are the opposite
+# shape: they are alias *keys*, not alias *targets* — nothing points at them — so they
+# are simply inert/unreachable rows now, the same as CLAMPS/LATG/LATR/PGPAY, not
+# something another chain depends on.
+WC:     { postable: false, fields: ["Account No.", "Warrant No", "Total Balance",
+                   "Amount Imposed", "Amount Paid or Cancelled", "Date Imposed",
+                   "Date of Offence", "Time of Offence", "Place of offence", "Ticket No.",
+                   "Vehicle Reg. No.", "Vehicle Make", "Process Server Name"] }
+DW:     { alias: WC }        # DW (GOB) = WC (CP, removed from the enum in v0.4.0)
+TFOUT:  { postable: false, alias: TFOOUT } # TFOUT (CP, removed in v0.4.0) = TFOOUT (GOB)
+WWDN:   { postable: false, alias: WDN }    # WWDN (CP, removed in v0.4.0) = WDN (GOB)
+
+# Postable per the enum, but CIMD-4372 defines no required fields. See spec OQ-2.
+NOENF:  { fields: [], note: "No row in the CIMD-4372 Result vs Required Field table" }
+WDN:    { fields: [], note: "No row in the CIMD-4372 Result vs Required Field table" }
+
+# In the CIMD-4372 table but absent from the v0.3.0 resultCode enum, so CP could not
+# post them. Transcribed for a future spec version. See spec OQ-3.
+#
+# v0.4.0 added these six codes to the resultCode enum, so they are postable now — the
+# postable: false flag has been removed. Their field lists were already correctly
+# transcribed from the CIMD-4372 table.
+ACF:    { fields: ["Account No.", "Amount Imposed", "Date of Offence",
+                   "Time of Offence", "Place of offence", "Vehicle Reg. No.", "Vehicle Make",
+                   "Ticket No.", "NTO issued on <date> & <time>", "Payment Terms", "Due Date",
+                   "Instalment Amount", "Lump Sum", "[Directions]"] }
+AEC:    { fields: ["Account No.", "Total Balance"] }
+FIDIC:  { fields: ["Account No.", "Amount Imposed", "Date of Offence",
+                   "Time of Offence", "Start time of offence", "End time of offence",
+                   "Place of offence", "Vehicle Reg. No.", "Vehicle Make", "Ticket No.",
+                   "NTO issued on <date> & <time>", "[Directions]"] }
+FIDICT: { alias: FIDIC }
+FTTP:   { fields: ["Account No.", "Total Balance"] }
+PTNV:   { fields: ["Account No.", "Total Balance", "Amount Imposed",
+                   "Amount Paid or Cancelled", "Date Imposed", "Payment Terms"] }
+
+# Still absent from the v0.4.0 resultCode enum — remain unpostable.
+CLAMPS: { postable: false, fields: ["Account No.", "Warrant No", "Vehicle Reg. No.",
+                   "Vehicle Make", "Total Balance", "Clamping Contractor name",
+                   "Contractor's Name", "Contractor's Address"] }
+LATG:   { postable: false, fields: ["Account No."] }
+LATR:   { postable: false, alias: LATG }
+PGPAY:  { postable: false, fields: ["Account No.", "Total Balance", "Amount Imposed",
+                   "Amount Paid or Cancelled", "Date Imposed", "Date of Offence",
+                   "Time of Offence", "Payment Terms", "Due Date", "Instalment Amount",
+                   "Lump Sum", "Payment period", "Parent Name and Address",
+                   "Reason for decision"] }
+
+# v0.4.0 codes with no row in the CIMD-4372 Result vs Required Field table. Per
+# CLAUDE.md, unknown requirements/test data are not invented — these are explicit gap
+# rows pending a future mapping, same style as NOENF / WDN above.
+ACNOTE:    { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+ACON:      { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+ADJNN:     { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+BPOC:      { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+BPOCRFSD:  { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+CSC:       { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+"ENF TEXT": { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+FIDIP:     { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+MP:        { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+ORD:       { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+REMCC:     { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+REMF:      { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+RT:        { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+TEXT:      { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+WDRN:      { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }

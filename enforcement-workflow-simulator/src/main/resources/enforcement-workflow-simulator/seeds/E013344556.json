@@ -1,0 +1,42 @@
+{
+  "accountBalance": 1200.00,
+  "accountDateImposed": "18 Jul 2026",
+  "defendant": {
+    "homeTelNo": "01162239987",
+    "accountNotes": {
+      "accountNote1": "AEOC issued 17 Sep 2026; new terms take effect 30 Sep 2026",
+      "accountNote2": "",
+      "accountNote3": ""
+    },
+    "imposingCourt": {
+      "ljaCode": 903,
+      "courtName": "Leicester Magistrates' Court"
+    },
+    "daysInDefault": 61
+  },
+  "terms": {
+    "english_due": "30 Sep 2026",
+    "english_firstDate": "30 Sep 2026",
+    "english_instalment": "£80.00",
+    "english_instalmetPaymentPeriod": "Monthly"
+  },
+  "offences": {
+    "offence": [
+      {
+        "dateImposed": "18 Jul 2026",
+        "caseNumber": "CASE-2026-0452",
+        "offenceCode": "CC12345",
+        "offenceTitle": "Council Tax non-payment: liability order enforcement",
+        "impositions": {
+          "imposition": [
+            { "impositionType": "Fine",  "amountImposed": 1000.00, "amountPaid": 0.00, "impositionBalance": 1000.00 },
+            { "impositionType": "Costs", "amountImposed":  200.00, "amountPaid": 0.00, "impositionBalance":  200.00 }
+          ]
+        },
+        "offenceTotal": 1200.00
+      }
+    ],
+    "accountTotal": 1200.00,
+    "accountPaid": 0.00
+  }
+}

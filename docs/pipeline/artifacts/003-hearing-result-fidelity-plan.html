@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- claude-artifact: created=2026-09-21 project=CIMD-4372 kind=report version=2 -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hearing Result Fidelity — Implementation Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#071210; --panel:#0c1c19; --panel-2:#103029; --edge:#1d4038;
+    --txt:#9fc7bd; --txt-hi:#e8fff7; --muted:#5f857b;
+    --teal:#2fe6b6; --teal-dim:#179e7c; --cyan:#46d6ff; --gold:#ffce5c; --done:#2fe6b6; --rose:#ff6b8a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:radial-gradient(1000px 500px at 90% -10%,rgba(47,230,182,.07),transparent),var(--bg);
+    color:var(--txt);font-family:'Manrope',system-ui,sans-serif;font-size:15px;line-height:1.65}
+  .wrap{max-width:940px;margin:0 auto;padding:44px 24px 110px}
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  header{margin-bottom:40px}
+  .kicker{font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:3px;text-transform:uppercase;color:var(--teal-dim)}
+  h1{color:var(--txt-hi);font-size:clamp(26px,4.4vw,40px);font-weight:800;letter-spacing:-.5px;margin:12px 0 8px}
+  .sub{color:var(--muted);max-width:64ch}
+
+  /* overall progress bar */
+  .overall{margin-top:24px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px 20px}
+  .overall .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:10px}
+  .overall .top b{color:var(--txt-hi)}
+  .track{height:10px;border-radius:6px;background:#0a1714;overflow:hidden;border:1px solid var(--edge)}
+  .fill{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--teal-dim),var(--teal));
+    box-shadow:0 0 14px rgba(47,230,182,.5);animation:grow 1.4s ease forwards}
+  @keyframes grow{to{width:var(--w,42%)}}
+
+  /* phase timeline (HERO COMPONENT) */
+  .phase{position:relative;padding:0 0 14px 46px;margin-bottom:8px}
+  .phase::before{content:"";position:absolute;left:15px;top:6px;bottom:-8px;width:2px;background:var(--edge)}
+  .phase:last-child::before{display:none}
+  .phase>.pin{position:absolute;left:0;top:2px;width:32px;height:32px;border-radius:50%;background:var(--panel-2);
+    border:2px solid var(--teal-dim);display:grid;place-items:center;font:700 13px 'JetBrains Mono',monospace;color:var(--teal);z-index:2}
+  .phase.done>.pin{background:var(--teal);border-color:var(--teal);color:var(--bg)}
+  .phase.active>.pin{border-color:var(--teal);box-shadow:0 0 0 4px rgba(47,230,182,.15);animation:beat 2s infinite}
+  @keyframes beat{50%{box-shadow:0 0 0 8px rgba(47,230,182,.05)}}
+  .phase .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:18px 20px;margin-left:4px}
+  .phase.active .card{border-color:var(--teal-dim)}
+  .ph-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .ph-head h3{font-size:17px;color:var(--txt-hi);font-weight:700}
+  .tag{font:600 10.5px/1 'JetBrains Mono',monospace;letter-spacing:.5px;padding:5px 9px;border-radius:20px;border:1px solid currentColor}
+  .tag.t{color:var(--cyan)} .tag.o{color:var(--gold)} .tag.d{color:var(--done)} .tag.now{color:var(--teal);background:rgba(47,230,182,.1)}
+  .ph-desc{color:var(--txt);font-size:14px;margin-bottom:14px}
+
+  /* task checklist */
+  ul.tasks{list-style:none;margin:6px 0 14px}
+  ul.tasks li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:14px}
+  ul.tasks .box{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--edge);flex-shrink:0;margin-top:2px;position:relative}
+  ul.tasks li.x .box{background:var(--teal);border-color:var(--teal)}
+  ul.tasks li.x .box::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:var(--bg);font-size:12px;font-weight:800}
+  ul.tasks li.x{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--teal-dim)}
+  ul.tasks li.doing .box{border-color:var(--teal);box-shadow:0 0 0 3px rgba(47,230,182,.12)}
+
+  /* gantt-style effort bars */
+  .gantt{margin-top:14px;border-top:1px dashed var(--edge);padding-top:14px}
+  .gantt .row{display:grid;grid-template-columns:130px 1fr;align-items:center;gap:14px;margin:7px 0;font-size:12.5px}
+  .gantt .lbl{color:var(--muted);font-family:'JetBrains Mono',monospace;text-align:right}
+  .gantt .bar{height:18px;border-radius:5px;background:linear-gradient(90deg,var(--teal-dim),var(--cyan));
+    display:flex;align-items:center;padding:0 8px;font:600 11px 'JetBrains Mono',monospace;color:var(--bg)}
+  .gantt .bar.warn{background:linear-gradient(90deg,#8a6a1f,var(--gold))}
+
+  .milestone{display:inline-flex;align-items:center;gap:8px;margin-top:8px;color:var(--gold);font-size:13px;font-weight:600}
+  .milestone::before{content:"◆";color:var(--gold)}
+
+  footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--edge);color:var(--muted);
+    font:500 12px 'JetBrains Mono',monospace;letter-spacing:1px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">Implementation Plan · CIMD-4372 · v2 · delivered</div>
+    <h1>Hearing result response fidelity</h1>
+    <p class="sub">POST /hearing/result returns placeholder content where the ticket's sample response carries
+    request-derived defendant identity and richer seeded entity data. Three phases: make the seed authoritative,
+    echo the posted defendant details, then lock every request/response pair behind a fixture-driven IT harness.</p>
+    <div class="overall" style="--w:100%">
+      <div class="top"><span>Overall progress</span><b>Implemented — 172 tests, 0 failures, PMD clean</b></div>
+      <div class="track"><div class="fill"></div></div>
+    </div>
+  </header>
+
+  <div class="phase active">
+    <div class="pin">0</div>
+    <div class="card">
+      <div class="ph-head"><h3>Root cause (established, not assumed)</h3><span class="tag now">Verified</span></div>
+      <div class="ph-desc">Reproduced against the running simulator; the live body matches the reported one byte for byte
+      apart from the timestamp. The response is assembled <b>only</b> from <code>field-paths.yaml</code> rows that a posted
+      result code selects, plus the <code>baseline: true</code> floor for each requested root. Two independent defects follow.</div>
+      <ul class="tasks">
+        <li class="x"><span class="box"></span><b>D1 — the seed can only override, never introduce.</b> <code>ValueResolver</code>
+        is consulted per catalogue row, so a path with no row is unreachable regardless of seed content. Proof: the bundled seed
+        already carries a <code>defAddress</code> that never reaches the response.</li>
+        <li class="x"><span class="box"></span><b>D2 — the posted request body is discarded.</b>
+        <code>NowsDataItemsAssembler.assemble()</code> receives only <code>(caseUrn, resultCodes, requestedNames)</code>;
+        <code>defendantDetails</code> never reaches assembly, yet eight fields of the ticket's sample response are exact
+        echoes of it.</li>
+        <li class="x"><span class="box"></span><b>Decisive constraint.</b> The sample response carries three impositions.
+        Catalogue rows are pinned to <code>imposition[0]</code>, so adding catalogue rows <i>cannot</i> express
+        <code>imposition[1..2]</code> — extending the catalogue alone is structurally incapable of closing the gap.</li>
+      </ul>
+      <span class="milestone">Agreed at gate: request echo &gt; seed &gt; catalogue default</span>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="pin">1</div>
+    <div class="card">
+      <div class="ph-head"><h3>Make the seed authoritative for a requested entity</h3><span class="tag t mono">D1</span></div>
+      <div class="ph-desc"><b>Revised during build (v2).</b> The seed subtree is merged <b>after</b> the three existing passes
+      and fills <b>gaps only</b>. The v1 plan had it overwrite, to reproduce the sample response's bare <code>340</code>; that
+      would have broken <b>AC4</b> ("amounts numeric with 2 decimal places") by replacing <code>ValueResolver</code>'s coerced
+      scale with whatever the seed file was authored at. Overwriting also buys nothing: for any path a catalogue row covers,
+      <code>ValueResolver</code> has already read the same seed. The three existing passes are untouched.</div>
+      <ul class="tasks">
+        <li><span class="box"></span>Merge only <b>requested</b> roots — an unrequested entity must stay absent
+        (protects <code>returns_exactly_the_requested_entities_and_nothing_more</code>)</li>
+        <li><span class="box"></span>Element-wise array merge, so a seed may supply N impositions / offences</li>
+        <li><span class="box"></span>Unknown seed keys keep failing loudly at <code>convertValue</code> — no silent drop</li>
+        <li><span class="box"></span>Populate the seed for the ticket's case: offence detail, the imposition set,
+        imposing court, account notes, days in default, account date imposed</li>
+        <li><span class="box"></span><b>AC4 (found during build).</b> An amount the seed alone contributes bypasses
+        <code>ValueResolver</code> entirely. <code>SeedStore</code> now parses with
+        <code>USE_BIG_DECIMAL_FOR_FLOATS</code> + <code>withExactBigDecimals(true)</code> — without the second, Jackson's
+        node factory strips the trailing zeros and undoes the first — so the seed file's scale is authoritative, and a
+        guard test fails the build if any amount reaches the wire at another scale.</li>
+      </ul>
+      <span class="milestone">A new case becomes a data edit, not a code change</span>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="pin">2</div>
+    <div class="card">
+      <div class="ph-head"><h3>Echo the posted defendant details</h3><span class="tag t mono">D2</span></div>
+      <div class="ph-desc">A new, single-purpose mapper derives an overlay from <code>defendantDetails</code> and applies it
+      <b>last</b>, with overwrite, and only for roots the caller requested. Highest precedence by design: the caller's own
+      payload beats both seed and catalogue default, so a new test pair with a different defendant needs no seed edit.</div>
+      <ul class="tasks">
+        <li><span class="box"></span>Field mapping (names only — no values recorded here):
+        <code>forename</code>+<code>surname</code>→<code>defName</code>,
+        <code>dateOfBirth</code>→<code>DoB</code> (reformatted to <code>dd MMM yyyy</code>),
+        <code>nationalInsuranceNumber</code>, <code>homeTelephoneNumber</code>→<code>homeTelNo</code>,
+        <code>mobileTelephoneNumber</code>→<code>mobileTelNo</code>,
+        <code>address1..3</code>+<code>postcode</code>→<code>defAddress.*</code>,
+        <code>prosecutorDefendantId</code>→<code>accountNumber</code></li>
+        <li><span class="box"></span>Absent optional field ⇒ no overlay entry, so the seed still supplies it
+        (<code>homeTelNo</code> is the live example of this)</li>
+        <li><span class="box"></span>Update <code>HearingResultControllerIT</code>: <code>accountNumber</code> now echoes the
+        posted id instead of the catalogue default — the assertion is <b>changed to the new truth, never deleted</b></li>
+      </ul>
+      <div class="gantt">
+        <div class="row"><span class="lbl">precedence</span><div class="bar" style="width:100%">request &gt; seed &gt; default</div></div>
+        <div class="row"><span class="lbl">scope</span><div class="bar" style="width:62%">requested roots only</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="pin">3</div>
+    <div class="card">
+      <div class="ph-head"><h3>Fixture-pair IT harness</h3><span class="tag t mono">mandated</span></div>
+      <div class="ph-desc">Every request/response pair gets a test, and adding a pair must stay a drop-in. A parameterised IT
+      discovers each directory under the fixtures root and asserts the real response against the recorded one.</div>
+      <ul class="tasks">
+        <li><span class="box"></span><code>&lt;fixture&gt;/request.json</code> + <code>&lt;fixture&gt;/expected-response.json</code>;
+        a new pair is a new folder, no Java edit</li>
+        <li><span class="box"></span>Strict whole-body comparison, <code>timestamp</code> excluded — it is
+        <code>Instant.now()</code> by decision, and nothing in the request supplies a time of day</li>
+        <li><span class="box"></span>Numeric comparison by value, so a recorded <code>340</code> matches an emitted
+        <code>340.00</code> (the money scale is deliberate)</li>
+        <li><span class="box"></span><code>correlationId</code> present in the expected body ⇒ sent as
+        <code>X-Correlation-ID</code>, keeping each fixture self-describing</li>
+        <li><span class="box"></span><code>conformsToSpec()</code> on every pair, so no fixture can encode a
+        contract-invalid response</li>
+        <li><span class="box"></span>AC4 guard asserts every amount on the wire at 2dp — checked against the raw
+        response TEXT, since every JSON parser in the path destroys scale by default</li>
+      </ul>
+      <span class="milestone">Green suite via ./gradlew :enforcement-workflow-simulator:test before review</span>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="pin">!</div>
+    <div class="card">
+      <div class="ph-head"><h3>Open questions carried to the gate</h3><span class="tag o mono">review</span></div>
+      <ul class="tasks">
+        <li><span class="box"></span><b>Timestamp.</b> The ticket's sample shows the hearing date at a fixed time of day;
+        the endpoint emits the current instant. Treated as a captured moment, not a rule — flagged rather than guessed.</li>
+        <li><span class="box"></span><b>Fixture data.</b> The pair is synthetic simulator data, consistent with the existing
+        fixtures, but it is defendant-shaped. Confirm it is cleared for commit before the fixtures land.</li>
+        <li><span class="box"></span><b>Design spec drift.</b> §5 describes content as label-driven only. Seed-as-floor and the
+        request echo widen that; if accepted, §5 and ADR coverage need the same edit. The simulator README is updated.</li>
+        <li><span class="box"></span><b>AC4/AC8 vs the sample response.</b> Echoing
+        <code>prosecutorDefendantId</code> into <code>accountNumber</code> follows the ticket's sample, but AC8 names the
+        unseeded default for Account No. and AC4 declares it <code>A(7)</code>, which a prosecutor defendant id exceeds.
+        The contract puts no pattern on the property, so conformance cannot adjudicate. For the BA.</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>CIMD-4372 · IMPLEMENTATION PLAN v2 · STAGE 6 GATE (CODE REVIEW) · NO CASE DATA IN THIS ARTEFACT</footer>
+</div>
+</body>
+</html>

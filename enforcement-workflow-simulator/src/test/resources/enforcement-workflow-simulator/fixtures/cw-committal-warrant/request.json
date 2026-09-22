@@ -1,0 +1,61 @@
+{
+  "caseUrn": "E018899001",
+  "dateOfHearing": "2026-09-17",
+  "courtHearingLocation": "L03LD01",
+  "defendantDetails": {
+    "prosecutorDefendantId": "5588998811",
+    "forename": "William",
+    "surname": "Owens",
+    "dateOfBirth": "1975-09-05",
+    "address1": "18 Roundhay Road",
+    "address3": "Leeds",
+    "postcode": "LS7 3JB",
+    "nationalInsuranceNumber": "WO663389H",
+    "mobileTelephoneNumber": "07700900889"
+  },
+  "paymentTerms": {
+    "paymentTerms": "M",
+    "paymentDueDate": "2026-10-17",
+    "instalmentAmount": 120,
+    "paymentCardRequested": "N",
+    "parentToPay": "N"
+  },
+  "enforcement": {
+    "prisonSentenceIndicator": "Y"
+  },
+  "results": [
+    {
+      "resultCode": "CW",
+      "enforcerCode": 905,
+      "jailDays": 42
+    }
+  ],
+  "nowsDataRequest": {
+    "nowsDataItems": [
+      {
+        "name": "Defendant Account"
+      },
+      {
+        "name": "Account Balance"
+      },
+      {
+        "name": "Account Warrant Number"
+      },
+      {
+        "name": "Warrant Contact Details"
+      },
+      {
+        "name": "Days Before Release of Warrant"
+      },
+      {
+        "name": "Account Number"
+      },
+      {
+        "name": "Account Date Imposed"
+      },
+      {
+        "name": "Account Offences and Penalties"
+      }
+    ]
+  }
+}

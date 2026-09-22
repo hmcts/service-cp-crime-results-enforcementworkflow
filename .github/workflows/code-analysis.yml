@@ -26,11 +26,30 @@ jobs:
           sourcePath: 'src/main/java'
           analyzeModifiedFilesOnly: false
 
+      # pmd-github-action's sourcePath is a single root directory, so the enforcement-workflow-simulator
+      # subproject (enforcement-workflow-simulator/src/main/java) is scanned in its own step rather than
+      # being reachable from the root path above.
+      - uses: pmd/pmd-github-action@v2
+        id: pmd-enforcement-workflow-simulator
+        with:
+          rulesets: '.github/pmd-ruleset.xml'
+          sourcePath: 'enforcement-workflow-simulator/src/main/java'
+          analyzeModifiedFilesOnly: false
+
       - name: Fail build if there are violations
         if: always()
         run: |
           VIOLATIONS="${{ steps.pmd.outputs.violations }}"
+          ENFORCEMENT_WORKFLOW_SIMULATOR_VIOLATIONS="${{ steps.pmd-enforcement-workflow-simulator.outputs.violations }}"
+          FAILED=0
           if [ -n "$VIOLATIONS" ] && [ "$VIOLATIONS" != "0" ]; then
-            echo "PMD found $VIOLATIONS violations"
+            echo "PMD found $VIOLATIONS violations in src/main/java"
+            FAILED=1
+          fi
+          if [ -n "$ENFORCEMENT_WORKFLOW_SIMULATOR_VIOLATIONS" ] && [ "$ENFORCEMENT_WORKFLOW_SIMULATOR_VIOLATIONS" != "0" ]; then
+            echo "PMD found $ENFORCEMENT_WORKFLOW_SIMULATOR_VIOLATIONS violations in enforcement-workflow-simulator/src/main/java"
+            FAILED=1
+          fi
+          if [ "$FAILED" != "0" ]; then
             exit 1
           fi

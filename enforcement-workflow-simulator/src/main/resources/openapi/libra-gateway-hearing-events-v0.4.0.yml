@@ -1,0 +1,1557 @@
+# Generated from HLD v0.4 section 6.3.5.3, Enforcement (Hearing Req) API Data Attributes v1.4, and GoB to CP NOWs Logical Entities v1.3.
+# Hearing event paths intentionally omit an external path identifier; the request payload supplies the case/account context.
+openapi: "3.0.3"
+info:
+  title: "Libra Gateway Hearing Event API"
+  version: "0.4.0"
+  description: "REST API exposed by Libra Gateway for Common Platform hearing confirmation and hearing result callbacks. Hearing event paths do not carry an external path identifier; the request payload supplies the case/account context."
+servers:
+  -
+    url: "https://cpp-gob.gateway.lncs.hmcs"
+    description: "Production Libra Gateway endpoint."
+  -
+    url: "https://libra-cpp-gob-gateway.staging.internal.hmcts.net"
+    description: "Pre-Production Libra Gateway endpoint."
+tags:
+  -
+    name: "Authentication"
+  -
+    name: "Hearing Events"
+paths:
+  "/auth/token":
+    post:
+      tags:
+        - "Authentication"
+      operationId: "issueHearingApiToken"
+      summary: "Issue OAuth2 client credentials token"
+      requestBody:
+        required: true
+        content:
+          "application/x-www-form-urlencoded":
+            schema:
+              $ref: "#/components/schemas/OAuthTokenRequest"
+      responses:
+        "200":
+          description: "Access token issued."
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/OAuthTokenResponse"
+        "400":
+          description: "Invalid token request."
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/OAuthErrorResponse"
+        "401":
+          description: "Invalid client credentials."
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/OAuthErrorResponse"
+  "/hearing":
+    post:
+      tags:
+        - "Hearing Events"
+      operationId: "confirmHearing"
+      summary: "Confirm an enforcement hearing"
+      description: "Receives allocated hearing details from Common Platform, resolves the GoB enforcement record from the payload context, removes the enforcement hold and records the hearing details."
+      security:
+        -
+          ClientCredentials:
+            []
+      parameters:
+        -
+          $ref: "#/components/parameters/CorrelationIdHeader"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/HearingConfirmedRequest"
+            example:
+              caseUrn: "E012345678"
+              courtHearingLocation: "B01BH01"
+              dateOfHearing: "2026-04-24"
+              timeOfHearing: "14:00"
+      responses:
+        "200":
+          description: "Hearing confirmation updated successfully."
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+  "/hearing/result":
+    post:
+      tags:
+        - "Hearing Events"
+      operationId: "resultHearing"
+      summary: "Submit enforcement hearing result"
+      description: "Receives the hearing outcome from Common Platform, updates the GoB account through DAC processing, and returns only the requested NOWS logical data items."
+      security:
+        -
+          ClientCredentials:
+            []
+      parameters:
+        -
+          $ref: "#/components/parameters/CorrelationIdHeader"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/HearingResultedRequest"
+            example:
+              caseUrn: "E012345678"
+              dateOfHearing: "2026-05-03"
+              courtHearingLocation: "B01BH01"
+              defendantDetails:
+                prosecutorDefendantId: "1234567890"
+                forename: "Jane"
+                surname: "Smith"
+                address1: "1 High Street"
+              paymentTerms:
+                paymentDueDate: "2026-05-31"
+                paymentCardRequested: "N"
+                parentToPay: "N"
+              enforcement:
+                prisonSentenceIndicator: "N"
+              results:
+                -
+                  resultCode: "SC"
+              nowsDataRequest:
+                nowsDataItems:
+                  -
+                    name: "Account Balance"
+                  -
+                    name: "Account Number"
+      responses:
+        "200":
+          description: "Hearing result accepted and requested NOWS data returned."
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/HearingResultedResponse"
+              example:
+                caseUrn: "E012345678"
+                timestamp: "2026-05-03T14:30:00Z"
+                correlationId: "9f3d2e42-8d30-4d16-9dd6-6d4e26889d5c"
+                nowsDataItems:
+                  accountBalance:
+                    accountBalance: 125.5
+                  accountNumber:
+                    accountNumber: "1234567890"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+components:
+  schemas:
+    OAuthTokenRequest:
+      type: "object"
+      required:
+        - "grant_type"
+        - "client_id"
+        - "client_secret"
+      properties:
+        grant_type:
+          type: "string"
+          enum:
+            - "client_credentials"
+        client_id:
+          type: "string"
+        client_secret:
+          type: "string"
+          format: "password"
+        scope:
+          type: "string"
+    OAuthTokenResponse:
+      type: "object"
+      required:
+        - "access_token"
+        - "token_type"
+        - "expires_in"
+      properties:
+        access_token:
+          type: "string"
+        token_type:
+          type: "string"
+          enum:
+            - "Bearer"
+        expires_in:
+          type: "integer"
+          minimum: 1
+        scope:
+          type: "string"
+    OAuthErrorResponse:
+      type: "object"
+      required:
+        - "error"
+      properties:
+        error:
+          type: "string"
+        error_description:
+          type: "string"
+    HearingConfirmedRequest:
+      type: "object"
+      additionalProperties: false
+      properties:
+        caseUrn:
+          type: "string"
+          maxLength: 36
+          description: "This will be the Case URN that was provided by GOB/LG in SubmitCase Business rules: Provided in the format \u2013 \u2018Sequence: XX00\u2026......\u2019 Unique value for each submitCase request. Used as the unifying value in any subsequent messages and communications. Must be 10 characters, an E with 9 numbers E.g. E012345678 CP comment: Example: \"ENFA654789B\" Source: HearingConfirmed row 2 (from extracted workbook JSON)"
+          x-source-row: 2
+          x-source-data-attribute: "caseUrn"
+        courtHearingLocation:
+          type: "string"
+          maxLength: 7
+          description: "CJSE Organisational Unit code identifying the destination court (and courtroom where applicable). Mapped from GoB Enforcement Court Code via national court code mapping; manual enforcement appends selected courtroom, auto enforcement uses '00'. Business rules: DS: Court Location : OUCODE (Complete Court location including Courtroom) Will display on the front screen on account in GOB in Ac History CP comment: Format - OUCODE (Example: \"B01BH01\") Source: HearingConfirmed row 3 (from extracted workbook JSON)"
+          x-source-row: 3
+          x-source-data-attribute: "courtHearingLocation"
+        dateOfHearing:
+          type: "string"
+          format: "date"
+          description: "Date of the target Court Hearing DS : YYYY-MM-DD Business rules: This can be 31 days in the past CP comment: format - 'YYYY-MM-DD' (Example: \"2026-04-24\") Source: HearingConfirmed row 4 (from extracted workbook JSON)"
+          x-source-row: 4
+          x-source-data-attribute: "dateOfHearing"
+        timeOfHearing:
+          type: "string"
+          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          maxLength: 5
+          description: "The actual start time of the target Court Hearing HH:MM Business rules: 24 Hour clock i.e. 10:00 and 14:00 This will be the actual scheduled time e.g. if the Hearing date is 12th August 2026 at 14:00 and the available slot is 12th August 15:30 then hearing is confirmed allocation at 15:30. CP comment: 24hrs clock. (Example: \"14:00\") Source: HearingConfirmed row 5 (from extracted workbook JSON)"
+          x-source-row: 5
+          x-source-data-attribute: "timeOfHearing"
+      x-source: "HearingConfirmed worksheet"
+      description: "Common Platform callback used to confirm that an enforcement hearing has been allocated."
+      required:
+        - "caseUrn"
+        - "courtHearingLocation"
+    HearingResultedRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "caseUrn"
+        - "dateOfHearing"
+        - "courtHearingLocation"
+        - "defendantDetails"
+        - "paymentTerms"
+        - "enforcement"
+        - "results"
+        - "nowsDataRequest"
+      properties:
+        caseUrn:
+          type: "string"
+          maxLength: 36
+          description: "Unique Reference Number. Civil Authority reference for the case This will be generated and provided by GOB Business rules: Derived at SubmitCase creation. Generated by GoB and provided in the format \u2013 \u2018Sequence: XX00\u2026......\u2019 Unique value for each submitCase request. Used as the unifying value in any subsequent messages and communications. Must be 10 characters, an E with 9 numbers E.g. E012345678 Source: HearingResultedRequest row 2 (from extracted workbook JSON)"
+          x-source-row: 2
+          x-source-data-attribute: "caseUrn"
+        dateOfHearing:
+          type: "string"
+          format: "date"
+          description: "Date on which the enforcement hearing was concluded. Business rules: Recorded in CP at hearing completion and transmitted to GoB in the Process Results message. If the hearing date of the result is different from the allocated one on GOB, then the new resulted hearing date should be updated on GOB. Eg. Allocated for 1/05, but result says 3/05, then the hearing date will be updated to reflect 03/05 Source: HearingResultedRequest row 3 (from extracted workbook JSON)"
+          x-source-row: 3
+          x-source-data-attribute: "dateOfHearing"
+        courtHearingLocation:
+          type: "string"
+          maxLength: 7
+          description: "The OU code of the court house including the selected courtroom User will enter the courtroom (2 digits) Auto enf will be set to 00 with the courthouse being the enforcing court or the account 7alphas numeric Business rules: Either the OU Code associated to the GoB Enforcement Court Code for Auto Enforce, or the OU Code of the destination court selected in manual enforcement. In the format ANNAANN, where the 6th and 7th characters are the courtroom number where initiated by manual enforcement, or \u201800\u2019 where Auto enforcement Source: HearingResultedRequest row 4 (from extracted workbook JSON)"
+          x-source-row: 4
+          x-source-data-attribute: "courtHearingLocation"
+        defendantDetails:
+          $ref: "#/components/schemas/DefendantDetails"
+        employerDetails:
+          $ref: "#/components/schemas/EmployerDetails"
+        parentGuardianDetails:
+          $ref: "#/components/schemas/ParentGuardianDetails"
+        paymentTerms:
+          $ref: "#/components/schemas/PaymentTerms"
+        enforcement:
+          $ref: "#/components/schemas/EnforcementDetails"
+        results:
+          type: "array"
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/HearingResult"
+          description: "One entry per hearing result code supplied by Common Platform."
+        nowsDataRequest:
+          $ref: "#/components/schemas/NowsDataRequest"
+      description: "Common Platform callback used to provide the outcome of an enforcement hearing and request the NOWS logical data items that must be returned."
+    DefendantDetails:
+      type: "object"
+      additionalProperties: false
+      properties:
+        prosecutorDefendantId:
+          type: "string"
+          maxLength: 36
+          description: "A unique reference to a defendant/respondent within civil proceedings. Business rules: GoB Account Number Source: HearingResultedRequest row 6 (from extracted workbook JSON)"
+          x-source-row: 6
+          x-source-data-attribute: "prosecutorDefendantId"
+        forename:
+          type: "string"
+          maxLength: 35
+          description: "The forenames of GOB subject to restrictions (GOB is limited to 20 chars) Over write Business rules: All GoB forenames will be loaded into the forename field. CP will accept value, however will truncate at 35 chars If Parent is defendant (parent to pay) then only populate orgnaisation name (treat as organisation) due to GOB not being able to differentiate between forname and surname for the parent 12/03 Only mandatory if individual Not populated for Company Source: HearingResultedRequest row 7 (from extracted workbook JSON)"
+          x-source-row: 7
+          x-source-data-attribute: "forename"
+        surname:
+          type: "string"
+          maxLength: 35
+          description: "Surname or Family name, e.g., Brown Over write Business rules: CPP stores as (A35) Transformation Not Required. Mandatory if defendant/respondent is a person otherwise field must be null. Source: HearingResultedRequest row 8 (from extracted workbook JSON)"
+          x-source-row: 8
+          x-source-data-attribute: "surname"
+        workTelephoneNumber:
+          type: "string"
+          maxLength: 35
+          description: "A business telephone number, including any exchange of location code, at which a person or organisation can be contacted in the UK by telephonic means. Over write Business rules: CP confirmed there is no validation on telephone number CP requires a minimum length of 10 for telephone number Source: HearingResultedRequest row 9 (from extracted workbook JSON)"
+          x-source-row: 9
+          x-source-data-attribute: "workTelephoneNumber"
+        homeTelephoneNumber:
+          type: "string"
+          maxLength: 35
+          description: "A home telephone number, including any exchange of location code, at which a person or organisation can be contacted in the UK by telephonic means. Over write Business rules: CP confirmed there is no validation on telephone number CP requires a minimum length of 10 for telephone number Source: HearingResultedRequest row 10 (from extracted workbook JSON)"
+          x-source-row: 10
+          x-source-data-attribute: "homeTelephoneNumber"
+        mobileTelephoneNumber:
+          type: "string"
+          maxLength: 35
+          description: "Over write Business rules: CP confirmed there is no validation on telephone number CP requires a minimum length of 10 for telephone number Source: HearingResultedRequest row 11 (from extracted workbook JSON)"
+          x-source-row: 11
+          x-source-data-attribute: "mobileTelephoneNumber"
+        dateOfBirth:
+          type: "string"
+          format: "date"
+          description: "The date of birth which is used to identify juvenile accounts Over write Business rules: The date of birth which is used to identify juvenile accounts GoB cannot support this as Mandatory Source: HearingResultedRequest row 12 (from extracted workbook JSON)"
+          x-source-row: 12
+          x-source-data-attribute: "dateOfBirth"
+        address1:
+          type: "string"
+          maxLength: 35
+          description: "Address Line 1 for the defendant Over write Business rules: The substring of address value immediately preceding the first asterisk Source: HearingResultedRequest row 13 (from extracted workbook JSON)"
+          x-source-row: 13
+          x-source-data-attribute: "address1"
+        address2:
+          type: "string"
+          maxLength: 35
+          description: "Address Line 2 for the defendant Over write Business rules: The substring of address value between the 1st and 2nd asterisk Source: HearingResultedRequest row 14 (from extracted workbook JSON)"
+          x-source-row: 14
+          x-source-data-attribute: "address2"
+        address3:
+          type: "string"
+          maxLength: 35
+          description: "Address Line 3 for the defendant Over write Business rules: The substring of address value immediately between the 2nd and 3rd asterisk Source: HearingResultedRequest row 15 (from extracted workbook JSON)"
+          x-source-row: 15
+          x-source-data-attribute: "address3"
+        address4:
+          type: "string"
+          maxLength: 35
+          description: "Address Line 4 for the defendant Over write Business rules: The substring of address value immediately between the 3rd and 4th asterisk Source: HearingResultedRequest row 16 (from extracted workbook JSON)"
+          x-source-row: 16
+          x-source-data-attribute: "address4"
+        address5:
+          type: "string"
+          maxLength: 35
+          description: "Address Line 5 for the defendant Over write Business rules: The substring of address value immediately between the 4th and 5th asterisk Source: HearingResultedRequest row 17 (from extracted workbook JSON)"
+          x-source-row: 17
+          x-source-data-attribute: "address5"
+        postcode:
+          type: "string"
+          maxLength: 8
+          description: "The defendant postcode Over write Business rules: Agreed to be optional - DS Source: HearingResultedRequest row 18 (from extracted workbook JSON)"
+          x-source-row: 18
+          x-source-data-attribute: "postcode"
+        nationalInsuranceNumber:
+          type: "string"
+          maxLength: 9
+          description: "National Insurance Number Over write Business rules: 17/03 - no validation. There is UI valdiation on CP side Source: HearingResultedRequest row 19 (from extracted workbook JSON)"
+          x-source-row: 19
+          x-source-data-attribute: "nationalInsuranceNumber"
+        organisationName:
+          type: "string"
+          maxLength: 35
+          description: "Name of an organisation, e.g. Marks and Spencer. Over write Business rules: The debtor name where an organisation, otherwise not required. Source: HearingResultedRequest row 20 (from extracted workbook JSON)"
+          x-source-row: 20
+          x-source-data-attribute: "organisationName"
+      x-source: "HearingResultedRequest rows 6-20"
+      required:
+        - "prosecutorDefendantId"
+        - "address1"
+    EmployerDetails:
+      type: "object"
+      additionalProperties: false
+      properties:
+        employerName:
+          type: "string"
+          maxLength: 35
+          description: "Name of defendant's employer Overwrite Source: HearingResultedRequest row 22 (from extracted workbook JSON)"
+          x-source-row: 22
+          x-source-data-attribute: "employerName"
+        employerReference:
+          type: "string"
+          maxLength: 20
+          description: "Employer reference Overwrite Source: HearingResultedRequest row 23 (from extracted workbook JSON)"
+          x-source-row: 23
+          x-source-data-attribute: "employerReference"
+        employerAddress1:
+          type: "string"
+          maxLength: 32
+          description: "Address Line 1 for the employer Over write Source: HearingResultedRequest row 24 (from extracted workbook JSON)"
+          x-source-row: 24
+          x-source-data-attribute: "employerAddress1"
+        employerAddress2:
+          type: "string"
+          maxLength: 32
+          description: "Address Line 2 for the employer Over write Source: HearingResultedRequest row 25 (from extracted workbook JSON)"
+          x-source-row: 25
+          x-source-data-attribute: "employerAddress2"
+        employerAddress3:
+          type: "string"
+          maxLength: 32
+          description: "Address Line 3 for the employer Over write Source: HearingResultedRequest row 26 (from extracted workbook JSON)"
+          x-source-row: 26
+          x-source-data-attribute: "employerAddress3"
+        employerAddress4:
+          type: "string"
+          maxLength: 32
+          description: "Address Line 4 for the employer Over write Source: HearingResultedRequest row 27 (from extracted workbook JSON)"
+          x-source-row: 27
+          x-source-data-attribute: "employerAddress4"
+        employerAddress5:
+          type: "string"
+          maxLength: 32
+          description: "Address Line 5 for the employer Over write Source: HearingResultedRequest row 28 (from extracted workbook JSON)"
+          x-source-row: 28
+          x-source-data-attribute: "employerAddress5"
+        employerPostcode:
+          type: "string"
+          maxLength: 8
+          description: "Employer postcode Over write Source: HearingResultedRequest row 29 (from extracted workbook JSON)"
+          x-source-row: 29
+          x-source-data-attribute: "employerPostcode"
+        employerEmailAddress:
+          type: "string"
+          maxLength: 76
+          description: "Employer email address Over write Source: HearingResultedRequest row 30 (from extracted workbook JSON)"
+          x-source-row: 30
+          x-source-data-attribute: "employerEmailAddress"
+        employerTelephone:
+          type: "string"
+          maxLength: 20
+          description: "Employer telephone Over write Business rules: CP confirmed there is no validation on telephone number CP requires a minimum length of 10 for telephone number Source: HearingResultedRequest row 31 (from extracted workbook JSON)"
+          x-source-row: 31
+          x-source-data-attribute: "employerTelephone"
+      x-source: "HearingResultedRequest rows 22-31"
+    ParentGuardianDetails:
+      type: "object"
+      additionalProperties: false
+      properties:
+        parentGuardianOrganisationName:
+          type: "string"
+          maxLength: 35
+          description: "The parent full name. Over write Business rules: The parent/guardian name stored against the account, otherise not required. Parent/Guardian full name (Person or Organisation) is stored in GoB as a single field with type VARCHAR2(30 BYTE). This may or may not contain a title. It could also be a single word/name. Source: HearingResultedRequest row 33 (from extracted workbook JSON)"
+          x-source-row: 33
+          x-source-data-attribute: "ParentGuardianOrganisationName"
+        parentGuardianAddress1:
+          type: "string"
+          maxLength: 35
+          description: "Address Line 1 for the parent/guardian Over write Business rules: The substring of address value immediately preceding the first asterisk Source: HearingResultedRequest row 34 (from extracted workbook JSON)"
+          x-source-row: 34
+          x-source-data-attribute: "ParentGuardianAddress1"
+        parentGuardianAddress2:
+          type: "string"
+          maxLength: 35
+          description: "Address Line 2 for the parent/guardian Over write Business rules: The substring of address value between the 1st and 2nd asterisk Source: HearingResultedRequest row 35 (from extracted workbook JSON)"
+          x-source-row: 35
+          x-source-data-attribute: "ParentGuardianAddress2"
+        parentGuardianAddress3:
+          type: "string"
+          maxLength: 35
+          description: "Address Line 3 for t the parent/guardian Over write Business rules: The substring of address value immediately between the 2nd and 3rd asterisk Source: HearingResultedRequest row 36 (from extracted workbook JSON)"
+          x-source-row: 36
+          x-source-data-attribute: "ParentGuardianAddress3"
+        parentGuardianAddress4:
+          type: "string"
+          maxLength: 35
+          description: "Address Line 4 for t the parent/guardian Over write Source: HearingResultedRequest row 37 (from extracted workbook JSON)"
+          x-source-row: 37
+          x-source-data-attribute: "ParentGuardianAddress4"
+        parentGuardianAddress5:
+          type: "string"
+          maxLength: 35
+          description: "Address Line 5 for t the parent/guardian Over write Source: HearingResultedRequest row 38 (from extracted workbook JSON)"
+          x-source-row: 38
+          x-source-data-attribute: "ParentGuardianAddress5"
+        parentGuardianPostcode:
+          type: "string"
+          maxLength: 8
+          description: "Post code for the parent/guardian Over write Business rules: Not available in GoB Source: HearingResultedRequest row 39 (from extracted workbook JSON)"
+          x-source-row: 39
+          x-source-data-attribute: "ParentGuardianPostcode"
+      x-source: "HearingResultedRequest rows 33-39"
+    PaymentTerms:
+      type: "object"
+      additionalProperties: false
+      properties:
+        paymentTerms:
+          type: "string"
+          enum:
+            - "W"
+            - "M"
+            - "F"
+          maxLength: 1
+          description: "Instalment frequency Business rules: Value must be W (Weekly), M (Monthly) or F (Fortnightly) and is set by court in CP Required - If payment terms have changed, then GOB needs to know what they are. This is required irrespective of the result code. 04/06 These enforcement results have payment terms: SC, MPSO and FTTP 03/06 All results that have payment data should complete the PAYMENT fields in the HearingRequestRequest in the API - even if the actual result is discarded by GOB. For example, FTTP is not added as a transaction on the GOB account, but the payment fields will still be updated on the hearing. Source: HearingResultedRequest row 41 (from extracted workbook JSON)"
+          x-source-row: 41
+          x-source-data-attribute: "paymentTerms"
+        paymentDueDate:
+          type: "string"
+          format: "date"
+          description: "First payment due date Business rules: Set by court in CP Source: HearingResultedRequest row 42 (from extracted workbook JSON)"
+          x-source-row: 42
+          x-source-data-attribute: "paymentDueDate"
+        instalmentAmount:
+          type: "number"
+          description: "Instalment amount Business rules: Mandatory if installment period specified Source: HearingResultedRequest row 43 (from extracted workbook JSON)"
+          x-source-row: 43
+          x-source-data-attribute: "instalmentAmount"
+        lumpSum:
+          type: "number"
+          description: "Lump sum payable Source: HearingResultedRequest row 44 (from extracted workbook JSON)"
+          x-source-row: 44
+          x-source-data-attribute: "lumpSum"
+        paymentCardRequested:
+          type: "string"
+          enum:
+            - "Y"
+            - "N"
+          maxLength: 1
+          description: "Payment card requested Business rules: Must be Y or N Source: HearingResultedRequest row 45 (from extracted workbook JSON)"
+          x-source-row: 45
+          x-source-data-attribute: "paymentCardRequested"
+        parentToPay:
+          type: "string"
+          enum:
+            - "Y"
+            - "N"
+          maxLength: 1
+          description: "Parent responsible for payment Business rules: Must be Y or N Source: HearingResultedRequest row 46 (from extracted workbook JSON)"
+          x-source-row: 46
+          x-source-data-attribute: "parentToPay"
+        enforcementOverride:
+          type: "string"
+          maxLength: 6
+          description: "Override enforcement action Source: HearingResultedRequest row 47 (from extracted workbook JSON)"
+          x-source-row: 47
+          x-source-data-attribute: "enforcementOverride"
+        enforcementOverrideEnforcer:
+          type: "number"
+          description: "Enforcer ID Business rules: Mandatory for warrant override codes; must exist in CTENCFIL Supplied by CP Source: HearingResultedRequest row 48 (from extracted workbook JSON)"
+          x-source-row: 48
+          x-source-data-attribute: "enforcementOverrideEnforcer"
+        enforcementOverrideLjaCode:
+          type: "number"
+          description: "LJA ID Business rules: Mandatory if override = TFOOUT; must exist in CTCDCFIL Supplied by CP Source: HearingResultedRequest row 49 (from extracted workbook JSON)"
+          x-source-row: 49
+          x-source-data-attribute: "enforcementOverrideLjaCode"
+      x-source: "HearingResultedRequest rows 41-49"
+      required:
+        - "paymentDueDate"
+        - "paymentCardRequested"
+        - "parentToPay"
+    EnforcementDetails:
+      type: "object"
+      additionalProperties: false
+      properties:
+        nextHearingDate:
+          type: "string"
+          format: "date"
+          description: "Date of adjourned hearing where applicable. Business rules: Next hearing date/court/reason is expected if any adjournment result is used or BWTD, CWN or SUMM. Source: HearingResultedRequest row 51 (from extracted workbook JSON)"
+          x-source-row: 51
+          x-source-data-attribute: "nextHearingDate"
+        nextHearingCourtCode:
+          type: "string"
+          maxLength: 7
+          description: "National courthouse location code for adjourned hearing. Business rules: National Courthouse Location Code that must resolve to an existing GoB Court Code (CTCC0FIL.NUMBR) via Libra tables NATIONAL_COURTHOUSES > COURT_HOUSES > LIBRA_COURT_CODES Source: HearingResultedRequest row 52 (from extracted workbook JSON)"
+          x-source-row: 52
+          x-source-data-attribute: "nextHearingCourtCode"
+        nextHearingReason:
+          type: "string"
+          maxLength: 28
+          description: "Textual reason for adjournment. Source: HearingResultedRequest row 53 (from extracted workbook JSON)"
+          x-source-row: 53
+          x-source-data-attribute: "nextHearingReason"
+        accountNotes:
+          type: "string"
+          maxLength: 28
+          description: "Structured notes associated with the hearing outcome. Business rules: Mandatory if resultCode is ACNOTE - does not have to be associated with 'ACNOTE'. Can be sent at any time in theory Source: HearingResultedRequest row 54 (from extracted workbook JSON)"
+          x-source-row: 54
+          x-source-data-attribute: "accountNotes"
+        prisonSentenceIndicator:
+          type: "string"
+          enum:
+            - "Y"
+            - "N"
+          maxLength: 1
+          description: "Indicator confirming whether a prison sentence was imposed (Y/N). Business rules: Value must be Y (if a prison sentence was imposed at this hearing) or N (no prison sentence imposed) Source: HearingResultedRequest row 55 (from extracted workbook JSON)"
+          x-source-row: 55
+          x-source-data-attribute: "prisonSentenceIndicator"
+        transferLjaCode:
+          type: "number"
+          description: "Code identifying transfer of enforcement responsibility to another LJA. Business rules: Mandatory if resultCode is TFOOUT. Value must be an existing GoB Enforcer ID (CTENCFIL.CODE). Source: HearingResultedRequest row 56 (from extracted workbook JSON)"
+          x-source-row: 56
+          x-source-data-attribute: "transferLjaCode"
+      x-source: "HearingResultedRequest rows 51-56"
+      required:
+        - "prisonSentenceIndicator"
+    HearingResult:
+      type: "object"
+      additionalProperties: false
+      properties:
+        resultCode:
+          type: "string"
+          enum:
+            - "ABDC"
+            - "ACF"
+            - "ACNOTE"
+            - "ACON"
+            - "ADJNN"
+            - "AEC"
+            - "AEO"
+            - "AEOC"
+            - "BPOC"
+            - "BWTD"
+            - "BWTU"
+            - "BPOCRFSD"
+            - "CLAMPO"
+            - "COLLO"
+            - "CSC"
+            - "CW"
+            - "CWN"
+            - "DW"
+            - "FIDIC"
+            - "FIDICT"
+            - "FIDIP"
+            - "FSN"
+            - "FTTP"
+            - "MP"
+            - "MPSO"
+            - "NBWT"
+            - "NOENF"
+            - "ORD"
+            - "PTNV"
+            - "REGF"
+            - "REM"
+            - "REMCC"
+            - "REMF"
+            - "RT"
+            - "S136"
+            - "SC"
+            - "SUMM"
+            - "TEXT"
+            - "ENF TEXT"
+            - "TFOOUT"
+            - "WDN"
+            - "WDRN"
+          maxLength: 10
+          description: "A coded value representing the outcome of an enforcement hearing, supplied by Common Platform. Business rules: Selected and applied in CP at hearing conclusion and sent to GoB via the HearingResulted API; mapped to GoB enforcement outcomes via reference data. GoB only uses these results: ABDC, AEO, AEOC, BWTD, BWTU, CLAMPO, COLLO, CW, CWN, DW, FSN, MPSO, NBWT, NOENF, REGF, REM, S136, SC, SUMM, TFOOUT, WDN. TFOOUT (GOB) = TFOUT (CP) DW (GOB) = WC (CP) WDN (GOB) = WWDN (CP) Source: HearingResultedRequest row 58 (from extracted workbook JSON)"
+          x-source-row: 58
+          x-source-data-attribute: "resultCode"
+        enforcerCode:
+          type: "number"
+          description: "Identifier of enforcement agent assigned by the court where applicable. Business rules: Mandatory if resultCode is a Warrant Result (ABDC, BWTD, BWTU, CLAMPO CW, DW, NBWT or S136). Value must be an existing GoB Enforcer ID (CTENCFIL.CODE). Source: HearingResultedRequest row 59 (from extracted workbook JSON)"
+          x-source-row: 59
+          x-source-data-attribute: "enforcerCode"
+        jailDays:
+          type: "number"
+          description: "Default jail days Business rules: CP will convert to days, no exceeding 5 digits. This only applies CW, CWN and SC Source: HearingResultedRequest row 60 (from extracted workbook JSON)"
+          x-source-row: 60
+          x-source-data-attribute: "jailDays"
+      x-source: "HearingResultedRequest rows 58-60"
+      required:
+        - "resultCode"
+    HearingResultedResponse:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "caseUrn"
+        - "timestamp"
+        - "nowsDataItems"
+      properties:
+        caseUrn:
+          type: "string"
+          maxLength: 36
+        timestamp:
+          type: "string"
+          format: "date-time"
+        correlationId:
+          type: "string"
+        nowsDataItems:
+          $ref: "#/components/schemas/NowsDataItems"
+    NowsDataItemName:
+      type: "string"
+      enum:
+        - "Defendant Account"
+        - "Account History"
+        - "Account Offences and Penalties"
+        - "Account Terms to Pay"
+        - "Account Balance"
+        - "Account Warrant Number"
+        - "Warrant Contact Details"
+        - "Account Bail Amount"
+        - "CT Account Bank Details"
+        - "Days Before Release of Warrant"
+        - "Account Number"
+        - "Account Date Imposed"
+      description: "Permitted NOWS logical entity name requested by Common Platform."
+    NowsDataItemRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "name"
+      properties:
+        name:
+          $ref: "#/components/schemas/NowsDataItemName"
+      description: "One NOWS logical entity to be returned. No additional per-item parameters are defined."
+    NowsDataRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "nowsDataItems"
+      properties:
+        nowsDataItems:
+          type: "array"
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/NowsDataItemRequest"
+          description: "List of requested NOWS logical entity objects. Each item name must be one of the 12 values in NowsDataItemName."
+    NowsDataItems:
+      type: "object"
+      additionalProperties: false
+      description: "NOWS logical entities returned by GoB. Optional response property names use the XML-safe element names defined in nows-data-items.xsd; each referenced schema identifies the corresponding NOWS logical entity."
+      properties:
+        defendant:
+          $ref: "#/components/schemas/Defendant"
+        paymentHistory:
+          $ref: "#/components/schemas/PaymentHistory"
+        transactionHistory:
+          $ref: "#/components/schemas/TransactionHistory"
+        offences:
+          $ref: "#/components/schemas/Offences"
+        terms:
+          $ref: "#/components/schemas/Terms"
+        accountBalance:
+          type: "number"
+          description: "Notes: Only returns the account balance that\u2019s stored in GoB (at time of request) Source: NOWS Logical Entities v1.3 table 23, row 2"
+          x-source-table: 23
+          x-source-row: 2
+          x-source-data-item: "Account Balance"
+        accountWarrantNumber:
+          type: "string"
+          pattern: "^[0-9]{3}/[0-9]{2}/[0-9]{5}$"
+          description: "Source: NOWS Logical Entities v1.3 table 26, row 2"
+          x-source-table: 26
+          x-source-row: 2
+          x-source-data-item: "Account Warrant Number"
+        warrantContactDetails:
+          $ref: "#/components/schemas/WarrantContactDetails"
+        accountBailAmount:
+          type: "number"
+          description: "Original Source CDI: account.bailamount Source: NOWS Logical Entities v1.3 table 32, row 2"
+          x-source-table: 32
+          x-source-row: 2
+          x-source-data-item: "Account Bail Amount"
+        ctBankDetails:
+          $ref: "#/components/schemas/CtBankDetails"
+        daysBeforeReleaseWarrant:
+          type: "integer"
+          description: "Original Source CDI: ct.dwdays Source: NOWS Logical Entities v1.3 table 38, row 2"
+          x-source-table: 38
+          x-source-row: 2
+          x-source-data-item: "Days Before Release Warrant"
+        accountNumber:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 41, row 2"
+          x-source-table: 41
+          x-source-row: 2
+          x-source-data-item: "Account Number"
+        accountDateImposed:
+          type: "string"
+          x-date-format: "DD Mon YYYY"
+          description: "Source: NOWS Logical Entities v1.3 table 44, row 2"
+          x-source-table: 44
+          x-source-row: 2
+          x-source-data-item: "Date Imposed"
+      x-source: "NOWS Logical Entities v1.3 sections 4.1-4.12"
+    Defendant:
+      type: "object"
+      additionalProperties: false
+      description: "Debtor details derived from the defendant details or parent/guardian details."
+      required:
+        - "defName"
+      properties:
+        defName:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 2"
+          x-source-table: 11
+          x-source-row: 2
+          x-source-data-item: "Defendant Name"
+        defAddress:
+          $ref: "#/components/schemas/DefAddress"
+        nationalInsuranceNumber:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 6"
+          x-source-table: 11
+          x-source-row: 6
+          x-source-data-item: "National Insurance Number"
+        DoB:
+          type: "string"
+          x-date-format: "DD Mon YYYY"
+          description: "Notes: DD Month YYYY Source: NOWS Logical Entities v1.3 table 11, row 7"
+          x-source-table: 11
+          x-source-row: 7
+          x-source-data-item: "Date of Birth"
+        homeTelNo:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 8"
+          x-source-table: 11
+          x-source-row: 8
+          x-source-data-item: "Home Telephone Number"
+        businessTelNo:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 9"
+          x-source-table: 11
+          x-source-row: 9
+          x-source-data-item: "Business Telephone Number"
+        mobileTelNo:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 10"
+          x-source-table: 11
+          x-source-row: 10
+          x-source-data-item: "Mobile Telephone Number"
+        email1:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 11"
+          x-source-table: 11
+          x-source-row: 11
+          x-source-data-item: "Email Address 1"
+        email2:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 12"
+          x-source-table: 11
+          x-source-row: 12
+          x-source-data-item: "Email Address 2"
+        assetVehicleReg:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 13"
+          x-source-table: 11
+          x-source-row: 13
+          x-source-data-item: "Asset Vehicle Registration"
+        assetVehicleMake:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 14"
+          x-source-table: 11
+          x-source-row: 14
+          x-source-data-item: "Asset Vehicle Make"
+        alias1:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 15"
+          x-source-table: 11
+          x-source-row: 15
+          x-source-data-item: "Alias Name 1"
+        alias2:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 16"
+          x-source-table: 11
+          x-source-row: 16
+          x-source-data-item: "Alias Name 2"
+        alias3:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 17"
+          x-source-table: 11
+          x-source-row: 17
+          x-source-data-item: "Alias Name 3"
+        alias4:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 18"
+          x-source-table: 11
+          x-source-row: 18
+          x-source-data-item: "Alias Name 4"
+        alias5:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 19"
+          x-source-table: 11
+          x-source-row: 19
+          x-source-data-item: "Alias Name 5"
+        accountNotes:
+          $ref: "#/components/schemas/AccountNotes"
+        imposingCourt:
+          $ref: "#/components/schemas/ImposingCourt"
+        parentGuardian:
+          $ref: "#/components/schemas/ParentGuardian"
+        daysInDefault:
+          type: "integer"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 30"
+          x-source-table: 11
+          x-source-row: 30
+          x-source-data-item: "Days in Default"
+      x-source: "NOWS Logical Entities v1.3 tables 9-11"
+    DefAddress:
+      type: "object"
+      additionalProperties: false
+      properties:
+        defAddressLine1:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 3"
+          x-source-table: 11
+          x-source-row: 3
+          x-source-data-item: "Defendant Address Line 1"
+        defAddressLine2:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 4"
+          x-source-table: 11
+          x-source-row: 4
+          x-source-data-item: "Defendant Address Line 2"
+        defAddressLine3:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 5"
+          x-source-table: 11
+          x-source-row: 5
+          x-source-data-item: "Defendant Address Line 3"
+        defPostcode:
+          type: "string"
+          description: "Notes: Present in the Defendant Account data structure. Source: NOWS Logical Entities v1.3 table 9 data structure"
+          x-source-table: -1
+          x-source-row: 0
+          x-source-data-item: "Defendant Postcode"
+      x-source: "NOWS Logical Entities v1.3 table 9 and table 11 defendant address rows"
+    AccountNotes:
+      type: "object"
+      additionalProperties: false
+      properties:
+        accountNote1:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 20"
+          x-source-table: 11
+          x-source-row: 20
+          x-source-data-item: "Additional Personal Information Note 1"
+        accountNote2:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 21"
+          x-source-table: 11
+          x-source-row: 21
+          x-source-data-item: "Additional Personal Information Note 2"
+        accountNote3:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 22"
+          x-source-table: 11
+          x-source-row: 22
+          x-source-data-item: "Additional Personal Information Note 3"
+      x-source: "NOWS Logical Entities v1.3 table 11 account note rows"
+    ImposingCourt:
+      type: "object"
+      additionalProperties: false
+      properties:
+        ljaCode:
+          type: "integer"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 23"
+          x-source-table: 11
+          x-source-row: 23
+          x-source-data-item: "LJA Code"
+        courtName:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 24"
+          x-source-table: 11
+          x-source-row: 24
+          x-source-data-item: "Court Name"
+      x-source: "NOWS Logical Entities v1.3 table 11 imposing court rows"
+    ParentGuardian:
+      type: "object"
+      additionalProperties: false
+      properties:
+        parentToPayFlag:
+          type: "string"
+          enum:
+            - "Y"
+            - "N"
+          maxLength: 1
+          description: "Notes: Y or N Source: NOWS Logical Entities v1.3 table 11, row 25"
+          x-source-table: 11
+          x-source-row: 25
+          x-source-data-item: "Parent to Pay"
+        parentGuardianName:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 26"
+          x-source-table: 11
+          x-source-row: 26
+          x-source-data-item: "Parent Guardian Name"
+        parentGuardianAddress:
+          $ref: "#/components/schemas/ParentGuardianAddress"
+      x-source: "NOWS Logical Entities v1.3 tables 9-11"
+    ParentGuardianAddress:
+      type: "object"
+      additionalProperties: false
+      properties:
+        parentGuardianAddressLine1:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 27"
+          x-source-table: 11
+          x-source-row: 27
+          x-source-data-item: "Parent Guardian Address Line 1"
+        parentGuardianAddressLine2:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 28"
+          x-source-table: 11
+          x-source-row: 28
+          x-source-data-item: "Parent Guardian Address Line 2"
+        parentGuardianAddressLine3:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 11, row 29"
+          x-source-table: 11
+          x-source-row: 29
+          x-source-data-item: "Parent Guardian Address Line 3"
+      x-source: "NOWS Logical Entities v1.3 table 11 parent guardian address rows"
+    PaymentHistory:
+      type: "object"
+      additionalProperties: false
+      properties:
+        payment:
+          type: "array"
+          minItems: 0
+          items:
+            $ref: "#/components/schemas/Payment"
+          description: "Repeated payment history entries."
+      x-wrapper-element: "paymentHistory"
+      x-repeated-element: "payment"
+    Payment:
+      type: "object"
+      additionalProperties: false
+      properties:
+        paymentDate:
+          type: "string"
+          x-date-format: "DD Mon YYYY"
+          description: "Notes: DD Mon YYYY Source: NOWS Logical Entities v1.3 table 14, row 2"
+          x-source-table: 14
+          x-source-row: 2
+          x-source-data-item: "Payment Date"
+        paymentEventCode:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 14, row 3"
+          x-source-table: 14
+          x-source-row: 3
+          x-source-data-item: "Payment Event Code"
+        paymentType:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 14, row 4"
+          x-source-table: 14
+          x-source-row: 4
+          x-source-data-item: "Payment Type"
+        paymentAmount:
+          type: "number"
+          description: "Source: NOWS Logical Entities v1.3 table 14, row 5"
+          x-source-table: 14
+          x-source-row: 5
+          x-source-data-item: "Payment Amount"
+        creditOrDebit:
+          type: "string"
+          enum:
+            - "CR"
+            - "DR"
+          maxLength: 2
+          description: "Notes: CR \u2013 Credit (positive amount) DR \u2013 Debit (negative amount) Referring to \u2018Payment Amount\u2019 one field that could have either one of the values Source: NOWS Logical Entities v1.3 table 14, row 6"
+          x-source-table: 14
+          x-source-row: 6
+          x-source-data-item: "Credit or Debit"
+      x-source: "NOWS Logical Entities v1.3 table 14 payment rows"
+      required:
+        - "paymentDate"
+        - "paymentEventCode"
+    TransactionHistory:
+      type: "object"
+      additionalProperties: false
+      properties:
+        transaction:
+          type: "array"
+          minItems: 0
+          items:
+            $ref: "#/components/schemas/Transaction"
+          description: "Transaction history entry wrapper."
+      x-wrapper-element: "transactionHistory"
+      x-repeated-element: "transaction"
+    Transaction:
+      type: "object"
+      additionalProperties: false
+      properties:
+        accountDate:
+          type: "string"
+          x-date-format: "DD Mon YYYY"
+          description: "Notes: DD Mon YYYY Source: NOWS Logical Entities v1.3 table 14, row 7"
+          x-source-table: 14
+          x-source-row: 7
+          x-source-data-item: "Account Date"
+        accountEventCode:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 14, row 8"
+          x-source-table: 14
+          x-source-row: 8
+          x-source-data-item: "Account Event Code"
+        accountEventDetails:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 14, row 9"
+          x-source-table: 14
+          x-source-row: 9
+          x-source-data-item: "Account Event Details"
+      x-source: "NOWS Logical Entities v1.3 table 14 transaction rows"
+      required:
+        - "accountDate"
+        - "accountEventCode"
+    Offences:
+      type: "object"
+      additionalProperties: false
+      properties:
+        offence:
+          type: "array"
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Offence"
+          description: "Repeated offence entries."
+        accountTotal:
+          type: "number"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 31"
+          x-source-table: 17
+          x-source-row: 31
+          x-source-data-item: "Account Total"
+        accountPaid:
+          type: "number"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 32"
+          x-source-table: 17
+          x-source-row: 32
+          x-source-data-item: "Account Paid"
+      x-wrapper-element: "offences"
+      x-repeated-element: "offence"
+      required:
+        - "offence"
+        - "accountTotal"
+        - "accountPaid"
+    Offence:
+      type: "object"
+      additionalProperties: false
+      description: "One offence entry within Account Offences and Penalties."
+      required:
+        - "dateImposed"
+        - "offenceCode"
+        - "offenceTitle"
+        - "impositions"
+        - "offenceTotal"
+      properties:
+        dateImposed:
+          type: "string"
+          x-date-format: "DD Mon YYYY"
+          description: "Notes: DD Mon YYYY Source: NOWS Logical Entities v1.3 table 17, row 2"
+          x-source-table: 17
+          x-source-row: 2
+          x-source-data-item: "Date Imposed"
+        caseNumber:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 3"
+          x-source-table: 17
+          x-source-row: 3
+          x-source-data-item: "Case Number"
+        offenceCode:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 4"
+          x-source-table: 17
+          x-source-row: 4
+          x-source-data-item: "Offence Code"
+        offenceTitle:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 5"
+          x-source-table: 17
+          x-source-row: 5
+          x-source-data-item: "Offence Title"
+        cymraeg_offenceTitle:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 6"
+          x-source-table: 17
+          x-source-row: 6
+          x-source-data-item: "Offence Title (Cymraeg)"
+        ticketNumber:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 7"
+          x-source-table: 17
+          x-source-row: 7
+          x-source-data-item: "Ticket Number"
+        centralTicketOfficeName:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 8"
+          x-source-table: 17
+          x-source-row: 8
+          x-source-data-item: "Central Ticket Office Name"
+        vehicleReg:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 9"
+          x-source-table: 17
+          x-source-row: 9
+          x-source-data-item: "Vehicle Registration"
+        timeOfOffence:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 10"
+          x-source-table: 17
+          x-source-row: 10
+          x-source-data-item: "Time of Offence"
+        placeOfOffence:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 11"
+          x-source-table: 17
+          x-source-row: 11
+          x-source-data-item: "Place of Offence"
+        noticeToOwnerNoticeToHirer:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 12"
+          x-source-table: 17
+          x-source-row: 12
+          x-source-data-item: "Notice to Owner/Notice to Hirer"
+        dateIssued:
+          type: "string"
+          x-date-format: "DD Mon YYYY"
+          description: "Notes: DD/MM/YYYY Source: NOWS Logical Entities v1.3 table 17, row 13"
+          x-source-table: 17
+          x-source-row: 13
+          x-source-data-item: "Date Issued"
+        licenceNo:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 14"
+          x-source-table: 17
+          x-source-row: 14
+          x-source-data-item: "Licence Number"
+        impositions:
+          $ref: "#/components/schemas/Impositions"
+        offenceTotal:
+          type: "number"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 30"
+          x-source-table: 17
+          x-source-row: 30
+          x-source-data-item: "Offence Total"
+      x-source: "NOWS Logical Entities v1.3 table 17 offence rows"
+    Impositions:
+      type: "object"
+      additionalProperties: false
+      properties:
+        imposition:
+          type: "array"
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Imposition"
+          description: "Repeated imposition entries."
+      x-wrapper-element: "impositions"
+      x-repeated-element: "imposition"
+      required:
+        - "imposition"
+    Imposition:
+      type: "object"
+      additionalProperties: false
+      description: "One imposition within an offence."
+      required:
+        - "amountImposed"
+        - "amountPaid"
+        - "impositionBalance"
+      properties:
+        impositionCode:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 15"
+          x-source-table: 17
+          x-source-row: 15
+          x-source-data-item: "Imposition Code"
+        impositionType:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 16"
+          x-source-table: 17
+          x-source-row: 16
+          x-source-data-item: "Imposition Type"
+        impositionText:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 17"
+          x-source-table: 17
+          x-source-row: 17
+          x-source-data-item: "Imposition Text"
+        cymraeg_impositionText:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 18"
+          x-source-table: 17
+          x-source-row: 18
+          x-source-data-item: "Imposition Text (Cymraeg)"
+        amountImposed:
+          type: "number"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 19"
+          x-source-table: 17
+          x-source-row: 19
+          x-source-data-item: "Amount Imposed"
+        amountPaid:
+          type: "number"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 20"
+          x-source-table: 17
+          x-source-row: 20
+          x-source-data-item: "Amount Paid"
+        impositionBalance:
+          type: "number"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 21"
+          x-source-table: 17
+          x-source-row: 21
+          x-source-data-item: "Imposition Balance"
+        creditor:
+          $ref: "#/components/schemas/Creditor"
+      x-source: "NOWS Logical Entities v1.3 table 17 imposition rows"
+    Creditor:
+      type: "object"
+      additionalProperties: false
+      description: "Creditor details related to an imposition."
+      properties:
+        creditorName:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 22"
+          x-source-table: 17
+          x-source-row: 22
+          x-source-data-item: "Creditor Name"
+        creditorAddress:
+          $ref: "#/components/schemas/CreditorAddress"
+        creditorSortCode:
+          type: "integer"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 27"
+          x-source-table: 17
+          x-source-row: 27
+          x-source-data-item: "Creditor Sort Code"
+        creditorBankAccountNumber:
+          type: "integer"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 28"
+          x-source-table: 17
+          x-source-row: 28
+          x-source-data-item: "Creditor Bank Account Number"
+        creditorBankAccountReference:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 29"
+          x-source-table: 17
+          x-source-row: 29
+          x-source-data-item: "Creditor Bank Account Reference"
+      x-source: "NOWS Logical Entities v1.3 table 17 creditor rows"
+    CreditorAddress:
+      type: "object"
+      additionalProperties: false
+      properties:
+        creditorAddressLine1:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 23"
+          x-source-table: 17
+          x-source-row: 23
+          x-source-data-item: "Creditor Address Line 1"
+        creditorAddressLine2:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 24"
+          x-source-table: 17
+          x-source-row: 24
+          x-source-data-item: "Creditor Address Line 2"
+        creditorAddressLine3:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 25"
+          x-source-table: 17
+          x-source-row: 25
+          x-source-data-item: "Creditor Address Line 3"
+        creditorAddressLine4:
+          type: "string"
+          description: "Source: NOWS Logical Entities v1.3 table 17, row 26"
+          x-source-table: 17
+          x-source-row: 26
+          x-source-data-item: "Creditor Address Line"
+      x-source: "NOWS Logical Entities v1.3 table 17 creditor address rows"
+    Terms:
+      type: "object"
+      additionalProperties: false
+      properties:
+        english_due:
+          type: "string"
+          x-date-format: "DD Mon YYYY"
+          description: "Notes: Date Source: NOWS Logical Entities v1.3 table 20, row 2"
+          x-source-table: 20
+          x-source-row: 2
+          x-source-data-item: "Payment Due Date (English)"
+        english_instalment:
+          type: "string"
+          description: "Notes: Currency Source: NOWS Logical Entities v1.3 table 20, row 3"
+          x-source-table: 20
+          x-source-row: 3
+          x-source-data-item: "Payment Instalment (English)"
+        english_lumpsum:
+          type: "string"
+          description: "Notes: Currency Source: NOWS Logical Entities v1.3 table 20, row 4"
+          x-source-table: 20
+          x-source-row: 4
+          x-source-data-item: "Payment Lumpsum (English)"
+        english_instalmetPaymentPeriod:
+          type: "string"
+          description: "Notes: ENUM(Weekly, Fortnightly, Monthly) TBC exactly Source: NOWS Logical Entities v1.3 table 20, row 5"
+          x-source-table: 20
+          x-source-row: 5
+          x-source-data-item: "Instalment Payment Period (English)"
+        english_firstDate:
+          type: "string"
+          x-date-format: "DD Mon YYYY"
+          description: "Notes: Date Source: NOWS Logical Entities v1.3 table 20, row 6"
+          x-source-table: 20
+          x-source-row: 6
+          x-source-data-item: "Payment First Date (English)"
+        cymraeg_due:
+          type: "string"
+          x-date-format: "DD Mon YYYY"
+          description: "Notes: Date Source: NOWS Logical Entities v1.3 table 20, row 7"
+          x-source-table: 20
+          x-source-row: 7
+          x-source-data-item: "Payment Due Date (Cymraeg)"
+        cymraeg_instalment:
+          type: "string"
+          description: "Notes: Currency Source: NOWS Logical Entities v1.3 table 20, row 8"
+          x-source-table: 20
+          x-source-row: 8
+          x-source-data-item: "Payment Instalment (Cymraeg)"
+        cymraeg_lumpsum:
+          type: "string"
+          description: "Notes: Currency Source: NOWS Logical Entities v1.3 table 20, row 9"
+          x-source-table: 20
+          x-source-row: 9
+          x-source-data-item: "Payment Lumpsum (Cymraeg)"
+        cymraeg_instalmentPaymentPeriod:
+          type: "string"
+          description: "Notes: ENUM(Weekly, Fortnightly, Monthly) Source: NOWS Logical Entities v1.3 table 20, row 10"
+          x-source-table: 20
+          x-source-row: 10
+          x-source-data-item: "Instalment Payment Period (Cymraeg)"
+        cymraeg_firstDate:
+          type: "string"
+          x-date-format: "DD Mon YYYY"
+          description: "Notes: Date Source: NOWS Logical Entities v1.3 table 20, row 11"
+          x-source-table: 20
+          x-source-row: 11
+          x-source-data-item: "Payment First Date (Cymraeg)"
+      x-source: "NOWS Logical Entities v1.3 table 20"
+    WarrantContactDetails:
+      type: "object"
+      additionalProperties: false
+      properties:
+        warrantContactDetailsLine1:
+          type: "string"
+          description: "Original Source CDI: account.warrantcont.line1 Source: NOWS Logical Entities v1.3 table 29, row 2"
+          x-source-table: 29
+          x-source-row: 2
+          x-source-data-item: "Warrant Contact Details Line 1"
+        warrantContactDetailsLine2:
+          type: "string"
+          description: "Original Source CDI: account.warrantcont.line2 Source: NOWS Logical Entities v1.3 table 29, row 3"
+          x-source-table: 29
+          x-source-row: 3
+          x-source-data-item: "Warrant Contact Details Line 2"
+        warrantContactDetailsLine3:
+          type: "string"
+          description: "Original Source CDI: account.warrantcont.line3 Source: NOWS Logical Entities v1.3 table 29, row 4"
+          x-source-table: 29
+          x-source-row: 4
+          x-source-data-item: "Warrant Contact Details Line 3"
+        warrantContactDetailsLine4:
+          type: "string"
+          description: "Original Source CDI: account.warrantcont.line4 Source: NOWS Logical Entities v1.3 table 29, row 5"
+          x-source-table: 29
+          x-source-row: 5
+          x-source-data-item: "Warrant Contact Details Line 4"
+        warrantContactDetailsLine5:
+          type: "string"
+          description: "Original Source CDI: account.warrantcont.line5 Source: NOWS Logical Entities v1.3 table 29, row 6"
+          x-source-table: 29
+          x-source-row: 6
+          x-source-data-item: "Warrant Contact Details Line 5"
+      x-source: "NOWS Logical Entities v1.3 table 29"
+    CtBankDetails:
+      type: "object"
+      additionalProperties: false
+      properties:
+        ct_account_number:
+          type: "integer"
+          maximum: 99999999
+          description: "Original Source CDI: account.ctbankdetail.ct_account_number_desc Source: NOWS Logical Entities v1.3 table 35, row 2"
+          x-source-table: 35
+          x-source-row: 2
+          x-source-data-item: "CT Account Number"
+        ct_sort_code:
+          type: "integer"
+          maximum: 999999
+          description: "Original Source CDI: account.ctbankdetail.ct_sort_code Source: NOWS Logical Entities v1.3 table 35, row 3"
+          x-source-table: 35
+          x-source-row: 3
+          x-source-data-item: "CT Sort Code"
+      x-source: "NOWS Logical Entities v1.3 table 35"
+      required:
+        - "ct_account_number"
+        - "ct_sort_code"
+    ErrorResponse:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "errorCode"
+        - "errorDescription"
+      properties:
+        errorCode:
+          type: "string"
+        errorDescription:
+          type: "string"
+  securitySchemes:
+    ClientCredentials:
+      type: "oauth2"
+      flows:
+        clientCredentials:
+          tokenUrl: "/auth/token"
+          scopes:
+            {}
+  parameters:
+    CorrelationIdHeader:
+      name: "X-Correlation-ID"
+      in: "header"
+      required: false
+      description: "Optional caller-supplied correlation identifier for traceability."
+      schema:
+        type: "string"
+  responses:
+    BadRequest:
+      description: "Validation error, invalid payload, or invalid status transition."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: "Missing, expired or invalid bearer token."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: "Authenticated client is not authorised to invoke the operation."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: "No GoB enforcement record can be resolved for the supplied case/account context."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ServerError:
+      description: "Unexpected Gateway, DAC or GoB processing error."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
