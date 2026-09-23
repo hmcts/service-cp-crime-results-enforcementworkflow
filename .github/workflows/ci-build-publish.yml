@@ -76,6 +76,7 @@ jobs:
     outputs:
       repo_name: ${{ steps.repo_vars.outputs.repo_name }}
       artefact_name: ${{ steps.repo_vars.outputs.artefact_name }}
+      simulator_artefact_name: ${{ steps.repo_vars.outputs.simulator_artefact_name }}
     steps:
       - name: Checkout source code
         uses: actions/checkout@v7
@@ -99,12 +100,24 @@ jobs:
           repo_name=${GITHUB_REPOSITORY##*/}
           echo "repo_name=${repo_name}" >> $GITHUB_OUTPUT
           echo "artefact_name=${repo_name}-${{ needs.Artefact-Version.outputs.artefact_version }}" >> $GITHUB_OUTPUT
+          # The simulator subproject's boot jar is named after the Gradle project, not the repo
+          # (gradle/jar.gradle uses ${project.name}), so it needs its own name.
+          echo "simulator_artefact_name=enforcement-workflow-simulator-${{ needs.Artefact-Version.outputs.artefact_version }}" >> $GITHUB_OUTPUT
 
       - name: Upload JAR Artefact
         uses: actions/upload-artifact@v7
         with:
           name: app-jar
           path: build/libs/${{ steps.repo_vars.outputs.artefact_name }}.jar
+
+      # ./gradlew build already produces this alongside the service jar; it just was not being
+      # carried to a later job. Uploaded separately so Build-Docker-Simulator can consume it
+      # without rebuilding.
+      - name: Upload Simulator JAR Artefact
+        uses: actions/upload-artifact@v7
+        with:
+          name: simulator-jar
+          path: enforcement-workflow-simulator/build/libs/${{ steps.repo_vars.outputs.simulator_artefact_name }}.jar
 
   Provider-Deploy:
     needs: [ Artefact-Version, Build ]
@@ -190,6 +203,60 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ghcr.io/${{ github.repository }}:${{ needs.Artefact-Version.outputs.artefact_version }}
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: 'HIGH,CRITICAL'
+
+  # Second deployable from this repo: the non-live enforcement-workflow simulator. Mirrors
+  # Build-Docker, but pushes to a nested package under the same repository so the two images
+  # never collide, and shares Artefact-Version so both carry the identical tag.
+  #
+  # Deliberately does NOT need Provider-Deploy: that job publishes the service jar to Azure
+  # Artifacts / GitHub Packages, and the simulator is excluded from publishing by design
+  # (ADR-001). Waiting on it would only couple this image to an unrelated step.
+  Build-Docker-Simulator:
+    needs: [ Build, Artefact-Version ]
+    if: ${{ inputs.trigger_docker }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Download Simulator JAR Artefact
+        uses: actions/download-artifact@v8
+        with:
+          name: simulator-jar
+          path: enforcement-workflow-simulator/build/libs
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Packages
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # context is the repo root because enforcement-workflow-simulator/Dockerfile copies the jar
+      # from enforcement-workflow-simulator/build/libs/.
+      - name: Build and Push Simulator Image to GitHub
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: enforcement-workflow-simulator/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/enforcement-workflow-simulator:${{ needs.Artefact-Version.outputs.artefact_version }}
+          build-args: |
+            BASE_IMAGE=eclipse-temurin:25-jre
+            JAR_FILE=enforcement-workflow-simulator/build/libs/${{ needs.Build.outputs.simulator_artefact_name }}.jar
+
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/enforcement-workflow-simulator:${{ needs.Artefact-Version.outputs.artefact_version }}
           format: 'table'
           exit-code: '0'
           ignore-unfixed: true
