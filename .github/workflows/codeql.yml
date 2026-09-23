@@ -101,7 +101,7 @@ jobs:
           
           echo "Waiting for health endpoint..."
           for i in {1..30}; do
-            if curl -s http://localhost:8082/actuator/health > /dev/null; then
+            if curl -s http://localhost:8083/actuator/health > /dev/null; then
               echo "App is healthy"
               break
             fi
@@ -112,7 +112,7 @@ jobs:
       - name: Run OWASP ZAP DAST Scan
         uses: zaproxy/action-baseline@v0.15.0
         with:
-          target: "http://localhost:8082"
+          target: "http://localhost:8083"
           cmd_options: "-a -J zap_report.json -r zap_report.html"
 
       - name: Upload ZAP HTML Report
