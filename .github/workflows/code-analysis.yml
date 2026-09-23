@@ -23,6 +23,7 @@ jobs:
       - uses: pmd/pmd-github-action@v2
         id: pmd
         with:
+          version: '7.24.0'   # keep in step with pmd.gradle's toolVersion
           rulesets: '.github/pmd-ruleset.xml'
           sourcePath: 'src/main/java'
           analyzeModifiedFilesOnly: false
@@ -30,12 +31,19 @@ jobs:
       # pmd-github-action's sourcePath is a single root directory, so the enforcement-workflow-simulator
       # subproject (enforcement-workflow-simulator/src/main/java) is scanned in its own step rather than
       # being reachable from the root path above.
+      #
+      # uploadSarifReport is off here because the action always names its artefact "PMD Report"
+      # and offers no way to rename it — a second upload in the same run fails the whole job with
+      # "(409) Conflict: an artifact with this name already exists on the workflow run". The scan
+      # still runs and still annotates the PR; only the duplicate SARIF upload is skipped.
       - uses: pmd/pmd-github-action@v2
         id: pmd-enforcement-workflow-simulator
         with:
+          version: '7.24.0'   # keep in step with pmd.gradle's toolVersion
           rulesets: '.github/pmd-ruleset.xml'
           sourcePath: 'enforcement-workflow-simulator/src/main/java'
           analyzeModifiedFilesOnly: false
+          uploadSarifReport: false
 
       - name: Fail build if there are violations
         if: always()
