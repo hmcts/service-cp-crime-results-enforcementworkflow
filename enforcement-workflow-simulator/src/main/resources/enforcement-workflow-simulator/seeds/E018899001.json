@@ -1,0 +1,46 @@
+{
+  "accountBalance": 2340.00,
+  "accountWarrantNumber": "909/26/50441",
+  "daysBeforeReleaseWarrant": 0,
+  "accountDateImposed": "07 Mar 2026",
+  "warrantContactDetails": {
+    "warrantContactDetailsLine1": "West Yorkshire Police - Custody",
+    "warrantContactDetailsLine2": "Elland Road Custody Suite",
+    "warrantContactDetailsLine3": "Elland Road",
+    "warrantContactDetailsLine4": "Leeds",
+    "warrantContactDetailsLine5": "LS11 8BU"
+  },
+  "defendant": {
+    "homeTelNo": "01132445576",
+    "accountNotes": {
+      "accountNote1": "Committal warrant issued 17 Sep 2026; 30 days in default",
+      "accountNote2": "History: 4 breached payment plans since Nov 2025",
+      "accountNote3": ""
+    },
+    "imposingCourt": {
+      "ljaCode": 903,
+      "courtName": "Leeds Magistrates' Court"
+    },
+    "daysInDefault": 194
+  },
+  "offences": {
+    "offence": [
+      {
+        "dateImposed": "07 Mar 2026",
+        "caseNumber": "CASE-2026-0158",
+        "offenceCode": "TT21",
+        "offenceTitle": "Failure to comply with terms of a Community Order",
+        "impositions": {
+          "imposition": [
+            { "impositionType": "Fine",             "amountImposed": 2000.00, "amountPaid": 0.00, "impositionBalance": 2000.00 },
+            { "impositionType": "Victim Surcharge", "amountImposed":  240.00, "amountPaid": 0.00, "impositionBalance":  240.00 },
+            { "impositionType": "Costs",            "amountImposed":  100.00, "amountPaid": 0.00, "impositionBalance":  100.00 }
+          ]
+        },
+        "offenceTotal": 2340.00
+      }
+    ],
+    "accountTotal": 2340.00,
+    "accountPaid": 0.00
+  }
+}

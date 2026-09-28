@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- claude-artifact: created=2026-09-17 project=service-cp-crime-results-enforcementworkflow kind=report -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GOB Simulator — Implementation Plan (complete)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#071210; --panel:#0c1c19; --panel-2:#103029; --edge:#1d4038;
+    --txt:#9fc7bd; --txt-hi:#e8fff7; --muted:#5f857b;
+    --teal:#2fe6b6; --teal-dim:#179e7c; --cyan:#46d6ff; --gold:#ffce5c; --done:#2fe6b6; --rose:#ff6b8a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:radial-gradient(1000px 500px at 90% -10%,rgba(47,230,182,.07),transparent),var(--bg);
+    color:var(--txt);font-family:'Manrope',system-ui,sans-serif;font-size:15px;line-height:1.65}
+  .wrap{max-width:940px;margin:0 auto;padding:44px 24px 110px}
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  header{margin-bottom:40px}
+  .kicker{font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:3px;text-transform:uppercase;color:var(--teal-dim)}
+  h1{color:var(--txt-hi);font-size:clamp(26px,4.4vw,40px);font-weight:800;letter-spacing:-.5px;margin:12px 0 8px}
+  .sub{color:var(--muted);max-width:64ch}
+
+  /* overall progress bar */
+  .overall{margin-top:24px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px 20px}
+  .overall .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:10px}
+  .overall .top b{color:var(--txt-hi)}
+  .track{height:10px;border-radius:6px;background:#0a1714;overflow:hidden;border:1px solid var(--edge)}
+  .fill{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--teal-dim),var(--teal));
+    box-shadow:0 0 14px rgba(47,230,182,.5);animation:grow 1.4s ease forwards}
+  @keyframes grow{to{width:var(--w,42%)}}
+
+  /* phase timeline (HERO COMPONENT) */
+  .phase{position:relative;padding:0 0 14px 46px;margin-bottom:8px}
+  .phase::before{content:"";position:absolute;left:15px;top:6px;bottom:-8px;width:2px;background:var(--edge)}
+  .phase:last-child::before{display:none}
+  .phase>.pin{position:absolute;left:0;top:2px;width:32px;height:32px;border-radius:50%;background:var(--panel-2);
+    border:2px solid var(--teal-dim);display:grid;place-items:center;font:700 13px 'JetBrains Mono',monospace;color:var(--teal);z-index:2}
+  .phase.done>.pin{background:var(--teal);border-color:var(--teal);color:var(--bg)}
+  .phase.active>.pin{border-color:var(--teal);box-shadow:0 0 0 4px rgba(47,230,182,.15);animation:beat 2s infinite}
+  @keyframes beat{50%{box-shadow:0 0 0 8px rgba(47,230,182,.05)}}
+  .phase .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:18px 20px;margin-left:4px}
+  .phase.active .card{border-color:var(--teal-dim)}
+  .ph-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .ph-head h3{font-size:17px;color:var(--txt-hi);font-weight:700}
+  .tag{font:600 10.5px/1 'JetBrains Mono',monospace;letter-spacing:.5px;padding:5px 9px;border-radius:20px;border:1px solid currentColor}
+  .tag.t{color:var(--cyan)} .tag.o{color:var(--gold)} .tag.d{color:var(--done)} .tag.now{color:var(--teal);background:rgba(47,230,182,.1)}
+  .ph-desc{color:var(--txt);font-size:14px;margin-bottom:14px}
+
+  /* task checklist */
+  ul.tasks{list-style:none;margin:6px 0 14px}
+  ul.tasks li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:14px}
+  ul.tasks .box{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--edge);flex-shrink:0;margin-top:2px;position:relative}
+  ul.tasks li.x .box{background:var(--teal);border-color:var(--teal)}
+  ul.tasks li.x .box::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:var(--bg);font-size:12px;font-weight:800}
+  ul.tasks li.x{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--teal-dim)}
+  ul.tasks li.doing .box{border-color:var(--teal);box-shadow:0 0 0 3px rgba(47,230,182,.12)}
+
+  /* gantt-style effort bars */
+  .gantt{margin-top:14px;border-top:1px dashed var(--edge);padding-top:14px}
+  .gantt .row{display:grid;grid-template-columns:130px 1fr;align-items:center;gap:14px;margin:7px 0;font-size:12.5px}
+  .gantt .lbl{color:var(--muted);font-family:'JetBrains Mono',monospace;text-align:right}
+  .gantt .bar{height:18px;border-radius:5px;background:linear-gradient(90deg,var(--teal-dim),var(--cyan));
+    display:flex;align-items:center;padding:0 8px;font:600 11px 'JetBrains Mono',monospace;color:var(--bg)}
+  .gantt .bar.warn{background:linear-gradient(90deg,#8a6a1f,var(--gold))}
+
+  .milestone{display:inline-flex;align-items:center;gap:8px;margin-top:8px;color:var(--gold);font-size:13px;font-weight:600}
+  .milestone::before{content:"◆";color:var(--gold)}
+
+  footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--edge);color:var(--muted);
+    font:500 12px 'JetBrains Mono',monospace;letter-spacing:1px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">Implementation Plan · CIMD-4372 · v1.1 · COMPLETE</div>
+    <h1>GOB (Libra) Simulator — hearingResultRequest response data</h1>
+    <p class="sub">A non-live simulator of the Libra Gateway hearing-event API, so CP can render NOWs end-to-end without waiting for the real GOB integration. Nine tasks across four phases, TDD throughout. <b>155 tests, 42/42 result codes producing schema-conformant responses, PMD clean.</b> Mid-stream, the contract was upgraded from v0.3.0 to v0.4.0 (resultCode enum 24 &rarr; 42; NowsDataItems unchanged).</p>
+    <div class="overall" style="--w:100%">
+      <div class="top"><span>Overall progress</span><b>100% · 9 of 9 tasks · complete</b></div>
+      <div class="track"><div class="fill"></div></div>
+    </div>
+  </header>
+
+  <div class="phase done">
+    <div class="pin">1</div>
+    <div class="card">
+      <div class="ph-head"><h3>Foundations &amp; isolation</h3><span class="tag d mono">Task 1–2 · DONE</span></div>
+      <div class="ph-desc">Stand up <code>:enforcement-workflow-simulator</code> as its own Spring Boot subproject that <em>cannot</em> start in a live environment, then deliver the two trivial endpoints together with the OpenAPI conformance harness every later test asserts through.</div>
+      <ul class="tasks">
+        <li class="x"><span class="box"></span><b>T1</b> · <code>settings.gradle</code> + <code>:enforcement-workflow-simulator</code> subproject, own bootJar, excluded from publishing</li>
+        <li class="x"><span class="box"></span><b>T1</b> · Parameterise <b>four</b> template conventions (<code>jar</code>, <code>pmd</code>, <code>repositories</code>/<code>publishing</code> split, and <code>java</code>'s <code>wrapper</code> task guard &mdash; the fourth found during implementation)</li>
+        <li class="x"><span class="box"></span><b>T1</b> · <code>LiveEnvironmentGuard</code> — pre-bean fail-fast on prod/live/perf/preprod</li>
+        <li class="x"><span class="box"></span><b>T2</b> · Bundle <code>libra-gateway-hearing-events-v0.3.0.yml</code> + <code>OpenApiConformance</code> harness <span class="mono" style="color:var(--gold)">(later upgraded to v0.4.0, see below)</span></li>
+        <li class="x"><span class="box"></span><b>T2</b> · <code>POST /auth/token</code> (dummy bearer, unvalidated) and <code>POST /hearing</code></li>
+      </ul>
+      <span class="milestone">Simulator boots under one profile only; every later test can assert schema conformance</span>
+    </div>
+  </div>
+
+  <div class="phase done">
+    <div class="pin">2</div>
+    <div class="card">
+      <div class="ph-head"><h3>Catalogue &amp; contract model</h3><span class="tag d mono">Task 3–4 · DONE</span></div>
+      <div class="ph-desc">Encode the CIMD-4372 table as three YAML resources validated against the schema at startup, and hand-write the response records that mirror v0.3.0 exactly.</div>
+      <ul class="tasks">
+        <li class="x"><span class="box"></span><b>T3</b> · <code>entity-names.yaml</code> — the 12 request names → real schema properties</li>
+        <li class="x"><span class="box"></span><b>T3</b> · <code>field-paths.yaml</code> — field label → JSON path, incl. 6 marked <code>unmapped</code></li>
+        <li class="x"><span class="box"></span><b>T3</b> · <code>result-codes.yaml</code> — all 30 rows, aliases and gaps explicit</li>
+        <li class="x"><span class="box"></span><b>T3</b> · Startup validation — a broken catalogue aborts the context</li>
+        <li class="x"><span class="box"></span><b>T4</b> · <code>NowsDataItems</code> + 17 nested records, contract spelling preserved</li>
+      </ul>
+      <span class="milestone">The Jira table is reviewable as data; unknown properties are impossible by construction</span>
+    </div>
+  </div>
+
+  <div class="phase done">
+    <div class="pin">3</div>
+    <div class="card">
+      <div class="ph-head"><h3>Assembly &amp; endpoint</h3><span class="tag d mono">Task 5–7 · DONE</span></div>
+      <div class="ph-desc">Resolve values from seed or defaults, union required fields across posted result codes, and complete the response envelope.</div>
+      <ul class="tasks">
+        <li class="x"><span class="box"></span><b>T5</b> · <code>SeedStore</code> (classpath + <code>ENFORCEMENT_WORKFLOW_SIMULATOR_SEED_DIR</code>) and <code>ValueResolver</code></li>
+        <li class="x"><span class="box"></span><b>T6</b> · <code>NowsDataItemsAssembler</code> — union, dedupe, filter, always-emit rule</li>
+        <li class="x"><span class="box"></span><b>T7</b> · <code>POST /hearing/result</code> with correlation echo and ISO-8601 UTC timestamp</li>
+        <li class="x"><span class="box"></span><b>T7</b> · Idempotency cache keyed on <code>X-Idempotency-Key</code></li>
+      </ul>
+      <div class="gantt">
+        <div class="row"><span class="lbl">seed + defaults</span><div class="bar" style="width:100%">done</div></div>
+        <div class="row"><span class="lbl">assembly engine</span><div class="bar" style="width:100%">done</div></div>
+        <div class="row"><span class="lbl">endpoint</span><div class="bar" style="width:100%">done</div></div>
+      </div>
+      <span class="milestone">AC2, AC3, AC6, AC7 and AC8 satisfied</span>
+    </div>
+  </div>
+
+  <div class="phase done">
+    <div class="pin">4</div>
+    <div class="card">
+      <div class="ph-head"><h3>Conformance &amp; record</h3><span class="tag d mono">Task 8–9 · DONE</span></div>
+      <div class="ph-desc">Prove conformance across every code CP can post, then record the decisions and gaps so the next reader inherits the reasoning rather than the surprise.</div>
+      <ul class="tasks">
+        <li class="x"><span class="box"></span><b>T8</b> · Parameterised IT — all 42 enum result codes (grown from 24 after the v0.4.0 upgrade) return schema-valid responses</li>
+        <li class="x"><span class="box"></span><b>T8</b> · Fix every defect the suite exposes in the catalogue or records, never the assertion</li>
+        <li class="x"><span class="box"></span><b>T9</b> · <code>enforcement-workflow-simulator/README.md</code> + root README link</li>
+        <li class="x"><span class="box"></span><b>T9</b> · ADR-001 (subproject / template deviation), ADR-002 (contract over Jira examples), <b>ADR-003</b> (Jackson 2/3 coexistence — found during implementation, not originally planned)</li>
+      </ul>
+      <span class="milestone">AC1, AC4 and AC5 proven by test; decisions durable — 155 tests, 42/42 result codes conforming, PMD clean</span>
+    </div>
+  </div>
+
+  <section style="margin-top:34px">
+    <h3 style="color:var(--txt-hi);font-size:17px;margin-bottom:12px">Decisions this plan rests on</h3>
+    <ul class="tasks">
+      <li class="x"><span class="box"></span><b>The published contract is the contract of truth</b> — the CIMD-4372 examples do not validate against it (true of v0.3.0, and still true of v0.4.0, since <code>NowsDataItems</code> did not change). See artifact 001 and ADR-002.</li>
+      <li class="x"><span class="box"></span><b>Separate subproject, not a profile-gated package</b> — matches the precedent set by the existing SOAP stub, and adds the runtime guard that stub lacks. See ADR-001.</li>
+      <li class="x"><span class="box"></span><b>Declarative catalogue over typed assemblers</b> — the Jira table is unstable, so table changes should be data edits.</li>
+      <li class="x"><span class="box"></span><b>Hand-written records + schema-validating ITs</b> — the conformance test is the real AC1 guarantee and is needed either way.</li>
+      <li class="x"><span class="box"></span><b>All three endpoints in scope</b>, with no security implementation this story.</li>
+      <li class="x"><span class="box"></span><b>Jackson 3 for HTTP, Jackson 2 internally</b> — found necessary, not planned: Jackson 3 ignores per-record <code>@JsonIgnoreProperties</code>, so <code>additionalProperties: false</code> is enforced via a global Spring property instead. See ADR-003.</li>
+    </ul>
+  </section>
+
+  <section style="margin-top:28px">
+    <h3 style="color:var(--txt-hi);font-size:17px;margin-bottom:12px">Explicitly deferred — still true after completion</h3>
+    <ul class="tasks">
+      <li><span class="box"></span>Security — token validation, TLS/mTLS. Excluded by direction; 401/403/404 remain unreachable.</li>
+      <li><span class="box"></span>Helm chart and non-live AKS deployment — separate infrastructure work.</li>
+      <li><span class="box"></span>Seeding the remaining 20 worked examples — mechanical, belongs with QA.</li>
+      <li><span class="box"></span>Resolving the 9 open questions — each still has an interim behaviour. OQ-3 (10 unreachable rows) is <b>partly</b> resolved: v0.4.0 made 6 of the 10 postable (see artifact 001, section G); OQ-1 and OQ-7 are unchanged and still risk rework.</li>
+      <li><span class="box"></span><b>New, found during implementation:</b> 15 v0.4.0 result codes have no CIMD-4372 field mappings at all (vendor pending); 6 field labels remain unmapped to any schema property; <code>Imposition.creditor</code> is omitted from the response records; a latent (currently dormant) gap exists in the assembler's indexed-path write logic. All recorded in <code>enforcement-workflow-simulator/README.md</code>, "Known gaps and open questions".</li>
+    </ul>
+  </section>
+
+  <footer>IMPLEMENTATION PLAN · CIMD-4372 · COMPLETE 2026-09-18 · plan: docs/superpowers/plans/2026-09-17-enforcement-workflow-simulator.md · spec: docs/superpowers/specs/2026-09-17-enforcement-workflow-simulator-design.md</footer>
+</div>
+</body>
+</html>

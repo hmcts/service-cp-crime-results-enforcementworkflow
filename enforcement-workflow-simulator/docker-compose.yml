@@ -1,0 +1,49 @@
+# Local development only.
+#
+# The image that gets DEPLOYED is built by CI and mirrored to ACR — not by this file. This
+# exists so you can run the simulator in a container locally without reproducing the docker
+# build/run flags by hand.
+#
+#   ./gradlew :enforcement-workflow-simulator:bootJar
+#   docker compose -f enforcement-workflow-simulator/docker-compose.yml up --build
+#
+# Port 8091 is frequently already taken by an IDE run of this same app. Override it:
+#
+#   SERVER_PORT=8099 docker compose -f enforcement-workflow-simulator/docker-compose.yml up --build
+services:
+  enforcement-workflow-simulator:
+    container_name: CP_EWS_simulator
+    build:
+      context: ..                # repo root (so Docker can reach build/libs)
+      dockerfile: enforcement-workflow-simulator/Dockerfile
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-eclipse-temurin:25-jre}
+    ports:
+      - "${SERVER_PORT:-8091}:${SERVER_PORT:-8091}"
+      # Uncomment together with JAVA_TOOL_OPTIONS below to attach a remote debugger on 8787.
+      # - "8787:5005"
+    environment:
+      SERVER_PORT: ${SERVER_PORT:-8091}
+      # The application exits non-zero on startup unless this profile is active, so the
+      # container would restart-loop without it. If you need an environment profile too,
+      # keep this one in the list rather than replacing it:
+      #   SPRING_PROFILES_ACTIVE: "ste,enforcement-workflow-simulator"
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-enforcement-workflow-simulator}
+      # Optional: your own seed data instead of the seeds bundled in the jar. Uncomment
+      # together with the volume below.
+      # ENFORCEMENT_WORKFLOW_SIMULATOR_SEED_DIR: /seeds
+      # Optional: remote debugging — uncomment with the 8787 port mapping above.
+      # JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+    # volumes:
+    #   - ./local-seeds:/seeds:ro
+    restart: unless-stopped
+
+# NOTE — no `replicas` key on purpose: it is a Swarm-only setting that plain `docker compose
+# up` ignores. The single-instance constraint is real but has to be enforced where the app is
+# actually deployed: issued bearer tokens and the idempotency cache live in memory per
+# process, so a second replica rejects tokens the first one issued (ADR-004).
+#
+# NOTE — no compose-level `healthcheck` either: this image carries its own HEALTHCHECK (see
+# the Dockerfile), and nothing here uses `depends_on: condition: service_healthy`, which is
+# the reason the sibling repos declare one in compose. `docker inspect --format
+# '{{.State.Health.Status}}' CP_EWS_simulator` reports it.

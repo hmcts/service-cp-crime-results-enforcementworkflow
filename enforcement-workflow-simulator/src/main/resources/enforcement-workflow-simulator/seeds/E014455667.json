@@ -1,0 +1,27 @@
+{
+  "accountBalance": 820.00,
+  "accountBailAmount": 150.00,
+  "accountWarrantNumber": "909/26/44821",
+  "daysBeforeReleaseWarrant": 21,
+  "accountDateImposed": "11 May 2026",
+  "warrantContactDetails": {
+    "warrantContactDetailsLine1": "Marston Group",
+    "warrantContactDetailsLine2": "Marston House",
+    "warrantContactDetailsLine3": "Rooksley",
+    "warrantContactDetailsLine4": "Milton Keynes",
+    "warrantContactDetailsLine5": "MK13 8HF"
+  },
+  "defendant": {
+    "homeTelNo": "01159472234",
+    "accountNotes": {
+      "accountNote1": "FTA 03 Sep 2026 - bail warrant dated to 08 Oct 2026",
+      "accountNote2": "",
+      "accountNote3": ""
+    },
+    "imposingCourt": {
+      "ljaCode": 903,
+      "courtName": "Nottingham Magistrates' Court"
+    },
+    "daysInDefault": 42
+  }
+}

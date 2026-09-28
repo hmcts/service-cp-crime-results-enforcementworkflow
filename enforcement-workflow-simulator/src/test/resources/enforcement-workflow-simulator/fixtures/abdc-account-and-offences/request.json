@@ -1,0 +1,51 @@
+{
+  "caseUrn": "E011122334",
+  "dateOfHearing": "2026-09-17",
+  "courtHearingLocation": "B02BR03",
+  "defendantDetails": {
+    "prosecutorDefendantId": "5588221144",
+    "forename": "Jane",
+    "surname": "Willmott",
+    "dateOfBirth": "1985-04-22",
+    "address1": "14 Ashley Down",
+    "address3": "Bristol",
+    "postcode": "BS7 9JQ",
+    "nationalInsuranceNumber": "JW224781A",
+    "mobileTelephoneNumber": "07700900112"
+  },
+  "paymentTerms": {
+    "paymentTerms": "M",
+    "paymentDueDate": "2026-10-17",
+    "instalmentAmount": 20,
+    "paymentCardRequested": "N",
+    "parentToPay": "N"
+  },
+  "enforcement": {
+    "prisonSentenceIndicator": "N"
+  },
+  "results": [
+    {
+      "resultCode": "ABDC",
+      "enforcerCode": 500
+    }
+  ],
+  "nowsDataRequest": {
+    "nowsDataItems": [
+      {
+        "name": "Defendant Account"
+      },
+      {
+        "name": "Account Balance"
+      },
+      {
+        "name": "Account Number"
+      },
+      {
+        "name": "Account Date Imposed"
+      },
+      {
+        "name": "Account Offences and Penalties"
+      }
+    ]
+  }
+}
