@@ -12,6 +12,21 @@ spring:
     client-id: service-cp-crime-results-enforcementworkflow
     listener:
       auto-startup: ${ARTEMIS_LISTENER_ENABLED:true}   # enabled by default (listener only loads under the 'docker' profile)
+  # Postgres + Flyway, service-cp-crime-results-pcr pattern (constitution Principle III)
+  datasource:
+    url: ${DATASOURCE_URL:jdbc:postgresql://localhost:5432/enforcementworkflowdb}
+    username: ${DATASOURCE_USERNAME:postgres}
+    password: ${DATASOURCE_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: ${DATASOURCE_MAX_POOL:5}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
 
 server:
   port: ${SERVER_PORT:8083}
@@ -23,6 +38,36 @@ cp:
     public-event-topic: public.event
     subscription-name: service-cp-crime-results-enforcementworkflow.public.event.logger
     selector: "CPPNAME LIKE 'public.results%'"
+    # own JMS client id: a second durable listener sharing spring.jms.client-id fails to connect (HearingResultedJmsConfig)
+    hearing-resulted-client-id: service-cp-crime-results-enforcementworkflow.hearing-resulted
+    hearing-resulted-subscription-name: service-cp-crime-results-enforcementworkflow.hearing-resulted
+    hearing-resulted-selector: "CPPNAME = 'public.events.hearing.hearing-resulted'"
+  # Enforcement case predicate: same logic as the enforcement gateway (research.md R1)
+  enforcement:
+    authority-code: ${ENFORCEMENT_AUTHORITY_CODE:GAPGD00}
+  # Timeout budget (research.md R20): each hop gives up before its caller
+  reference-data:
+    base-url: ${REFERENCE_DATA_URL:http://localhost:8081}
+    # Placeholder system-user UUID until a real value is confirmed (same convention as service-cp-crime-results-pcr).
+    cjscppuid: ${REFERENCE_DATA_CJSCPPUID:00000000-0000-0000-0000-000000000000}
+    connect-timeout-ms: 5000
+    read-timeout-ms: 10000
+  enforcement-gateway:
+    base-url: ${ENFORCEMENT_GATEWAY_URL:http://localhost:8082}
+    connect-timeout-ms: 5000
+    read-timeout-ms: 50000   # must exceed the gateway's own total towards APIM (5s + 40s)
+  hearing-result:
+    # research.md R13: default NONE (unsendable). HEARING_DATE only via explicit local/test/simulator config.
+    payment-due-date-fallback: ${PAYMENT_DUE_DATE_FALLBACK:NONE}
+    result-code-renames:
+      TFOUT: TFOOUT
+      WC: DW
+      WWDN: WDN
+    # research.md R7: CP shortCode -> GOB NowsDataItemName values (rows from the updated Confluence page)
+    nows-data-items-by-short-code: {}
+    # research.md R19: stale SENDING -> FAILED (INTERRUPTED), never resent
+    stale-sending-threshold: ${STALE_SENDING_THRESHOLD:PT5M}
+    stale-sending-sweep-interval: ${STALE_SENDING_SWEEP_INTERVAL:PT1M}
 
 azure:
   application-insights:
