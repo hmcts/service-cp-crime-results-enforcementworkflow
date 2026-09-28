@@ -74,16 +74,24 @@ public class HearingController {
 
         final Optional<HearingResultedResponse> cached = idempotencyCache.get(idempotencyKey, request);
         final HearingResultedResponse response = cached.orElseGet(() -> buildResponse(request, correlationId));
+        final String safeIdempotencyKey = sanitizeForLog(idempotencyKey);
 
         if (cached.isEmpty()) {
             idempotencyCache.put(idempotencyKey, request, response);
             log.info("Hearing result processed: caseUrn={}, idempotencyKey={}",
-                    request.caseUrn(), idempotencyKey);
+                    request.caseUrn(), safeIdempotencyKey);
         } else {
             log.info("Replaying cached response: caseUrn={}, idempotencyKey={}",
-                    request.caseUrn(), idempotencyKey);
+                    request.caseUrn(), safeIdempotencyKey);
         }
         return response;
+    }
+
+    private String sanitizeForLog(final String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.replace('\r', '_').replace('\n', '_');
     }
 
     /**
