@@ -1,0 +1,50 @@
+{
+  "caseUrn": "E012233445",
+  "dateOfHearing": "2026-09-17",
+  "courtHearingLocation": "L01LV02",
+  "defendantDetails": {
+    "prosecutorDefendantId": "5588332255",
+    "forename": "David",
+    "surname": "O'Connor",
+    "dateOfBirth": "1979-08-11",
+    "address1": "32 Sefton Park Road",
+    "address3": "Liverpool",
+    "postcode": "L8 3SB",
+    "nationalInsuranceNumber": "DO119855C",
+    "mobileTelephoneNumber": "07700900223"
+  },
+  "paymentTerms": {
+    "paymentTerms": "M",
+    "paymentDueDate": "2026-10-17",
+    "instalmentAmount": 45,
+    "paymentCardRequested": "N",
+    "parentToPay": "N"
+  },
+  "enforcement": {
+    "prisonSentenceIndicator": "N"
+  },
+  "results": [
+    {
+      "resultCode": "AEO"
+    }
+  ],
+  "nowsDataRequest": {
+    "nowsDataItems": [
+      {
+        "name": "Defendant Account"
+      },
+      {
+        "name": "Account Balance"
+      },
+      {
+        "name": "Account Number"
+      },
+      {
+        "name": "Account Date Imposed"
+      },
+      {
+        "name": "Account Offences and Penalties"
+      }
+    ]
+  }
+}

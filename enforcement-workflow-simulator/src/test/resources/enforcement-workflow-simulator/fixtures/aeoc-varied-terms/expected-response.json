@@ -1,0 +1,68 @@
+{
+  "caseUrn": "E013344556",
+  "timestamp": "2026-09-17T10:25:00Z",
+  "correlationId": "c3d4e5f6-3333-4444-5555-666677778888",
+  "nowsDataItems": {
+    "defendant": {
+      "defName": "Priya Patel",
+      "DoB": "15 Feb 1990",
+      "nationalInsuranceNumber": "PP227891B",
+      "homeTelNo": "01162239987",
+      "mobileTelNo": "07700900334",
+      "defAddress": {
+        "defAddressLine1": "7 Belvoir Road",
+        "defAddressLine2": "",
+        "defAddressLine3": "Leicester",
+        "defPostcode": "LE5 4NB"
+      },
+      "accountNotes": {
+        "accountNote1": "AEOC issued 17 Sep 2026; new terms take effect 30 Sep 2026",
+        "accountNote2": "",
+        "accountNote3": ""
+      },
+      "imposingCourt": {
+        "ljaCode": 903,
+        "courtName": "Leicester Magistrates' Court"
+      },
+      "daysInDefault": 61
+    },
+    "accountNumber": "5588443366",
+    "accountBalance": 1200,
+    "accountDateImposed": "18 Jul 2026",
+    "terms": {
+      "english_due": "30 Sep 2026",
+      "english_instalment": "£80.00",
+      "english_instalmetPaymentPeriod": "Monthly",
+      "english_firstDate": "30 Sep 2026"
+    },
+    "offences": {
+      "offence": [
+        {
+          "dateImposed": "18 Jul 2026",
+          "caseNumber": "CASE-2026-0452",
+          "offenceCode": "CC12345",
+          "offenceTitle": "Council Tax non-payment: liability order enforcement",
+          "impositions": {
+            "imposition": [
+              {
+                "impositionType": "Fine",
+                "amountImposed": 1000,
+                "amountPaid": 0,
+                "impositionBalance": 1000
+              },
+              {
+                "impositionType": "Costs",
+                "amountImposed": 200,
+                "amountPaid": 0,
+                "impositionBalance": 200
+              }
+            ]
+          },
+          "offenceTotal": 1200
+        }
+      ],
+      "accountTotal": 1200,
+      "accountPaid": 0
+    }
+  }
+}

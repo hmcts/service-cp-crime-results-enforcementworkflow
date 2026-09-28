@@ -1,0 +1,77 @@
+{
+  "caseUrn": "E018899001",
+  "timestamp": "2026-09-17T10:50:00Z",
+  "correlationId": "b8c9d0e1-8888-9999-0000-111122223333",
+  "nowsDataItems": {
+    "defendant": {
+      "defName": "William Owens",
+      "DoB": "05 Sep 1975",
+      "nationalInsuranceNumber": "WO663389H",
+      "homeTelNo": "01132445576",
+      "mobileTelNo": "07700900889",
+      "defAddress": {
+        "defAddressLine1": "18 Roundhay Road",
+        "defAddressLine2": "",
+        "defAddressLine3": "Leeds",
+        "defPostcode": "LS7 3JB"
+      },
+      "accountNotes": {
+        "accountNote1": "Committal warrant issued 17 Sep 2026; 30 days in default",
+        "accountNote2": "History: 4 breached payment plans since Nov 2025",
+        "accountNote3": ""
+      },
+      "imposingCourt": {
+        "ljaCode": 903,
+        "courtName": "Leeds Magistrates' Court"
+      },
+      "daysInDefault": 194
+    },
+    "accountNumber": "5588998811",
+    "accountWarrantNumber": "909/26/50441",
+    "warrantContactDetails": {
+      "warrantContactDetailsLine1": "West Yorkshire Police - Custody",
+      "warrantContactDetailsLine2": "Elland Road Custody Suite",
+      "warrantContactDetailsLine3": "Elland Road",
+      "warrantContactDetailsLine4": "Leeds",
+      "warrantContactDetailsLine5": "LS11 8BU"
+    },
+    "daysBeforeReleaseWarrant": 0,
+    "accountBalance": 2340,
+    "accountDateImposed": "07 Mar 2026",
+    "offences": {
+      "offence": [
+        {
+          "dateImposed": "07 Mar 2026",
+          "caseNumber": "CASE-2026-0158",
+          "offenceCode": "TT21",
+          "offenceTitle": "Failure to comply with terms of a Community Order",
+          "impositions": {
+            "imposition": [
+              {
+                "impositionType": "Fine",
+                "amountImposed": 2000,
+                "amountPaid": 0,
+                "impositionBalance": 2000
+              },
+              {
+                "impositionType": "Victim Surcharge",
+                "amountImposed": 240,
+                "amountPaid": 0,
+                "impositionBalance": 240
+              },
+              {
+                "impositionType": "Costs",
+                "amountImposed": 100,
+                "amountPaid": 0,
+                "impositionBalance": 100
+              }
+            ]
+          },
+          "offenceTotal": 2340
+        }
+      ],
+      "accountTotal": 2340,
+      "accountPaid": 0
+    }
+  }
+}

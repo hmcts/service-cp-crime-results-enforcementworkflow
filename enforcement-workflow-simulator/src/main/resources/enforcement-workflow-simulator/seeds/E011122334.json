@@ -1,0 +1,38 @@
+{
+  "accountNumber": "ACC9001",
+  "accountBalance": 340.00,
+  "accountDateImposed": "05 Jan 2026",
+  "defendant": {
+    "homeTelNo": "01179889812",
+    "accountNotes": {
+      "accountNote1": "DWP notified of benefit deduction request 17 Sep 2026",
+      "accountNote2": "Prior instalments missed Apr-Aug 2026",
+      "accountNote3": ""
+    },
+    "imposingCourt": {
+      "ljaCode": 903,
+      "courtName": "Bristol Magistrates' Court"
+    },
+    "daysInDefault": 152
+  },
+  "offences": {
+    "offence": [
+      {
+        "dateImposed": "05 Jan 2026",
+        "caseNumber": "CASE-2026-0087",
+        "offenceCode": "RT88155",
+        "offenceTitle": "Failure to provide driver information",
+        "impositions": {
+          "imposition": [
+            { "impositionType": "Fine",             "amountImposed": 220.00, "amountPaid": 20.00, "impositionBalance": 200.00 },
+            { "impositionType": "Victim Surcharge", "amountImposed":  88.00, "amountPaid":  0.00, "impositionBalance":  88.00 },
+            { "impositionType": "Costs",            "amountImposed":  52.00, "amountPaid":  0.00, "impositionBalance":  52.00 }
+          ]
+        },
+        "offenceTotal": 360.00
+      }
+    ],
+    "accountTotal": 360.00,
+    "accountPaid": 20.00
+  }
+}
