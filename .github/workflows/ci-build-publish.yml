@@ -87,6 +87,11 @@ jobs:
           distribution: 'temurin'
           java-version: '25'
 
+      # Integration tests need a real Postgres on localhost:5432 (PostgresInitialise), as in
+      # service-cp-crime-results-pcr, which starts its compose services before the build.
+      - name: Start Postgres
+        run: docker compose up -d --wait postgres
+
       - name: Gradle Build
         env:
           ARTEFACT_VERSION: ${{ needs.Artefact-Version.outputs.artefact_version }}

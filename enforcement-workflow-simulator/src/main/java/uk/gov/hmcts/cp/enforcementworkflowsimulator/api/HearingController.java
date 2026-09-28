@@ -88,10 +88,7 @@ public class HearingController {
     }
 
     private String sanitizeForLog(final String value) {
-        if (value == null) {
-            return null;
-        }
-        return value.replace('\r', '_').replace('\n', '_');
+        return value == null ? null : value.replace('\r', '_').replace('\n', '_');
     }
 
     /**
