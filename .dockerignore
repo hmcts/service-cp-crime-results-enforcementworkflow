@@ -1,0 +1,14 @@
+# Build context: the Dockerfile only needs docker/*, build/libs/*.jar and lib/applicationinsights.json
+.git/
+.gradle/
+.idea/
+.claude/
+.specify/
+specs/
+docs/
+build/*
+!build/libs/
+*.log*
+.env*
+coverage/
+.DS_Store

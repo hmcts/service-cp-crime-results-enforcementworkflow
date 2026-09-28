@@ -1,0 +1,10 @@
+# Test-only shortCode -> NOWS data item mapping (US3). Real rows come from the updated Confluence page (research.md R7).
+cp:
+  hearing-result:
+    nows-data-items-by-short-code:
+      SC:
+        - Account Balance
+        - Account Number
+      WC:
+        - Account Number
+        - Account Warrant Number

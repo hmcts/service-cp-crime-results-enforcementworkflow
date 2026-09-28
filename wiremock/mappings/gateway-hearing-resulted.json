@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "name": "Enforcement gateway POST /hearingResulted: echoes caseUrn, returns sample NOWS data",
+      "request": { "method": "POST", "url": "/hearingResulted" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "body": "{\"caseUrn\":\"{{jsonPath request.body '$.caseUrn'}}\",\"timestamp\":\"{{now format='yyyy-MM-dd\\'T\\'HH:mm:ss\\'Z\\''}}\",\"correlationId\":\"{{randomValue type='UUID'}}\",\"nowsDataItems\":{\"accountBalance\":125.5,\"accountNumber\":\"1234567890\"}}",
+        "transformers": ["response-template"]
+      }
+    }
+  ]
+}
