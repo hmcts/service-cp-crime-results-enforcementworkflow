@@ -1,0 +1,184 @@
+{
+  "hearing": {
+    "id": "04180ff1-99b0-40b7-9929-ca05bdc767d8",
+    "jurisdictionType": "MAGISTRATES",
+    "reportingRestrictionReason": "Section 45 of the Youth Justice and Criminal Evidence Act 1999",
+    "courtCentre": {
+      "id": "dd9bf969-f55e-43f1-a08a-7b475a9aa914",
+      "name": "Enfield And Haringey Magistrates' Court",
+      "welshName": "Tribunal de Magistrados de Enfield y Haringey",
+      "roomId": "76ed7dea-2897-4f63-b1cb-67272423c382",
+      "roomName": "Court 1",
+      "welshRoomName": "Corte 1",
+      "address": {
+        "address1": "Lordship Lane",
+        "address2": "London",
+        "postcode": "N17 6RT"
+      },
+      "code": "B01LY00"
+    },
+    "hearingLanguage": "ENGLISH",
+    "prosecutionCases": [
+      {
+        "id": "861aaa70-f142-469d-a7db-9af395347dd5",
+        "prosecutionCaseIdentifier": {
+          "prosecutionAuthorityId": "7d572092-ad2e-4f6b-bf2d-c6892b7bcc21",
+          "prosecutionAuthorityCode": "ENFORCEMENT",
+          "prosecutionAuthorityOUCode": "GAPGD00",
+          "caseURN": "E012345678"
+        },
+        "originatingOrganisation": "CPS-LONDON",
+        "initiationCode": "O",
+        "caseStatus": "Open",
+        "breachProceedingsPending": false,
+        "appealProceedingsPending": false,
+        "defendants": [
+          {
+            "id": "0ddbc4a7-3c85-4bc3-bdd5-843817320b98",
+            "prosecutionCaseId": "861aaa70-f142-469d-a7db-9af395347dd5",
+            "numberOfPreviousConvictionsCited": 1,
+            "prosecutionAuthorityReference": "1234567890",
+            "offences": [
+              {
+                "id": "4fe6e23d-e020-4053-8347-c0aa5a39af97",
+                "offenceDefinitionId": "0ddbc4a7-3c85-4bc3-bdd5-843817320b98",
+                "offenceCode": "CD98072",
+                "offenceTitle": "Racially / religiously aggravated wounding / grievous bodily harm",
+                "offenceLegislation": "Contrary to section 29(1)(b) and (2) of the Crime and Disorder Act 1998",
+                "modeOfTrial": "IO",
+                "wording": "On 21/10/2018 at Euston Train Station, London used racially threatening or abusive or insulting words or behaviour causing fear of or provoking violence.  Used a weapon for common purpose; and demonstrating toward the victim based on the victim's membership or presumed membership of a religious group.",
+                "startDate": "2018-10-21",
+                "arrestDate": "2018-10-23",
+                "chargeDate": "2018-10-23",
+                "dateOfInformation": "2018-10-24",
+                "orderIndex": 0,
+                "judicialResults": [
+                  {
+                    "orderedHearingId": "04180ff1-99b0-40b7-9929-ca05bdc767d8",
+                    "label": "Suspended committal",
+                    "welshLabel": "Wedi'i remandio yn y ddalfa",
+                    "isAdjournmentResult": false,
+                    "isFinancialResult": false,
+                    "isConvictedResult": false,
+                    "isAvailableForCourtExtract": true,
+                    "cjsCode": "4028",
+                    "rank": 100,
+                    "resultText": "Remanded in custody\nRemand basis: Section 25 Criminal Justice & Public Order Act 1994\nPrison: uantanamo Bay detention camp - Youth section\nBail exception: Likely to offend",
+                    "isAppliedToAllOffences": false,
+                    "isLifeDuration": false,
+                    "orderedDate": "2026-05-03",
+                    "lastSharedDateTime": "2018-10-25 15:30:23",
+                    "category": "INTERMEDIARY",
+                    "judicialResultPrompts": [],
+                    "judicialResultId": "aaaaaaa1-0000-0000-0000-000000000001",
+                    "judicialResultTypeId": "11111111-1111-1111-1111-111111111111"
+                  },
+                  {
+                    "orderedHearingId": "04180ff1-99b0-40b7-9929-ca05bdc767d8",
+                    "label": "Committal warrant",
+                    "welshLabel": "Wedi'i remandio yn y ddalfa",
+                    "isAdjournmentResult": false,
+                    "isFinancialResult": false,
+                    "isConvictedResult": false,
+                    "isAvailableForCourtExtract": true,
+                    "cjsCode": "4028",
+                    "rank": 100,
+                    "resultText": "Remanded in custody\nRemand basis: Section 25 Criminal Justice & Public Order Act 1994\nPrison: uantanamo Bay detention camp - Youth section\nBail exception: Likely to offend",
+                    "isAppliedToAllOffences": false,
+                    "isLifeDuration": false,
+                    "orderedDate": "2026-05-03",
+                    "lastSharedDateTime": "2018-10-25 15:30:23",
+                    "category": "INTERMEDIARY",
+                    "judicialResultPrompts": [],
+                    "judicialResultId": "aaaaaaa1-0000-0000-0000-000000000002",
+                    "judicialResultTypeId": "22222222-2222-2222-2222-222222222222"
+                  }
+                ]
+              }
+            ],
+            "personDefendant": {
+              "personDetails": {
+                "title": "MR",
+                "firstName": "Edward",
+                "middleName": "John",
+                "lastName": "Harrison",
+                "dateOfBirth": "2002-01-10",
+                "nationalityId": "2c2ef05b-6819-44ea-aa5d-c46247ed44c2",
+                "nationalityCode": "GBR",
+                "nationalityDescription": "United Kingdom",
+                "additionalNationalityId": "743db214-2a0f-4192-9081-ad03e56126ea",
+                "additionalNationalityCode": "USA",
+                "additionalNationalityDescription": "United States Of America",
+                "ethnicity": {
+                  "observedEthnicityId": "ea2b54e1-33fe-45f8-93c5-89640bf0dc2e",
+                  "observedEthnicityCode": "W1",
+                  "observedEthnicityDescription": "British",
+                  "selfDefinedEthnicityId": "ea2b54e1-33fe-45f8-93c5-89640bf0dc2e",
+                  "selfDefinedEthnicityCode": "W1",
+                  "selfDefinedEthnicityDescription": "British"
+                },
+                "gender": "MALE",
+                "documentationLanguageNeeds": "ENGLISH",
+                "nationalInsuranceNumber": "NH195839C",
+                "occupation": "Rail Transport Operative",
+                "occupationCode": "82340",
+                "address": {
+                  "address1": "1 High Street",
+                  "address2": "Tottenham",
+                  "address3": "London",
+                  "postcode": "N17 6RT"
+                },
+                "contact": {
+                  "home": "02081234567",
+                  "mobile": "07700900123"
+                }
+              },
+              "bailStatus": "IN_CUSTODY",
+              "custodyTimeLimit": "2019-01-20",
+              "perceivedBirthYear": 2002,
+              "driverNumber": "HARRI001101EJ8JR",
+              "driverLicenceCode": "PROVISIONAL",
+              "driverLicenseIssue": "52",
+              "arrestSummonsNumber": "MG25A12456",
+              "employerOrganisation": {
+                "name": "Transport For London",
+                "incorporationNumber": "a",
+                "registeredCharityNumber": "a",
+                "address": {
+                  "address1": "Cockfosters depot",
+                  "address2": "Bramley Road",
+                  "address3": "London",
+                  "postcode": "N14 4UT"
+                },
+                "contact": {
+                  "work": "020 8766 3455",
+                  "primaryEmail": "hr@tfl.gov.uk"
+                }
+              },
+              "employerPayrollReference": "HARRISON5699"
+            },
+            "croNumber": "CRO123456",
+            "pncId": "PNC123456",
+            "masterDefendantId": "0ddbc4a7-3c85-4bc3-bdd5-843817320b98"
+          }
+        ]
+      }
+    ],
+    "type": {
+      "id": "141c74ad-b87e-4756-8908-1642b1771ab5",
+      "description": "First hearing",
+      "code": "FHG"
+    },
+    "isBoxHearing": false,
+    "hearingDays": [
+      {
+        "sittingDay": "2026-05-03T09:00:00.000Z",
+        "listingSequence": 1,
+        "listedDurationMinutes": 120
+      }
+    ]
+  },
+  "isReshare": true,
+  "sharedTime": "2026-05-03T14:30:00.000Z",
+  "hearingDay": "2026-05-03"
+}
