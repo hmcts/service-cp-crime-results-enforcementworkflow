@@ -49,14 +49,14 @@ class HearingResultSubmissionRepositoryIntegrationTest extends IntegrationTestBa
     }
 
     @Test
-    void exists_by_hearing_case_defendant_should_find_saved_row() {
+    void find_by_hearing_case_defendant_should_find_saved_row() {
         final UUID hearingId = UUID.randomUUID();
         final UUID caseId = UUID.randomUUID();
         final UUID defendantId = UUID.randomUUID();
         repository.saveAndFlush(submission(hearingId, caseId, defendantId, null));
 
-        assertThat(repository.existsByHearingIdAndCaseIdAndDefendantId(hearingId, caseId, defendantId)).isTrue();
-        assertThat(repository.existsByHearingIdAndCaseIdAndDefendantId(hearingId, caseId, UUID.randomUUID())).isFalse();
+        assertThat(repository.findByHearingIdAndCaseIdAndDefendantId(hearingId, caseId, defendantId)).isPresent();
+        assertThat(repository.findByHearingIdAndCaseIdAndDefendantId(hearingId, caseId, UUID.randomUUID())).isEmpty();
     }
 
     @Test

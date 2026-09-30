@@ -31,6 +31,7 @@ import java.net.http.HttpConnectTimeoutException;
  *   <li>A failure after the request may have left means the outcome at GOB is unknown:
  *       {@value #OUTCOME_UNKNOWN_TIMEOUT}.</li>
  *   <li>A 2xx whose body can't be parsed is still a success. GOB accepted it, and the raw body is kept.</li>
+ *   <li>A 3xx is not followed, and is a failure with an unknown outcome: {@value #OUTCOME_UNKNOWN_ERROR}.</li>
  *   <li>Error bodies are reduced to the gateway/Libra codes. Libra's free-text {@code errorDescription} is
  *       not kept, because it may echo payload values (PII).</li>
  * </ul>
@@ -62,7 +63,11 @@ public class EnforcementGatewayClient {
                     .body(PayloadJson.MAPPER.writeValueAsString(request))
                     .retrieve()
                     .toEntity(String.class);
-            result = new GatewayResult.Success(parse(response.getBody()), response.getBody(), response.getStatusCode().value());
+            final int status = response.getStatusCode().value();
+            // only a 2xx is a success; a 3xx (not followed) means the gateway may never have seen it
+            result = response.getStatusCode().is2xxSuccessful()
+                    ? new GatewayResult.Success(parse(response.getBody()), response.getBody(), status)
+                    : new GatewayResult.Failure(status, OUTCOME_UNKNOWN_ERROR + ": HTTP " + status);
         } catch (RestClientResponseException e) {
             result = new GatewayResult.Failure(e.getStatusCode().value(), summarise(e.getResponseBodyAsString()));
         } catch (ResourceAccessException e) {

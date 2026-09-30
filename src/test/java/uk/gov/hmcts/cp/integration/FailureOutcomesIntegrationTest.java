@@ -113,8 +113,10 @@ class FailureOutcomesIntegrationTest extends WorkflowStubsIntegrationTestBase {
         STUBS.verify(0, postRequestedFor(urlEqualTo(GATEWAY_PATH)));
     }
 
+    // A recorded (not thrown) failure leaves the processor ready for the next event. A thrown failure is
+    // covered at the listener: JmsHearingResultedIntegrationTest's malformed-message test.
     @Test
-    void a_failure_should_not_stop_the_next_valid_event() {
+    void a_recorded_mapping_failure_should_not_affect_the_next_event() {
         processor.process(Fixtures.event("hearing-resulted-missing-account-number.json"));
         repository.deleteAll(); // same hearing/case/defendant ids: clear so the valid event is a first share
 

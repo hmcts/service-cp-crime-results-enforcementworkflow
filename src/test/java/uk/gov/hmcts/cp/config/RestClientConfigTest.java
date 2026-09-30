@@ -1,14 +1,23 @@
 package uk.gov.hmcts.cp.config;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.util.List;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RestClientConfigTest {
 
@@ -18,12 +27,22 @@ class RestClientConfigTest {
     private final RestClientConfig config = new RestClientConfig();
 
     @Test
-    void named_builders_should_be_created_with_timeouts() {
-        final RestClient.Builder referenceData = config.referenceDataRestClientBuilder(5000, 10000);
-        final RestClient.Builder gateway = config.enforcementGatewayRestClientBuilder(5000, 50000);
+    void named_builders_should_apply_their_read_timeout() {
+        final WireMockServer slow = new WireMockServer(wireMockConfig().dynamicPort().http2PlainDisabled(true));
+        slow.start();
+        try {
+            slow.stubFor(get(urlEqualTo("/slow")).willReturn(aResponse().withStatus(200).withFixedDelay(3000)));
 
-        assertThat(referenceData).isNotNull();
-        assertThat(gateway).isNotNull().isNotSameAs(referenceData);
+            for (final RestClient.Builder builder : List.of(config.referenceDataRestClientBuilder(1000, 300),
+                    config.enforcementGatewayRestClientBuilder(1000, 300))) {
+                final long start = System.nanoTime();
+                assertThatThrownBy(() -> builder.baseUrl(slow.baseUrl()).build().get().uri("/slow").retrieve().toBodilessEntity())
+                        .isInstanceOf(ResourceAccessException.class);
+                assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofMillis(2500));
+            }
+        } finally {
+            slow.stop();
+        }
     }
 
     @Test

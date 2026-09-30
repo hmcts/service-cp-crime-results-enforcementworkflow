@@ -61,3 +61,38 @@ For scenario 8, add a higher-priority WireMock mapping for `POST /hearingResulte
 | 9 | No NOWS mapping configured | Request has **no** `nowsDataRequest` |
 | 10 | A `SENDING` row older than the stale threshold (simulated restart mid-call), then the same event again, or the sweep runs | The row becomes `FAILED` with "INTERRUPTED – outcome at GOB unknown"; **no** new POST (R19) |
 | 11 | The gateway stub delays longer than the workflow's read timeout | `FAILED` with "TIMEOUT – outcome at GOB unknown"; the same event again → **no** new POST (R20) |
+
+## Integration test scenarios (automated)
+
+`./gradlew test` runs the verification scenarios above without Docker services other than Postgres
+(research.md R25). `ScenarioIntegrationTest` publishes each scenario's event on `public.event` to an
+embedded Artemis broker, the real listener consumes it, and WireMock answers as reference data and the
+gateway. Every request the gateway receives is validated against the gateway contract (in the API jar)
+and the Libra contract, and every stubbed 2xx reply against the gateway `HearingResultedResponse`.
+`JmsHearingResultedIntegrationTest` covers the listener itself: both listeners connect, other
+`CPPNAME`s are not consumed, and a malformed message does not stop the next one.
+
+**To add a scenario**, add a folder `src/test/resources/scenarios/<NN-name>/` (run in name order). No test code is needed.
+
+- `scenario.json` (required); unknown fields fail the test:
+
+  | Field | Meaning |
+  |---|---|
+  | `description` | What the scenario proves, with the story or decision it covers |
+  | `event` | Event fixture on the test classpath, e.g. `events/hearing-resulted-enforcement.json` |
+  | `events` | Instead of `event`: fixtures published in order, e.g. a redelivery, or a first share then its reshare |
+  | `cppName` | Optional `CPPNAME`; default `public.events.hearing.hearing-resulted` |
+  | `referenceData` | Result type id → shortCode (`"SC"`), or `{"status": 503}`. Key `"*"` matches any id. Unlisted ids answer 404 |
+  | `gateway` | The gateway's reply: `status`, then `body` (JSON) or `bodyText` (sent as is), and optional `delayMs` (over 1000 ms times out). Omit it when the scenario must not reach the gateway |
+  | `expected.gatewayPosts` | Required: the number of POSTs the gateway receives |
+  | `expected.status` | The row's status; omit it for "no row" |
+  | `expected.httpStatus`, `expected.errorDetail` / `expected.errorDetailStartsWith` | Always checked; absent means null |
+  | `expected.responsePayloadContains`, `expected.logMustContain`, `expected.logMustNotContain` | Optional text checks on `response_payload` and on the logs. The enforcement fixture's defendant PII is always checked as never logged (FR-017) |
+
+- `expected-request.json` (optional): the exact request the gateway must receive (array order ignored).
+
+`request_payload` is asserted to be stored exactly when the request was sent. The profiles in use are
+`docker` (listeners) and `nowsmapping-test` (SC and WC mapped to NOWS data items), and
+`payment-due-date-fallback` is `HEARING_DATE`. Later stories (US5/US6, contract v0.5.0) add folders
+and fixtures here rather than new test methods.
+

@@ -101,7 +101,7 @@ CREATE INDEX idx_hrs_status_updated_at ON hearing_result_submission (status, upd
 - `response_payload` is kept for the later system-doc-generator step (gap #16).
 - There are no `expires_at` or purge columns yet (open item, gap #10).
 
-JPA: `HearingResultSubmissionEntity` stores the `jsonb` columns as `String` with `@JdbcTypeCode(SqlTypes.JSON)`. Repository: `HearingResultSubmissionRepository extends JpaRepository<…, UUID>` with `existsByHearingIdAndCaseIdAndDefendantId(...)`.
+JPA: `HearingResultSubmissionEntity` stores the `jsonb` columns as `String` with `@JdbcTypeCode(SqlTypes.JSON)`. Repository: `HearingResultSubmissionRepository extends JpaRepository<…, UUID>` with `findByHearingIdAndCaseIdAndDefendantId(...)` (the unique key's lookup).
 
 ## 4. Configuration model (workflow `application.yaml`, new keys)
 

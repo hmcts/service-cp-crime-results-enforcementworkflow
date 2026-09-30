@@ -249,7 +249,8 @@ components:
         - "paymentTerms"
         - "enforcement"
         - "results"
-        - "nowsDataRequest"
+        # LOCAL AMENDMENT (CIMD-4246 gap #2): nowsDataRequest removed from `required`, agreed with the GOB
+        # Libra team via the BA and expected in contract v0.5.0 (same amendment as the workflow's copy).
       properties:
         caseUrn:
           type: "string"

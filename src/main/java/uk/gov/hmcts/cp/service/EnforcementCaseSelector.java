@@ -41,7 +41,9 @@ public class EnforcementCaseSelector {
                 .filter(this::isEnforcement)
                 .toList();
         final SelectionResult result;
-        if (event.isReshare()) {
+        if (event.isReshare() == null) {
+            result = skipped(SkipReason.RESHARE_FLAG_MISSING);
+        } else if (event.isReshare()) {
             result = skipped(SkipReason.RESHARE);
         } else if (enforcementCases.isEmpty()) {
             result = skipped(SkipReason.NO_ENFORCEMENT_CASE);

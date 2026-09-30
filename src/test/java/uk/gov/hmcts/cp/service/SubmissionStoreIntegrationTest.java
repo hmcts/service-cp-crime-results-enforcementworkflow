@@ -2,7 +2,13 @@ package uk.gov.hmcts.cp.service;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import uk.gov.hmcts.cp.entity.HearingResultSubmissionEntity;
 import uk.gov.hmcts.cp.entity.SubmissionStatus;
 import uk.gov.hmcts.cp.integration.IntegrationTestBase;
@@ -18,6 +24,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@ExtendWith(OutputCaptureExtension.class)
 class SubmissionStoreIntegrationTest extends IntegrationTestBase {
 
     private static final Instant SHARED = Instant.parse("2026-05-03T14:30:00Z");
@@ -34,13 +41,17 @@ class SubmissionStoreIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    void already_submitted_should_be_true_after_record_sending() {
+    void find_existing_should_return_the_row_recorded_as_sending() {
         final Ids ids = new Ids();
-        assertThat(store.alreadySubmitted(ids.hearing, ids.prosecutionCase, ids.defendant)).isFalse();
+        assertThat(store.findExisting(ids.hearing, ids.prosecutionCase, ids.defendant)).isEmpty();
 
         store.recordSending(ids.hearing, ids.prosecutionCase, ids.defendant, "E012345678", SHARED, "{}");
 
-        assertThat(store.alreadySubmitted(ids.hearing, ids.prosecutionCase, ids.defendant)).isTrue();
+        assertThat(store.findExisting(ids.hearing, ids.prosecutionCase, ids.defendant))
+                .hasValueSatisfying(existing -> {
+                    assertThat(existing.status()).isEqualTo(SubmissionStatus.SENDING);
+                    assertThat(store.isStale(existing)).isFalse(); // a call that may still be in flight
+                });
     }
 
     @Test
@@ -56,21 +67,24 @@ class SubmissionStoreIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    void final_status_should_count_as_already_submitted_whatever_its_age() {
+    void final_status_should_never_be_stale_whatever_its_age() {
         final Ids ids = new Ids();
         insert(ids, SubmissionStatus.SUCCEEDED, Instant.now().minus(Duration.ofDays(3)));
 
-        assertThat(store.alreadySubmitted(ids.hearing, ids.prosecutionCase, ids.defendant)).isTrue();
+        assertThat(store.findExisting(ids.hearing, ids.prosecutionCase, ids.defendant))
+                .hasValueSatisfying(existing -> assertThat(store.isStale(existing)).isFalse());
     }
 
     @Test
-    void stale_sending_row_should_not_count_as_already_submitted() {
+    void sending_row_older_than_the_threshold_should_be_stale() {
         final Ids ids = new Ids();
         insert(ids, SubmissionStatus.SENDING, Instant.now().minus(Duration.ofMinutes(6))); // threshold is 5 min
 
-        assertThat(store.alreadySubmitted(ids.hearing, ids.prosecutionCase, ids.defendant)).isFalse();
         assertThat(store.findExisting(ids.hearing, ids.prosecutionCase, ids.defendant))
-                .hasValueSatisfying(existing -> assertThat(existing.status()).isEqualTo(SubmissionStatus.SENDING));
+                .hasValueSatisfying(existing -> {
+                    assertThat(existing.status()).isEqualTo(SubmissionStatus.SENDING);
+                    assertThat(store.isStale(existing)).isTrue();
+                });
     }
 
     @Test
@@ -84,6 +98,43 @@ class SubmissionStoreIntegrationTest extends IntegrationTestBase {
         assertThat(row.getStatus()).isEqualTo(SubmissionStatus.FAILED);
         assertThat(row.getHttpStatus()).isEqualTo(502);
         assertThat(row.getErrorDetail()).contains("LIBRA_CALL_FAILED");
+    }
+
+    @Test
+    void record_succeeded_should_store_a_json_reply_as_it_is() {
+        final UUID id = sendingRow();
+
+        store.recordSucceeded(id, "{\"caseUrn\":\"E012345678\",\"nowsDataItems\":{}}", 200);
+
+        final HearingResultSubmissionEntity row = repository.findById(id).orElseThrow();
+        assertThat(row.getStatus()).isEqualTo(SubmissionStatus.SUCCEEDED);
+        assertThat(row.getResponsePayload()).contains("\"caseUrn\"", "\"nowsDataItems\"");
+    }
+
+    // R24: a 2xx is a success even when the reply isn't JSON; response_payload is jsonb, so the raw text is kept as a JSON string
+    @Test
+    void record_succeeded_should_keep_a_reply_that_is_not_json_as_a_json_string() {
+        final UUID id = sendingRow();
+
+        store.recordSucceeded(id, "not json", 200);
+
+        final HearingResultSubmissionEntity row = repository.findById(id).orElseThrow();
+        assertThat(row.getStatus()).isEqualTo(SubmissionStatus.SUCCEEDED);
+        assertThat(row.getHttpStatus()).isEqualTo(200);
+        assertThat(row.getResponsePayload()).isEqualTo("\"not json\"");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = " ")
+    void record_succeeded_without_a_reply_body_should_store_no_payload(final String body) {
+        final UUID id = sendingRow();
+
+        store.recordSucceeded(id, body, 200);
+
+        final HearingResultSubmissionEntity row = repository.findById(id).orElseThrow();
+        assertThat(row.getStatus()).isEqualTo(SubmissionStatus.SUCCEEDED);
+        assertThat(row.getResponsePayload()).isNull();
     }
 
     @Test
@@ -175,12 +226,20 @@ class SubmissionStoreIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    void integrity_violation_other_than_the_unique_key_should_not_be_treated_as_duplicate() {
+    void integrity_violation_other_than_the_unique_key_should_not_be_treated_as_duplicate(final CapturedOutput output) {
         final Ids ids = new Ids();
+        final String payload = "{\"defendantDetails\":{\"forename\":\"Edward\",\"nationalInsuranceNumber\":\"NH195839C\"}}";
 
-        assertThatThrownBy(() -> store.recordSending(ids.hearing, ids.prosecutionCase, ids.defendant, "E012345678", null, "{}"))
+        assertThatThrownBy(() -> store.recordSending(ids.hearing, ids.prosecutionCase, ids.defendant, "E012345678", null, payload))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageNotContaining("{}");
+                .hasMessageNotContaining("Edward");
+        // Postgres reports the whole failing row, request_payload included; it must not reach the logs (FR-017)
+        assertThat(output.getAll()).doesNotContain("Edward", "NH195839C");
+    }
+
+    private UUID sendingRow() {
+        final Ids ids = new Ids();
+        return store.recordSending(ids.hearing, ids.prosecutionCase, ids.defendant, "E012345678", SHARED, "{}").orElseThrow();
     }
 
     private void insert(final Ids ids, final SubmissionStatus status, final Instant updatedAt) {

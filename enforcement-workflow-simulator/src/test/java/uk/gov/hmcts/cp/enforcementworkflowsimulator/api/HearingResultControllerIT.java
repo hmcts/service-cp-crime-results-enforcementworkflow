@@ -79,6 +79,19 @@ class HearingResultControllerIT {
                 .andExpect(conformsToSpec());
     }
 
+    // The workflow leaves nowsDataRequest out when no short code maps to a NOWS item (the GOB-agreed
+    // local amendment, expected in contract v0.5.0): GOB accepts it and returns no NOWS entities.
+    @Test
+    void accepts_a_request_without_nows_data_request_and_returns_no_entities() throws Exception {
+        final String request = SC_REQUEST.replaceAll("(?s),\\s*\"nowsDataRequest\".*?\\]\\s*}", "");
+        org.assertj.core.api.Assertions.assertThat(request).doesNotContain("nowsDataRequest");
+
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization).contentType(APPLICATION_JSON).content(request))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nowsDataItems.length()").value(0))
+                .andExpect(conformsToSpec());
+    }
+
     @Test
     void returns_exactly_the_requested_entities_and_nothing_more() throws Exception {
         mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization).contentType(APPLICATION_JSON).content(SC_REQUEST))

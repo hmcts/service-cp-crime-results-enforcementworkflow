@@ -4,7 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.JacksonException;
 import uk.gov.hmcts.cp.config.HearingResultProperties;
+import uk.gov.hmcts.cp.config.PayloadJson;
 import uk.gov.hmcts.cp.entity.HearingResultSubmissionEntity;
 import uk.gov.hmcts.cp.entity.SubmissionStatus;
 import uk.gov.hmcts.cp.mapper.MappingFailureReason;
@@ -39,16 +41,10 @@ public class SubmissionStore {
     }
 
     /**
-     * True for a final status, or for a SENDING row younger than the stale threshold (a call that may
-     * still be in flight). A stale SENDING row is not "already submitted". It is handled as interrupted
-     * (research.md R19) and is never resent.
+     * A SENDING row older than the stale threshold: its call was interrupted (research.md R19). It is marked
+     * FAILED with an unknown outcome and never resent. A final row, or a younger SENDING row (a call that may
+     * still be in flight), is not stale.
      */
-    public boolean alreadySubmitted(final UUID hearingId, final UUID caseId, final UUID defendantId) {
-        return findExisting(hearingId, caseId, defendantId)
-                .map(existing -> existing.status().isFinal() || !isStale(existing))
-                .orElse(false);
-    }
-
     public boolean isStale(final ExistingSubmission existing) {
         return existing.status() == SubmissionStatus.SENDING
                 && existing.updatedAt().isBefore(Instant.now(clock).minus(properties.getStaleSendingThreshold()));
@@ -121,7 +117,7 @@ public class SubmissionStore {
         entity.setHearingId(hearingId);
         entity.setCaseId(caseId);
         entity.setDefendantId(defendantId);
-        // an invalid caseUrn (blank or > 36) is never truncated (Principle VI); the row keeps an empty value instead
+        // a caseUrn over 36 characters is never truncated (Principle VI): the row keeps an empty value instead (also for null)
         entity.setCaseUrn(caseUrn != null && caseUrn.length() <= CASE_URN_MAX ? caseUrn : "");
         entity.setSharedTime(sharedTime);
         entity.setStatus(status);
@@ -148,11 +144,28 @@ public class SubmissionStore {
         return id;
     }
 
+    /**
+     * GOB accepted the submission (a 2xx). The reply is kept even when it isn't JSON (research.md R24):
+     * {@code response_payload} is jsonb, so such a reply is stored as a JSON string, and a blank one as null.
+     */
     @Transactional
-    public void recordSucceeded(final UUID id, final String responseJson, final int httpStatus) {
+    public void recordSucceeded(final UUID id, final String responseBody, final int httpStatus) {
         final HearingResultSubmissionEntity entity = repository.findById(id).orElseThrow();
         entity.setStatus(SubmissionStatus.SUCCEEDED);
-        entity.setResponsePayload(responseJson);
+        entity.setResponsePayload(asJsonb(responseBody));
         entity.setHttpStatus(httpStatus);
+    }
+
+    private static String asJsonb(final String body) {
+        String json = null;
+        if (body != null && !body.isBlank()) {
+            try {
+                PayloadJson.MAPPER.readTree(body);
+                json = body;
+            } catch (JacksonException e) {
+                json = PayloadJson.MAPPER.writeValueAsString(body);
+            }
+        }
+        return json;
     }
 }

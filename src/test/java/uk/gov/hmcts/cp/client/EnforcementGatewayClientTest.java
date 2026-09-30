@@ -17,6 +17,7 @@ import static org.hamcrest.Matchers.not;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.HttpStatus.BAD_GATEWAY;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.FOUND;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -123,5 +124,15 @@ class EnforcementGatewayClientTest {
 
         assertThat(client.submit(minimumRequest())).isInstanceOfSatisfying(GatewayResult.Success.class,
                 s -> assertThat(s.response()).isNull());
+    }
+
+    // only a 2xx is a success (contract, R24); the JDK client doesn't follow redirects, so a 3xx arrives here
+    @Test
+    void redirect_should_be_a_failure_with_unknown_outcome() {
+        server.expect(requestTo(BASE_URL + "/hearingResulted"))
+                .andRespond(withStatus(FOUND).header("Location", "https://elsewhere/hearingResulted"));
+
+        assertThat(client.submit(minimumRequest()))
+                .isEqualTo(new GatewayResult.Failure(302, "ERROR – outcome at GOB unknown: HTTP 302"));
     }
 }

@@ -34,8 +34,9 @@ public class HearingResultedEventListener {
     public void onHearingResulted(final Message message) throws JMSException {
         try {
             processor.process(objectMapper.readValue(message.getBody(String.class), HearingResultedEvent.class));
-            // deliberately broad: a failure on one message must not kill this listener thread (constitution Principle V)
-        } catch (@SuppressWarnings("PMD.AvoidCatchingGenericException") final RuntimeException e) {
+            // deliberately broad: a failure on one message must not kill this listener thread (constitution Principle V).
+            // JMSException included: a non-text message would otherwise roll back and be redelivered.
+        } catch (@SuppressWarnings("PMD.AvoidCatchingGenericException") final RuntimeException | JMSException e) {
             log.error("Failed to process {} event (jmsMessageId={}): {}", message.getStringProperty("CPPNAME"),
                     message.getJMSMessageID(), e.getClass().getSimpleName());
         }

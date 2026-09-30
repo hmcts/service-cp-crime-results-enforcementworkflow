@@ -16,6 +16,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static uk.gov.hmcts.cp.support.TestEvents.SC_TYPE;
 import static uk.gov.hmcts.cp.support.TestEvents.WC_TYPE;
@@ -102,8 +103,26 @@ class ResultCodeResolverTest {
         final HearingResultedEvent.JudicialResult undated =
                 new HearingResultedEvent.JudicialResult(UUID.randomUUID(), SC_TYPE, "label", null, List.of());
         final HearingResultedEvent event = withResults(List.of(undated), List.of(), List.of());
-        when(referenceData.findShortCode(SC_TYPE, LocalDate.parse("2026-05-03"))).thenReturn(Optional.of("SC"));
 
         assertThat(resolver.resolve(event, defendantOf(event)).gobCodes()).containsExactly(ResultCodeEnum.SC);
+        verify(referenceData).findShortCode(SC_TYPE, LocalDate.parse("2026-05-03")); // the event's hearingDay
+    }
+
+    // W9: a hearing-level result carrying no ids must not be counted for a defendant that also lacks one
+    @Test
+    void hearing_level_result_should_not_match_on_two_missing_ids() {
+        final HearingResultedEvent base = withResults(List.of(result(SC_TYPE)), List.of(), List.of());
+        final HearingResultedEvent.Defendant d = defendantOf(base);
+        final HearingResultedEvent.Defendant noMasterId = new HearingResultedEvent.Defendant(d.id(), null,
+                d.prosecutionAuthorityReference(), d.personDefendant(), d.legalEntityDefendant(),
+                d.defendantCaseJudicialResults(), d.offences());
+        final HearingResultedEvent.ProsecutionCase pc = base.hearing().prosecutionCases().getFirst();
+        final HearingResultedEvent event = new HearingResultedEvent(new HearingResultedEvent.Hearing(base.hearing().id(),
+                base.hearing().courtCentre(),
+                List.of(new HearingResultedEvent.ProsecutionCase(pc.id(), pc.prosecutionCaseIdentifier(), List.of(noMasterId))),
+                List.of(new HearingResultedEvent.DefendantJudicialResult(null, UUID.randomUUID(), result(WC_TYPE))),
+                base.hearing().courtApplications()), base.isReshare(), base.sharedTime(), base.hearingDay());
+
+        assertThat(resolver.resolve(event, noMasterId).cpShortCodes()).containsExactly("SC");
     }
 }
