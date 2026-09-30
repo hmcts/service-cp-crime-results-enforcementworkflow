@@ -6,7 +6,10 @@ public final class Truncate {
     private Truncate() {
     }
 
+    /** Cuts to {@code maxLength} characters (code points, as the schemas' maxLength counts), never splitting one. */
     public static String toMaxLength(final String value, final int maxLength) {
-        return value == null || value.length() <= maxLength ? value : value.substring(0, maxLength);
+        return value == null || value.codePointCount(0, value.length()) <= maxLength
+                ? value
+                : value.substring(0, value.offsetByCodePoints(0, maxLength));
     }
 }

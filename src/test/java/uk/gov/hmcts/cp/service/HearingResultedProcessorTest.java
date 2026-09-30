@@ -1,6 +1,9 @@
 package uk.gov.hmcts.cp.service;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import uk.gov.hmcts.cp.client.EnforcementGatewayClient;
 import uk.gov.hmcts.cp.client.GatewayResult;
 import uk.gov.hmcts.cp.event.HearingResultedEvent;
@@ -18,6 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -27,6 +31,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(OutputCaptureExtension.class)
 class HearingResultedProcessorTest {
 
     private final EnforcementCaseSelector selector = new EnforcementCaseSelector("GAPGD00");
@@ -176,5 +181,29 @@ class HearingResultedProcessorTest {
 
     private static ResolvedCodes codes() {
         return new ResolvedCodes(List.of("SC"), new LinkedHashSet<>(List.of(ResultCodeEnum.SC)), List.of());
+    }
+
+    // W8: an event without a hearing is skipped (NO_ENFORCEMENT_CASE), not a NullPointerException in the skip log
+    @Test
+    void event_without_hearing_should_be_skipped_without_error() {
+        processor.process(new HearingResultedEvent(null, false, null, null));
+
+        verifyNoInteractions(resolver, mapper, store, gateway);
+    }
+
+    // gateway contract: WARN when GOB's reply names a different caseUrn; the submission still succeeded
+    @Test
+    void reply_for_another_case_urn_should_warn_and_still_succeed(final CapturedOutput output) {
+        final UUID id = UUID.randomUUID();
+        final HearingResultedRequest request = new HearingResultedRequest().caseUrn("E012345678");
+        when(resolver.resolve(any(), any())).thenReturn(codes());
+        when(mapper.map(any(), any(), any(), any())).thenReturn(new MappingResult.Mapped(request));
+        when(store.recordSending(any(), any(), any(), eq("E012345678"), any(), anyString())).thenReturn(Optional.of(id));
+        when(gateway.submit(request)).thenReturn(new GatewayResult.Success(new HearingResultedResponse().caseUrn("E099999999"), "{}", 200));
+
+        processor.process(event);
+
+        verify(store).recordSucceeded(id, "{}", 200);
+        assertThat(output.getAll()).contains("GOB response caseUrn does not match the caseUrn sent (E012345678)");
     }
 }

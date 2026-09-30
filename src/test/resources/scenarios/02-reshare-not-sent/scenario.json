@@ -1,0 +1,7 @@
+{
+  "description": "A reshare never calls GOB and stores nothing (US2, FR-005)",
+  "event": "events/hearing-resulted-reshare.json",
+  "expected": {
+    "gatewayPosts": 0
+  }
+}

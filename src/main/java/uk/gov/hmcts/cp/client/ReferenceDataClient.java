@@ -53,6 +53,11 @@ public class ReferenceDataClient {
         return shortCode;
     }
 
+    /** Drops every cached shortCode. Used by the scenario integration tests, and the hook for T081's scheduled refresh. */
+    public void clearCache() {
+        cache.clear();
+    }
+
     private Optional<String> fetch(final UUID resultDefinitionId, final LocalDate on) {
         Optional<String> shortCode;
         try {

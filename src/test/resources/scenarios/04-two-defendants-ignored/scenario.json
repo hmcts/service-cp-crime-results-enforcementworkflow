@@ -1,0 +1,7 @@
+{
+  "description": "Out of scope: an enforcement case with two defendants is ignored (US2)",
+  "event": "events/hearing-resulted-two-defendants.json",
+  "expected": {
+    "gatewayPosts": 0
+  }
+}

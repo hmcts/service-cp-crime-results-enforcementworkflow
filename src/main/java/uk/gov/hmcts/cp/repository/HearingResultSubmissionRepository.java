@@ -16,8 +16,6 @@ import java.util.UUID;
 @Repository
 public interface HearingResultSubmissionRepository extends JpaRepository<HearingResultSubmissionEntity, UUID> {
 
-    boolean existsByHearingIdAndCaseIdAndDefendantId(UUID hearingId, UUID caseId, UUID defendantId);
-
     Optional<HearingResultSubmissionEntity> findByHearingIdAndCaseIdAndDefendantId(UUID hearingId, UUID caseId, UUID defendantId);
 
     /** Stale-SENDING sweep (research.md R19), served by idx_hrs_status_updated_at. */

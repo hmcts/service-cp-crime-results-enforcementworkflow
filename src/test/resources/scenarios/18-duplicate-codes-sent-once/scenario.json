@@ -1,0 +1,24 @@
+{
+  "description": "Two results with the same short code: one result entry, and the NOWS items once each (FR-009, FR-010)",
+  "event": "events/hearing-resulted-enforcement.json",
+  "referenceData": {
+    "11111111-1111-1111-1111-111111111111": "SC",
+    "22222222-2222-2222-2222-222222222222": "SC"
+  },
+  "gateway": {
+    "status": 200,
+    "body": {
+      "caseUrn": "E012345678",
+      "timestamp": "2026-05-03T14:30:00Z",
+      "correlationId": "9f3d2e42-8d30-4d16-9dd6-6d4e26889d5c",
+      "nowsDataItems": {
+        "accountBalance": 125.5
+      }
+    }
+  },
+  "expected": {
+    "gatewayPosts": 1,
+    "status": "SUCCEEDED",
+    "httpStatus": 200
+  }
+}

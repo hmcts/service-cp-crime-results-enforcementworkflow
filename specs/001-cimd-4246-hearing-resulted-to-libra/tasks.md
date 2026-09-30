@@ -80,10 +80,10 @@ Branches: W is on `001-cimd-4246-hearing-resulted-to-libra`. A and G: branch `de
   - `status` is `@Enumerated(STRING)`.
   - `createdAt` / `updatedAt` are `Instant`, set in `@PrePersist` / `@PreUpdate`.
   - Use Lombok `@Getter @Setter @NoArgsConstructor`, as the PCR entities do. (Depends on T008, T009.)
-- [X] T011 Create `src/main/java/uk/gov/hmcts/cp/repository/HearingResultSubmissionRepository.java` extending `JpaRepository<HearingResultSubmissionEntity, UUID>`, with `boolean existsByHearingIdAndCaseIdAndDefendantId(UUID, UUID, UUID)`. (Depends on T010.)
+- [X] T011 Create `src/main/java/uk/gov/hmcts/cp/repository/HearingResultSubmissionRepository.java` extending `JpaRepository<HearingResultSubmissionEntity, UUID>`, with `Optional<HearingResultSubmissionEntity> findByHearingIdAndCaseIdAndDefendantId(UUID, UUID, UUID)`. (Depends on T010.)
 - [X] T012 [P] Create `src/test/java/uk/gov/hmcts/cp/integration/config/PostgresInitialise.java`, copied from `../service-cp-crime-results-pcr/src/test/java/uk/gov/hmcts/cp/integration/config/PostgresInitialise.java`. Use DB `enforcementworkflowdb`, pool size 4, and a failure message telling the developer to run `docker compose up -d postgres`.
 - [X] T013 Create `src/test/java/uk/gov/hmcts/cp/integration/IntegrationTestBase.java` (`@SpringBootTest`, `@ContextConfiguration(initializers = PostgresInitialise.class)`, `@AutoConfigureMockMvc`) and make `src/test/java/uk/gov/hmcts/cp/integration/ActuatorIntegrationTest.java` extend it. (Depends on T012.)
-- [X] T014 Create `src/test/java/uk/gov/hmcts/cp/repository/HearingResultSubmissionRepositoryIntegrationTest.java` (extends `IntegrationTestBase`). It asserts that Flyway V1.001 applied, the `jsonb` round-trip works, `existsByHearingIdAndCaseIdAndDefendantId` works, and a duplicate `(hearing_id, case_id, defendant_id)` insert throws `DataIntegrityViolationException`. (Depends on T011, T013.)
+- [X] T014 Create `src/test/java/uk/gov/hmcts/cp/repository/HearingResultSubmissionRepositoryIntegrationTest.java` (extends `IntegrationTestBase`). It asserts that Flyway V1.001 applied, the `jsonb` round-trip works, `findByHearingIdAndCaseIdAndDefendantId` works, and a duplicate `(hearing_id, case_id, defendant_id)` insert throws `DataIntegrityViolationException`. (Depends on T011, T013.)
 - [X] T015 [P] Create `src/main/java/uk/gov/hmcts/cp/event/HearingResultedEvent.java`: nested Java records per data-model.md §1, each with `@JsonIgnoreProperties(ignoreUnknown = true)`, following `../service-cp-crime-results-enforcementgateway/src/main/java/uk/gov/hmcts/cp/event/ConfirmedHearingEvent.java`. Include `JudicialResult(UUID judicialResultId, UUID judicialResultTypeId, String label, LocalDate orderedDate, List<JudicialResultPrompt> judicialResultPrompts)`.
 - [X] T016 [P] Create the event fixtures in `src/test/resources/events/`, starting from `../cpp-platform-core-domain/DesignSchemas/public/sample/hearing.events.hearing-resulted-firstHearing.json`:
   - `hearing-resulted-enforcement.json`: one case with `prosecutionAuthorityOUCode: "GAPGD00"`, `caseURN: "E012345678"`, one individual defendant with `prosecutionAuthorityReference: "1234567890"` and `personDetails.address.address1`, and `isReshare: false`;
@@ -239,7 +239,7 @@ Branches: W is on `001-cimd-4246-hearing-resulted-to-libra`. A and G: branch `de
 ### Tests for User Story 2 ⚠️
 
 - [X] T042 [P] [US2] Extend `src/test/java/uk/gov/hmcts/cp/service/EnforcementCaseSelectorTest.java` with one test per reason: `RESHARE` (checked first, even for GAPGD00), `MULTIPLE_ENFORCEMENT_CASES`, `MULTIPLE_DEFENDANTS`, `LINKED_APPLICATION`, using the T016 fixtures.
-- [X] T043 [P] [US2] Create `src/test/java/uk/gov/hmcts/cp/service/SubmissionStoreIntegrationTest.java` (extends `IntegrationTestBase`): `alreadySubmitted` is true after `recordSending`; a concurrent duplicate `recordSending` returns `Optional.empty()` instead of throwing.
+- [X] T043 [P] [US2] Create `src/test/java/uk/gov/hmcts/cp/service/SubmissionStoreIntegrationTest.java` (extends `IntegrationTestBase`): `findExisting` returns the row after `recordSending` (not stale while in flight), a final row is never stale and an old SENDING row is; a concurrent duplicate `recordSending` returns `Optional.empty()` instead of throwing.
 
 ### Implementation for User Story 2
 
@@ -251,12 +251,12 @@ Branches: W is on `001-cimd-4246-hearing-resulted-to-libra`. A and G: branch `de
   5. any `hearing.courtApplications[].courtApplicationCases[].prosecutionCaseId` equals `case.id` → `LINKED_APPLICATION` (WARN).
   Each log line carries `hearingId` and `caseUrn`. Makes T042 pass.
 - [X] T045 [US2] *(`recordSending` is deliberately not `@Transactional`: the unique-key violation is translated after the repository's own transaction rolls back. Added `ExistingSubmission` and a `Clock` bean (`config/ClockConfig.java`) for the stale check.)* Change `src/main/java/uk/gov/hmcts/cp/service/SubmissionStore.java`:
-  - add `Optional<ExistingSubmission> findExisting(UUID hearingId, UUID caseId, UUID defendantId)` (id, status, updatedAt) and `boolean alreadySubmitted(…)`. `alreadySubmitted` is true for a final status or a `SENDING` row younger than `HearingResultProperties.staleSendingThreshold` (T019; research.md R19);
+  - add `Optional<ExistingSubmission> findExisting(UUID hearingId, UUID caseId, UUID defendantId)` (id, status, updatedAt) and `boolean isStale(ExistingSubmission)`: true only for a `SENDING` row older than `HearingResultProperties.staleSendingThreshold` (T019; research.md R19);
   - make `recordSending` return `Optional<UUID>`, catching `DataIntegrityViolationException` → `Optional.empty()`.
   Makes T043 pass.
 - [X] T046 [US2] Update `src/main/java/uk/gov/hmcts/cp/service/HearingResultedProcessor.java`:
   - log the skip reason and return on `Skipped`;
-  - after selection, if `alreadySubmitted` → INFO "already submitted" and return;
+  - after selection, if a row already exists (`findExisting`) → INFO "already submitted" and return, or, for a stale SENDING row (`isStale`), mark it interrupted (R19) and return; *(2026-09-29 review: the unused `alreadySubmitted` helper was removed; this is the path the processor runs)*
   - if `recordSending` returns empty → INFO and return.
   Extend `HearingResultedFlowIntegrationTest` with the reshare, two-defendant, two-case, linked-application and processed-twice scenarios, each asserting 0 extra POSTs and rows (quickstart scenarios 2-5).
 
@@ -322,7 +322,7 @@ Branches: W is on `001-cimd-4246-hearing-resulted-to-libra`. A and G: branch `de
   - `MappingResult.Failed` → `recordMappingFailed`;
   - `GatewayResult.Failure` → `recordFailed`;
   - no retry, and the method always returns normally.
-  Keep the existing `alreadySubmitted` short-circuit, so every status is terminal (per the research.md R12 interim rule).
+  Keep the existing `findExisting` short-circuit, so every status is terminal (per the research.md R12 interim rule).
   - Existing **stale** `SENDING` row → `markInterrupted`, WARN, return **without POST** (R19; open with the BA/GOB).
   - Create `src/main/java/uk/gov/hmcts/cp/service/StaleSubmissionSweeper.java` (`@Scheduled(fixedDelayString = "${cp.hearing-result.stale-sending-sweep-interval}")`, using an injected `Clock`), add `@EnableScheduling` on `src/main/java/uk/gov/hmcts/cp/Application.java`, reading the threshold from `HearingResultProperties` (the keys themselves are added in T019).
 - [X] T057 [US4] *(Done early, 2026-09-27, in US1: the T022 gateway integration test needs the Libra timeouts.)* In G, add bounded timeouts to `libraRestClientBuilder` in `../service-cp-crime-results-enforcementgateway/src/main/java/uk/gov/hmcts/cp/config/RestClientConfig.java`: `cp.libra.connect-timeout-ms` (5000) and `cp.libra.read-timeout-ms` (40000) (research.md R20), with a JDK `HttpClient` + `JdkClientHttpRequestFactory` as in the first bean. Add the keys to `../service-cp-crime-results-enforcementgateway/src/main/resources/application.yaml`. Makes T054 pass.
@@ -432,6 +432,32 @@ Branches: W is on `001-cimd-4246-hearing-resulted-to-libra`. A and G: branch `de
 - [ ] T089 [P] Update `../service-cp-crime-results-enforcementgateway/docs/InboundAccess.md` once the platform team chooses between a separate actuator management port and extra ingress rules for monitoring/probes (research.md open item 15). If a management port is chosen, set `management.server.port` in `../service-cp-crime-results-enforcementgateway/src/main/resources/application.yaml`.
 - [ ] T090 Do not enable the hearing-resulted flow in production until research.md open item 12 is resolved (T069 payment terms mapping, or the BA/GOB ruling on `paymentDueDate`). Record the go-live decision in `specs/001-cimd-4246-hearing-resulted-to-libra/research.md`.
 
+### Integration test suite (cross-cutting; later stories extend it; research.md R25)
+
+- [X] T091 [P] In `build.gradle`, add `testImplementation 'org.apache.artemis:artemis-jakarta-server'` (an embedded broker for tests). Create `src/test/java/uk/gov/hmcts/cp/integration/EmbeddedBrokerIntegrationTestBase.java`: it extends `WorkflowStubsIntegrationTestBase`, activates the `docker` profile so the real listeners run, and sets `spring.artemis.mode=embedded` with a non-persistent broker.
+- [X] T092 Create `src/test/java/uk/gov/hmcts/cp/integration/JmsHearingResultedIntegrationTest.java`. It covers:
+  - every JMS listener container is running (catches a client-id clash such as R23);
+  - an event published to `public.event` with `CPPNAME=public.events.hearing.hearing-resulted` → a SUCCEEDED row and one gateway POST;
+  - an event with another `CPPNAME` is not consumed by the hearing-resulted listener;
+  - a malformed message is logged without the body and does not stop the next valid one.
+- [X] T093 [P] Create `src/test/java/uk/gov/hmcts/cp/support/GatewayContract.java`, validating JSON against the **gateway** contract (`openapi/openapi-spec.yml` inside the `api-cp-crime-results-enforcementgateway` jar). Share the OpenAPI-schema loading with `LibraContract` in `src/test/java/uk/gov/hmcts/cp/support/OpenApiSchemas.java`.
+- [X] T094 *(2026-09-29: 12 scenarios green. Scenario 12 found a defect: a 2xx reply that is not JSON could not be stored in the jsonb column, so the row stayed SENDING. Fixed in `SubmissionStore.recordSucceeded`, research.md R24a.)* Create the scenario runner `src/test/java/uk/gov/hmcts/cp/integration/ScenarioIntegrationTest.java` and scenario folders `src/test/resources/scenarios/<NN-name>/scenario.json` (optional `expected-request.json`). Each scenario is published through the embedded broker (T091). Every request received is checked against both contracts (T093), and every stubbed 2xx reply against the gateway `HearingResultedResponse`. Add `ReferenceDataClient.clearCache()` in `src/main/java/uk/gov/hmcts/cp/client/ReferenceDataClient.java` so each scenario starts with an empty cache. Cover every current behaviour: success with NOWS items, the reshare, three out-of-scope shapes, non-enforcement, unknown codes only, missing account number, gateway 502, reference data 503, gateway timeout, and an unparsable 2xx. **Later stories add a folder** (US5/US6 payload blocks, v0.5.0 contract changes) instead of new test code.
+- [X] T095 [P] Document how to add a scenario (folder layout, fields) in `specs/001-cimd-4246-hearing-resulted-to-libra/quickstart.md` and `README.md`.
+
+### Gateway integration test suite (G; research.md R25, extended to G)
+
+Both of G's flows: `POST /hearingResulted` (this feature) and the earlier event-driven `confirmedHearing` flow (`public.listing.hearing-confirmed`/`hearing-updated` → Progression lookup → APIM `POST /confirmedHearing`), which had no integration test.
+
+- [X] T096 [P] In `../service-cp-crime-results-enforcementgateway/build.gradle`, add `testImplementation 'org.apache.artemis:artemis-jakarta-server'`. Create `../service-cp-crime-results-enforcementgateway/src/test/java/uk/gov/hmcts/cp/integration/GatewayIntegrationTestBase.java`: the `docker` profile with an embedded, non-persistent Artemis broker, one WireMock server standing in for both APIM and the Progression query API, `MockMvc`, a `publish(cppName, body)` helper, and a marker helper that proves earlier messages were processed (G stores nothing, so the marker is a confirmed hearing whose APIM callback the test waits for).
+- [X] T097 *(2026-09-29: reproduced research.md open item 11, `InvalidClientIDException`; fixed with `HearingAllocationJmsConfig`, R26.)* Create `../service-cp-crime-results-enforcementgateway/src/test/java/uk/gov/hmcts/cp/integration/JmsListenersIntegrationTest.java`: every listener container is connected (research.md open item 11), `hearing-confirmed` → one APIM callback, `hearing-listed` is not consumed by the allocation listener, and a malformed message does not stop the next one.
+- [X] T098 Create the scenario runner `../service-cp-crime-results-enforcementgateway/src/test/java/uk/gov/hmcts/cp/integration/HearingConfirmedScenarioIntegrationTest.java` with folders under `src/test/resources/scenarios/hearing-confirmed/`: the event (confirmed or updated), Progression answers per case id, the APIM reply, and the exact callbacks expected (each validated against the gateway contract `ConfirmedHearing`). Cover: enforcement case, hearing-updated with and without an allocation change, a non-enforcement case, a mixed group hearing, the earliest of several sitting days, UK summer and winter time, a Progression failure for one case, case not found, no court centre, no hearing days, APIM failing, and an event with neither key.
+- [X] T099 *(2026-09-29: scenario 10 found that a 2xx reply lacking a required field was returned as a 200; now 502 INVALID_RESPONSE, R26.)* Create the scenario runner `../service-cp-crime-results-enforcementgateway/src/test/java/uk/gov/hmcts/cp/integration/HearingResultedScenarioIntegrationTest.java` with folders under `src/test/resources/scenarios/hearing-resulted/`: the request (default `hearingresulted/request.json`), the APIM reply, and the expected HTTP status, APIM call count, forwarded request, and response. Every response is validated against the contract (`HearingResultedResponse` for 200, `ErrorResponse` otherwise). Cover: pass-through success, an empty `nowsDataItems` reply, Libra 400/404/500, a reply that isn't JSON, an empty 2xx, a redirect, an APIM timeout, and invalid requests (missing field, `caseUrn` too long, unknown result code, malformed JSON) that never reach APIM. Document both scenario formats in `../service-cp-crime-results-enforcementgateway/README.md`.
+
+### Code review (2026-09-29; research.md R27)
+
+- [X] T100 Review W, G and A against spec.md, plan.md, tasks.md, research.md and the constitution; fix each confirmed defect test-first (research.md R27) and record the decisions left open as research.md §2 items 20-24.
+- [X] T101 Review the integration scenarios against spec.md (US1-US4 acceptance scenarios, edge cases), contracts/, quickstart.md and the CIMD-4246 story. W gains scenarios 13-28: repeat delivery, reshare after a failed first share, TFOUT/WWDN renames with no data request, only some codes needing NOWS items (story scenario 5), a code GOB doesn't list dropped and BPOCRFSD kept, duplicate codes, caseURN too long, no address line 1, organisation defendant, the defendant-level account number, a reply for another caseUrn, an empty data-item reply, gateway 400/502 (downstream timeout, INVALID_RESPONSE)/3xx; the runner takes `events` in order and `logMustContain`, and checks the fixture PII in every scenario. G gains 415 and the semantic pass-through of replies. The story's "empty NOWS array" and "send codes outside the list" are superseded by the gap-analysis decisions (US3 scenario 2, FR-009).
+
 ---
 
 ## Dependencies & Execution Order
@@ -444,7 +470,7 @@ Branches: W is on `001-cimd-4246-hearing-resulted-to-libra`. A and G: branch `de
 - **US2 (Phase 4)**, **US3 (Phase 5)**, **US4 (Phase 6)**: each depends on US1, because they extend `EnforcementCaseSelector`, `SubmissionStore` and `HearingResultedProcessor`. They are **independent of each other**, but all touch `HearingResultedProcessor.java`, so merge them sequentially or coordinate.
 - **US5 (Phase 7)**: depends on US1 and on the BA answers (T059).
 - **US6 (Phase 8)**: depends on US1 and US5 (it extends `HearingResultedRequestMapper`), and on the BA/GOB answers (T066).
-- **Polish (Phase 9)**: T075-T079 and T087 after US4 (iteration 1). **T085, T088 and T089 before the first deployment beyond local; T090 before production.** T080-T084 and T086 when their triggers occur (T086: tech lead confirmation of R21).
+- **Polish (Phase 9)**: T075-T079 and T087 after US4 (iteration 1). **T085, T088 and T089 before the first deployment beyond local; T090 before production.** T080-T084 and T086 when their triggers occur (T086: tech lead confirmation of R21). T091-T095 (integration test suite) and T096-T099 (the gateway's) any time; later stories extend T094/T099 with scenario folders.
 
 ### User Story Dependencies
 

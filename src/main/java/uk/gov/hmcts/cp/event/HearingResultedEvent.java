@@ -13,7 +13,8 @@ import java.util.UUID;
  * properties are ignored because the real event carries far more data than this.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record HearingResultedEvent(Hearing hearing, boolean isReshare, Instant sharedTime, LocalDate hearingDay) {
+// isReshare is a Boolean, not a boolean: a missing flag must not read as "first share" (EnforcementCaseSelector)
+public record HearingResultedEvent(Hearing hearing, Boolean isReshare, Instant sharedTime, LocalDate hearingDay) {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Hearing(UUID id, CourtCentre courtCentre, List<ProsecutionCase> prosecutionCases,
