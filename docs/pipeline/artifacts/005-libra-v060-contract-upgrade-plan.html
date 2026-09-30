@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- claude-artifact: created=2026-09-30 project=service-cp-crime-results-enforcementworkflow kind=report version=2 -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Libra Contract v0.6.0 Upgrade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#071210; --panel:#0c1c19; --panel-2:#103029; --edge:#1d4038;
+    --txt:#9fc7bd; --txt-hi:#e8fff7; --muted:#5f857b;
+    --teal:#2fe6b6; --teal-dim:#179e7c; --cyan:#46d6ff; --gold:#ffce5c; --done:#2fe6b6; --rose:#ff6b8a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:radial-gradient(1000px 500px at 90% -10%,rgba(47,230,182,.07),transparent),var(--bg);
+    color:var(--txt);font-family:'Manrope',system-ui,sans-serif;font-size:15px;line-height:1.65}
+  .wrap{max-width:940px;margin:0 auto;padding:44px 24px 110px}
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  header{margin-bottom:40px}
+  .kicker{font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:3px;text-transform:uppercase;color:var(--teal-dim)}
+  h1{color:var(--txt-hi);font-size:clamp(26px,4.4vw,40px);font-weight:800;letter-spacing:-.5px;margin:12px 0 8px}
+  .sub{color:var(--muted);max-width:64ch}
+
+  /* overall progress bar */
+  .overall{margin-top:24px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px 20px}
+  .overall .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:10px}
+  .overall .top b{color:var(--txt-hi)}
+  .track{height:10px;border-radius:6px;background:#0a1714;overflow:hidden;border:1px solid var(--edge)}
+  .fill{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--teal-dim),var(--teal));
+    box-shadow:0 0 14px rgba(47,230,182,.5);animation:grow 1.4s ease forwards}
+  @keyframes grow{to{width:var(--w,42%)}}
+
+  /* phase timeline (HERO COMPONENT) */
+  .phase{position:relative;padding:0 0 14px 46px;margin-bottom:8px}
+  .phase::before{content:"";position:absolute;left:15px;top:6px;bottom:-8px;width:2px;background:var(--edge)}
+  .phase:last-child::before{display:none}
+  .phase>.pin{position:absolute;left:0;top:2px;width:32px;height:32px;border-radius:50%;background:var(--panel-2);
+    border:2px solid var(--teal-dim);display:grid;place-items:center;font:700 13px 'JetBrains Mono',monospace;color:var(--teal);z-index:2}
+  .phase.done>.pin{background:var(--teal);border-color:var(--teal);color:var(--bg)}
+  .phase.active>.pin{border-color:var(--teal);box-shadow:0 0 0 4px rgba(47,230,182,.15);animation:beat 2s infinite}
+  @keyframes beat{50%{box-shadow:0 0 0 8px rgba(47,230,182,.05)}}
+  .phase .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:18px 20px;margin-left:4px}
+  .phase.active .card{border-color:var(--teal-dim)}
+  .ph-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .ph-head h3{font-size:17px;color:var(--txt-hi);font-weight:700}
+  .tag{font:600 10.5px/1 'JetBrains Mono',monospace;letter-spacing:.5px;padding:5px 9px;border-radius:20px;border:1px solid currentColor}
+  .tag.t{color:var(--cyan)} .tag.o{color:var(--gold)} .tag.d{color:var(--done)} .tag.now{color:var(--teal);background:rgba(47,230,182,.1)}
+  .ph-desc{color:var(--txt);font-size:14px;margin-bottom:14px}
+
+  /* task checklist */
+  ul.tasks{list-style:none;margin:6px 0 14px}
+  ul.tasks li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:14px}
+  ul.tasks .box{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--edge);flex-shrink:0;margin-top:2px;position:relative}
+  ul.tasks li.x .box{background:var(--teal);border-color:var(--teal)}
+  ul.tasks li.x .box::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:var(--bg);font-size:12px;font-weight:800}
+  ul.tasks li.x{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--teal-dim)}
+  ul.tasks li.doing .box{border-color:var(--teal);box-shadow:0 0 0 3px rgba(47,230,182,.12)}
+
+  /* gantt-style effort bars */
+  .gantt{margin-top:14px;border-top:1px dashed var(--edge);padding-top:14px}
+  .gantt .row{display:grid;grid-template-columns:130px 1fr;align-items:center;gap:14px;margin:7px 0;font-size:12.5px}
+  .gantt .lbl{color:var(--muted);font-family:'JetBrains Mono',monospace;text-align:right}
+  .gantt .bar{height:18px;border-radius:5px;background:linear-gradient(90deg,var(--teal-dim),var(--cyan));
+    display:flex;align-items:center;padding:0 8px;font:600 11px 'JetBrains Mono',monospace;color:var(--bg)}
+  .gantt .bar.warn{background:linear-gradient(90deg,#8a6a1f,var(--gold))}
+
+  .milestone{display:inline-flex;align-items:center;gap:8px;margin-top:8px;color:var(--gold);font-size:13px;font-weight:600}
+  .milestone::before{content:"◆";color:var(--gold)}
+
+  footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--edge);color:var(--muted);
+    font:500 12px 'JetBrains Mono',monospace;letter-spacing:1px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">Implementation Plan · CIMD-4372</div>
+    <h1>Upgrade the simulator to Libra contract v0.6.0</h1>
+    <p class="sub">Move the bundled contract from <code>libra-gateway-hearing-events-v0.4.0.yml</code> to v0.6.0. Six semantic changes: four required-flag changes, one property rename, and one <code>resultCode</code> respelling (<code>"ENF TEXT"</code> → <code>ENFTEXT</code>). <code>NowsDataItemName</code> and every <code>NowsDataItems</code> response schema are unchanged, so the assembler is not touched. The catalogue changes by one row key.</p>
+    <div class="overall" style="--w:100%">
+      <div class="top"><span>Overall progress</span><b>100% · 13 of 13 tasks</b></div>
+      <div class="track"><div class="fill"></div></div>
+    </div>
+  </header>
+
+  <div class="phase done">
+    <div class="pin">1</div>
+    <div class="card">
+      <div class="ph-head"><h3>Swap the bundled contract</h3><span class="tag d">Done</span></div>
+      <div class="ph-desc">The supplied v0.6.0 file has mixed CRLF/LF line endings. It is vendored with LF only so later diffs stay readable.</div>
+      <ul class="tasks">
+        <li class="x"><span class="box"></span>Add <code>openapi/libra-gateway-hearing-events-v0.6.0.yml</code> (LF-normalised) and remove v0.4.0</li>
+        <li class="x"><span class="box"></span>Repoint <code>CatalogueLoader.OPENAPI_SPEC_PATH</code> and <code>OpenApiConformance.SPEC_PATH</code></li>
+        <li class="x"><span class="box"></span>Update the Javadoc spec references and the README "Contract version" section</li>
+        <li class="x"><span class="box"></span>v2: catalogue row <code>"ENF TEXT"</code> → <code>ENFTEXT</code> (main + 7 negative-test fixtures); <code>CatalogueCoverageTest</code> now also asserts the old spelling is gone</li>
+      </ul>
+      <div class="ph-desc">v2 note: the first diff was run with <code>diff -w</code>, which ignores whitespace inside lines and so hid the <code>ENF TEXT</code> → <code>ENFTEXT</code> change. The catalogue's startup validation caught it on the first test run.</div>
+    </div>
+  </div>
+
+  <div class="phase done">
+    <div class="pin">2</div>
+    <div class="card">
+      <div class="ph-head"><h3>Failing tests first</h3><span class="tag t mono">TDD</span></div>
+      <div class="ph-desc">Each contract change gets an IT that fails against the current code, for the right reason.</div>
+      <ul class="tasks">
+        <li class="x"><span class="box"></span><code>HearingControllerIT</code>: <code>dateOfHearing</code> absent → 400; <code>timeOfHearing</code> absent → 400 (now required)</li>
+        <li class="x"><span class="box"></span><code>HearingResultControllerIT</code>: <code>paymentTerms</code> absent → 200, conforms to spec (now optional)</li>
+        <li class="x"><span class="box"></span><code>HearingResultControllerIT</code>: <code>nowsDataRequest</code> absent → 200, response has <b>no</b> <code>nowsDataItems</code> key, conforms to spec</li>
+        <li class="x"><span class="box"></span><code>HearingResultControllerIT</code>: <code>nowsDataRequest: {}</code> → 200, no <code>nowsDataItems</code>; the existing empty-list → 400 test stays (<code>minItems: 1</code> still holds)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase done">
+    <div class="pin">3</div>
+    <div class="card">
+      <div class="ph-head"><h3>Production code</h3><span class="tag t mono">3 files</span></div>
+      <div class="ph-desc">Decision (confirmed by the user): when no NOWS items are requested, the response leaves out <code>nowsDataItems</code>. v0.6.0 makes the property optional, and <code>@JsonInclude(NON_NULL)</code> already drops a null field.</div>
+      <ul class="tasks">
+        <li class="x"><span class="box"></span><code>HearingConfirmedRequest</code>: <code>@NotBlank</code> on <code>dateOfHearing</code> and <code>timeOfHearing</code></li>
+        <li class="x"><span class="box"></span><code>HearingResultedRequest</code>: drop <code>@NotNull</code> from <code>paymentTerms</code> and <code>nowsDataRequest</code>; <code>nowsDataItems</code> <code>@NotEmpty</code> → <code>@Size(min = 1)</code> (absent allowed, empty rejected)</li>
+        <li class="x"><span class="box"></span><code>HearingController</code>: treat an absent request/list as "nothing requested", skip assembly, return <code>nowsDataItems = null</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase done">
+    <div class="pin">4</div>
+    <div class="card">
+      <div class="ph-head"><h3>Repair fixtures and verify</h3><span class="tag o mono">rename</span></div>
+      <div class="ph-desc"><code>PaymentTerms.paymentTerms</code> is renamed <code>instalmentFrequency</code>. The simulator treats <code>paymentTerms</code> as an opaque map, but the request validator in the ITs enforces <code>additionalProperties: false</code>, so every test payload that uses the old key has to change.</div>
+      <ul class="tasks">
+        <li class="x"><span class="box"></span>Rename the key in the 5 fixture <code>request.json</code> files and the inline payloads in 3 ITs</li>
+        <li class="x"><span class="box"></span>Full suite green: <code>:enforcement-workflow-simulator:test</code>, with no IT weakened or skipped</li>
+      </ul>
+      <span class="milestone">CLAUDE.md: ≥1 IT per changed endpoint, suite green locally</span>
+    </div>
+  </div>
+
+  <footer>CIMD-4372 · GOB SIMULATOR · IMPLEMENTATION PLAN v2 · 2026-09-30 · 198 TESTS GREEN</footer>
+</div>
+</body>
+</html>

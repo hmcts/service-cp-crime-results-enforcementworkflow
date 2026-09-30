@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import uk.gov.hmcts.cp.enforcementworkflowsimulator.api.model.HearingConfirmedRequest;
 import uk.gov.hmcts.cp.enforcementworkflowsimulator.api.model.HearingResultedRequest;
 import uk.gov.hmcts.cp.enforcementworkflowsimulator.api.model.HearingResultedResponse;
+import uk.gov.hmcts.cp.enforcementworkflowsimulator.api.model.NowsDataItems;
 import uk.gov.hmcts.cp.enforcementworkflowsimulator.assembly.DefendantDetailsOverlay;
 import uk.gov.hmcts.cp.enforcementworkflowsimulator.assembly.NowsDataItemsAssembler;
 import uk.gov.hmcts.cp.enforcementworkflowsimulator.catalogue.Catalogue;
@@ -91,9 +92,9 @@ public class HearingController {
      * reach {@link Catalogue#propertiesFor} and surface as a 500.
      */
     private void validateRequestedNames(final HearingResultedRequest request) {
-        for (final HearingResultedRequest.NowsDataItemRequest item : request.nowsDataRequest().nowsDataItems()) {
-            if (!catalogue.isKnownNowsDataItemName(item.name())) {
-                throw new UnknownNowsDataItemNameException(item.name());
+        for (final String name : request.requestedNowsDataItemNames()) {
+            if (!catalogue.isKnownNowsDataItemName(name)) {
+                throw new UnknownNowsDataItemNameException(name);
             }
         }
     }
@@ -111,19 +112,20 @@ public class HearingController {
         }
     }
 
+    /**
+     * When the caller requests no NOWS entities, {@code nowsDataItems} is left null so the
+     * response omits it entirely (optional since v0.6.0) rather than sending an empty object.
+     */
     private HearingResultedResponse buildResponse(final HearingResultedRequest request, final String correlationId) {
         final List<String> resultCodes = request.results().stream()
                 .map(HearingResultedRequest.HearingResult::resultCode)
                 .toList();
-        final List<String> requestedNames = request.nowsDataRequest().nowsDataItems().stream()
-                .map(HearingResultedRequest.NowsDataItemRequest::name)
-                .toList();
-        return new HearingResultedResponse(
-                request.caseUrn(),
-                currentTimestamp(),
-                correlationId,
-                assembler.assemble(request.caseUrn(), resultCodes, requestedNames,
-                        defendantDetailsOverlay.from(request.defendantDetails())));
+        final List<String> requestedNames = request.requestedNowsDataItemNames();
+        final NowsDataItems nowsDataItems = requestedNames.isEmpty()
+                ? null
+                : assembler.assemble(request.caseUrn(), resultCodes, requestedNames,
+                        defendantDetailsOverlay.from(request.defendantDetails()));
+        return new HearingResultedResponse(request.caseUrn(), currentTimestamp(), correlationId, nowsDataItems);
     }
 
     private static String currentTimestamp() {
