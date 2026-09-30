@@ -7,8 +7,9 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * JSON for the GOB hearing-result payloads, both what is sent and what is stored. Absent optional
  * blocks are omitted rather than written as {@code null}, because the Libra schemas are
- * {@code additionalProperties: false} and not nullable. The generated contract models don't mark
- * them NON_NULL themselves. Unknown response properties are tolerated.
+ * {@code additionalProperties: false} and not nullable. The generated contract models already mark
+ * optional fields NON_NULL; this mapper applies it by default as a safety net (research.md R22).
+ * Unknown response properties are tolerated.
  */
 public final class PayloadJson {
 

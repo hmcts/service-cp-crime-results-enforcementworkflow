@@ -1,0 +1,14 @@
+{
+  "description": "Reference data unavailable (503): FAILED NOT_SENT, no request built, gateway not called (US4, R24)",
+  "event": "events/hearing-resulted-enforcement.json",
+  "referenceData": {
+    "*": {
+      "status": 503
+    }
+  },
+  "expected": {
+    "gatewayPosts": 0,
+    "status": "FAILED",
+    "errorDetailStartsWith": "NOT_SENT – reference data unavailable"
+  }
+}

@@ -96,7 +96,7 @@ public class HearingController {
      * reach {@link Catalogue#propertiesFor} and surface as a 500.
      */
     private void validateRequestedNames(final HearingResultedRequest request) {
-        for (final HearingResultedRequest.NowsDataItemRequest item : request.nowsDataRequest().nowsDataItems()) {
+        for (final HearingResultedRequest.NowsDataItemRequest item : requestedItems(request)) {
             if (!catalogue.isKnownNowsDataItemName(item.name())) {
                 throw new UnknownNowsDataItemNameException(item.name());
             }
@@ -120,7 +120,7 @@ public class HearingController {
         final List<String> resultCodes = request.results().stream()
                 .map(HearingResultedRequest.HearingResult::resultCode)
                 .toList();
-        final List<String> requestedNames = request.nowsDataRequest().nowsDataItems().stream()
+        final List<String> requestedNames = requestedItems(request).stream()
                 .map(HearingResultedRequest.NowsDataItemRequest::name)
                 .toList();
         return new HearingResultedResponse(
@@ -133,5 +133,10 @@ public class HearingController {
 
     private static String currentTimestamp() {
         return DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(ChronoUnit.SECONDS));
+    }
+
+    /** The requested NOWS items; none when the optional nowsDataRequest is absent. */
+    private static List<HearingResultedRequest.NowsDataItemRequest> requestedItems(final HearingResultedRequest request) {
+        return request.nowsDataRequest() == null ? List.of() : request.nowsDataRequest().nowsDataItems();
     }
 }

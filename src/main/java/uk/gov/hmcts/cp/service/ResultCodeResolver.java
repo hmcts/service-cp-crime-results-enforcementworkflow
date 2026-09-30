@@ -13,9 +13,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 /**
@@ -55,13 +55,17 @@ public class ResultCodeResolver {
         return new ResolvedCodes(List.copyOf(cpShortCodes), gobCodes, new ArrayList<>(dropped));
     }
 
+    private static boolean sameId(final UUID a, final UUID b) {
+        return a != null && a.equals(b);
+    }
+
     private static List<JudicialResult> resultsFor(final HearingResultedEvent event, final Defendant defendant) {
         final Stream<JudicialResult> offenceLevel = safe(defendant.offences()).stream()
                 .flatMap(offence -> safe(offence.judicialResults()).stream());
         final Stream<JudicialResult> defendantCaseLevel = safe(defendant.defendantCaseJudicialResults()).stream();
         final Stream<JudicialResult> hearingLevel = safe(event.hearing().defendantJudicialResults()).stream()
-                .filter(r -> Objects.equals(r.masterDefendantId(), defendant.masterDefendantId())
-                        || Objects.equals(r.defendantId(), defendant.id()))
+                // R16: by masterDefendantId, or by defendantId when that is what CP populated; never on two nulls
+                .filter(r -> sameId(r.masterDefendantId(), defendant.masterDefendantId()) || sameId(r.defendantId(), defendant.id()))
                 .map(HearingResultedEvent.DefendantJudicialResult::judicialResult);
         return Stream.of(offenceLevel, defendantCaseLevel, hearingLevel)
                 .flatMap(s -> s)

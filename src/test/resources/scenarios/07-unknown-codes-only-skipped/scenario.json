@@ -1,0 +1,9 @@
+{
+  "description": "No result resolves to a code GOB accepts: SKIPPED_NO_RESULT_CODE, nothing sent (US4, FR-009)",
+  "event": "events/hearing-resulted-unknown-codes-only.json",
+  "expected": {
+    "gatewayPosts": 0,
+    "status": "SKIPPED_NO_RESULT_CODE",
+    "errorDetail": "no GOB-recognised result code; dropped [unknown-result-definition:33333333-3333-3333-3333-333333333333]"
+  }
+}

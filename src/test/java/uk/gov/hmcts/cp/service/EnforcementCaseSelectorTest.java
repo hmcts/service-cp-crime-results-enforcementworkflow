@@ -79,4 +79,13 @@ class EnforcementCaseSelectorTest {
         assertThat(selector.select(new HearingResultedEvent(null, false, null, null)))
                 .isEqualTo(new SelectionResult.Skipped(SkipReason.NO_ENFORCEMENT_CASE));
     }
+
+    // Principle IX: a missing isReshare (required on the event) is not assumed to be a first share
+    @Test
+    void missing_reshare_flag_should_be_skipped() {
+        final HearingResultedEvent base = Fixtures.event("hearing-resulted-enforcement.json");
+
+        assertThat(selector.select(new HearingResultedEvent(base.hearing(), null, base.sharedTime(), base.hearingDay())))
+                .isEqualTo(new SelectionResult.Skipped(SkipReason.RESHARE_FLAG_MISSING));
+    }
 }

@@ -1,0 +1,41 @@
+{
+  "caseUrn": "E012345678",
+  "dateOfHearing": "2026-05-03",
+  "courtHearingLocation": "B01LY00",
+  "defendantDetails": {
+    "prosecutorDefendantId": "1234567890",
+    "forename": "Edward",
+    "surname": "Harrison",
+    "homeTelephoneNumber": "02081234567",
+    "mobileTelephoneNumber": "07700900123",
+    "dateOfBirth": "2002-01-10",
+    "address1": "1 High Street",
+    "address2": "Tottenham",
+    "address3": "London",
+    "postcode": "N17 6RT",
+    "nationalInsuranceNumber": "NH195839C"
+  },
+  "paymentTerms": {
+    "paymentDueDate": "2026-05-03",
+    "paymentCardRequested": "N",
+    "parentToPay": "N"
+  },
+  "enforcement": {
+    "prisonSentenceIndicator": "N"
+  },
+  "results": [
+    {
+      "resultCode": "SC"
+    }
+  ],
+  "nowsDataRequest": {
+    "nowsDataItems": [
+      {
+        "name": "Account Balance"
+      },
+      {
+        "name": "Account Number"
+      }
+    ]
+  }
+}

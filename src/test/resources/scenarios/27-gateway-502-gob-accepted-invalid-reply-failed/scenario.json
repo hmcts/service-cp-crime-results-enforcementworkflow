@@ -1,0 +1,25 @@
+{
+  "description": "GOB accepted but its reply was invalid (502, libraStatus 200, INVALID_RESPONSE): FAILED with the codes, which tell support that GOB applied it (README runbook)",
+  "event": "events/hearing-resulted-enforcement.json",
+  "referenceData": {
+    "11111111-1111-1111-1111-111111111111": "SC",
+    "22222222-2222-2222-2222-222222222222": "WC"
+  },
+  "gateway": {
+    "status": 502,
+    "body": {
+      "error": "LIBRA_CALL_FAILED",
+      "details": {
+        "libraStatus": 200,
+        "errorCode": "INVALID_RESPONSE",
+        "errorDescription": "response body lacks a required HearingResultedResponse field"
+      }
+    }
+  },
+  "expected": {
+    "gatewayPosts": 1,
+    "status": "FAILED",
+    "httpStatus": 502,
+    "errorDetail": "error=LIBRA_CALL_FAILED; libraStatus=200; errorCode=INVALID_RESPONSE"
+  }
+}

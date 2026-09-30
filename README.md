@@ -49,6 +49,7 @@ Contract consumed: [`api-cp-crime-results-enforcementgateway`](https://github.co
 | `REFERENCE_DATA_CJSCPPUID` | placeholder UUID | CJSCPPUID system user for reference data (**to be confirmed**) |
 | `ENFORCEMENT_GATEWAY_URL` | `http://localhost:8082` | `service-cp-crime-results-enforcementgateway` base |
 | `ENFORCEMENT_AUTHORITY_CODE` | `GAPGD00` | OU code that identifies an Enforcement case |
+| `SPRING_PROFILES_ACTIVE` | none | **Must be `docker` when deployed**: the JMS listeners only run under that profile, so without it no events are consumed |
 | `PAYMENT_DUE_DATE_FALLBACK` | `NONE` | **Leave as `NONE` in deployed environments.** `HEARING_DATE` is a local/test/simulator stand-in only (logs a warning at startup) |
 | `STALE_SENDING_THRESHOLD` / `STALE_SENDING_SWEEP_INTERVAL` | `PT5M` / `PT1M` | when an interrupted submission is marked failed |
 
@@ -81,7 +82,7 @@ defendant PII and bank details (specs/001-cimd-4246-hearing-resulted-to-libra/ad
 | `FAILED` + `http_status` | gateway/GOB rejected or failed; `error_detail` = `error=…; libraStatus=…; errorCode=…` (`errorCode INVALID_RESPONSE` with `libraStatus=200` means GOB **accepted** it but sent back an invalid reply) | investigate; replay is CIMD-4259 |
 | `FAILED`, `error_detail` `NOT_SENT – …` | nothing reached GOB (reference data unavailable, or the gateway unreachable) | fix the cause; safe to replay (CIMD-4259) |
 | `FAILED`, `error_detail` `TIMEOUT – …` / `INTERRUPTED – …` / `ERROR – …` (outcome at GOB unknown) | CP stopped waiting, or the service stopped mid-call. **GOB may or may not have applied the update** | check the GoB account before any replay; never resend blindly |
-| `MAPPING_FAILED` | could not be built: `CASE_URN_INVALID`, `PROSECUTOR_DEFENDANT_ID_MISSING`, `ADDRESS1_MISSING`, `DATE_OF_HEARING_MISSING`, `COURT_HEARING_LOCATION_INVALID`, `PAYMENT_DUE_DATE_UNAVAILABLE` | fix the source data in CP; a new share for the same hearing isn't sent automatically (replay is CIMD-4259) |
+| `MAPPING_FAILED` | could not be built: `CASE_URN_INVALID`, `PROSECUTOR_DEFENDANT_ID_MISSING`, `ADDRESS1_MISSING`, `DATE_OF_HEARING_MISSING`, `COURT_HEARING_LOCATION_INVALID`, `PAYMENT_DUE_DATE_UNAVAILABLE`, `ORGANISATION_DEFENDANT_NOT_SUPPORTED_YET` | fix the source data in CP; a new share for the same hearing isn't sent automatically (replay is CIMD-4259) |
 | `SKIPPED_NO_RESULT_CODE` | none of the results is a code GOB accepts; `error_detail` lists the dropped codes | usually none |
 
 > ⚠️ Until payment terms are mapped (CIMD-4251), or GOB makes `paymentDueDate` optional, the default `PAYMENT_DUE_DATE_FALLBACK=NONE` makes **every** submission `MAPPING_FAILED / PAYMENT_DUE_DATE_UNAVAILABLE`. Don't switch this flow on in production before then (research.md open item 12). Run a **single replica** (open item 13).
@@ -97,7 +98,7 @@ where case_urn = :case_urn;
 -- Outcome unknown at GOB: check the GoB account before replaying
 select id, case_urn, hearing_id, defendant_id, error_detail, updated_at
 from hearing_result_submission
-where status = 'FAILED' and (error_detail like 'INTERRUPTED%' or error_detail like 'TIMEOUT%')
+where status = 'FAILED' and (error_detail like 'INTERRUPTED%' or error_detail like 'TIMEOUT%' or error_detail like 'ERROR%')
 order by updated_at desc;
 
 -- Recent failures of any kind
@@ -129,6 +130,11 @@ gradle -v
 ./gradlew test           # tests only
 ./gradlew pmdMain        # PMD for main sources (runs only when named, per gradle/pmd.gradle)
 ```
+
+Integration tests run the flow end to end through an embedded Artemis broker, WireMock (reference data
+and the gateway) and the local Postgres. Most flow cases are data-driven: add a folder under
+`src/test/resources/scenarios/` (format in
+[quickstart.md](specs/001-cimd-4246-hearing-resulted-to-libra/quickstart.md#integration-test-scenarios-automated)).
 
 ### Static analysis (PMD)
 

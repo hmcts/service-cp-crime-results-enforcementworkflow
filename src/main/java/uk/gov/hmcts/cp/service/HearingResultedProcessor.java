@@ -38,7 +38,8 @@ public class HearingResultedProcessor {
     public void process(final HearingResultedEvent event) {
         switch (selector.select(event)) {
             case SelectionResult.Skipped skipped ->
-                    log.info("Hearing {} not submitted to GOB: {}", event.hearing().id(), skipped.reason());
+                    log.info("Hearing {} not submitted to GOB: {}", event.hearing() == null ? null : event.hearing().id(),
+                            skipped.reason());
             case SelectionResult.Selected selected -> store.findExisting(event.hearing().id(), selected.prosecutionCase().id(),
                             selected.defendant().id())
                     .ifPresentOrElse(existing -> onExisting(event, selected, existing), () -> processSelected(event, selected));

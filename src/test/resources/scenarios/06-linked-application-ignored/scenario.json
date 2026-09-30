@@ -1,0 +1,7 @@
+{
+  "description": "Out of scope: an enforcement case with a linked application is ignored (US2)",
+  "event": "events/hearing-resulted-linked-application.json",
+  "expected": {
+    "gatewayPosts": 0
+  }
+}

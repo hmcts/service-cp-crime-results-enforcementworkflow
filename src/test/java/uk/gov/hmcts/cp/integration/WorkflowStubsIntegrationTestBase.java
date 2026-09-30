@@ -31,7 +31,7 @@ public abstract class WorkflowStubsIntegrationTestBase extends IntegrationTestBa
     protected static final String GATEWAY_RESPONSE = """
             {"caseUrn":"E012345678","timestamp":"2026-05-03T14:30:00Z","correlationId":"9f3d2e42-8d30-4d16-9dd6-6d4e26889d5c",\
             "nowsDataItems":{"accountBalance":125.5}}""";
-    private static final String DEFINITIONS = "/referencedata-query-api/query/api/rest/referencedata/result-definitions/";
+    protected static final String DEFINITIONS = "/referencedata-query-api/query/api/rest/referencedata/result-definitions/";
 
     static {
         STUBS.start();
@@ -52,6 +52,9 @@ public abstract class WorkflowStubsIntegrationTestBase extends IntegrationTestBa
 
     @BeforeEach
     void stubReferenceDataAndGateway() {
+        // also cleared before each test: a run stopped mid-test (IDE stop, killed JVM) skips @AfterEach, and the
+        // fixtures share hearing/case/defendant ids, so a leftover row would make the next run "already submitted"
+        repository.deleteAll();
         stubShortCode("11111111-1111-1111-1111-111111111111", "SC");
         stubShortCode("22222222-2222-2222-2222-222222222222", "WC");
         stubGateway(GATEWAY_RESPONSE);

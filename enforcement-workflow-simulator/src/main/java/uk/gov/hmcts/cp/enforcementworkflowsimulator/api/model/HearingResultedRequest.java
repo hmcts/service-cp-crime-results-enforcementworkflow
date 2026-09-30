@@ -43,7 +43,8 @@ public record HearingResultedRequest(
         @NotNull Map<String, Object> paymentTerms,
         @NotNull Map<String, Object> enforcement,
         @NotEmpty List<@Valid HearingResult> results,
-        @Valid @NotNull NowsDataRequest nowsDataRequest) {
+        // optional: the GOB-agreed local amendment (see the bundled contract), expected in v0.5.0
+        @Valid NowsDataRequest nowsDataRequest) {
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record HearingResult(@NotBlank String resultCode, Number enforcerCode, Number jailDays) {
