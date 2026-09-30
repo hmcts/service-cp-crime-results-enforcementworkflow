@@ -110,20 +110,20 @@ public class HearingTrafficLoggingFilter extends OncePerRequestFilter {
     /** Reads the whole body once, then serves it from memory to everything downstream. */
     private static final class CachedBodyRequest extends HttpServletRequestWrapper {
 
-        private final byte[] body;
+        private final byte[] cachedBody;
 
-        CachedBodyRequest(final HttpServletRequest request) throws IOException {
+        /* default */ CachedBodyRequest(final HttpServletRequest request) throws IOException {
             super(request);
-            this.body = request.getInputStream().readAllBytes();
+            this.cachedBody = request.getInputStream().readAllBytes();
         }
 
-        byte[] body() {
-            return body.clone();
+        /* default */ byte[] body() {
+            return cachedBody.clone();
         }
 
         @Override
         public ServletInputStream getInputStream() {
-            final ByteArrayInputStream source = new ByteArrayInputStream(body);
+            final ByteArrayInputStream source = new ByteArrayInputStream(cachedBody);
             return new ServletInputStream() {
                 @Override
                 public int read() {

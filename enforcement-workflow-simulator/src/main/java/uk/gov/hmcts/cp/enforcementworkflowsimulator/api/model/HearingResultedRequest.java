@@ -56,10 +56,10 @@ public record HearingResultedRequest(
      * makes both {@code nowsDataRequest} and its {@code nowsDataItems} optional.
      */
     public List<String> requestedNowsDataItemNames() {
-        if (nowsDataRequest == null || nowsDataRequest.nowsDataItems() == null) {
-            return List.of();
-        }
-        return nowsDataRequest.nowsDataItems().stream().map(NowsDataItemRequest::name).toList();
+        final boolean noneRequested = nowsDataRequest == null || nowsDataRequest.nowsDataItems() == null;
+        return noneRequested
+                ? List.of()
+                : nowsDataRequest.nowsDataItems().stream().map(NowsDataItemRequest::name).toList();
     }
 
     @JsonIgnoreProperties(ignoreUnknown = false)
