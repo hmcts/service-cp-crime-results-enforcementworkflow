@@ -74,16 +74,17 @@ class CatalogueCoverageTest {
     }
 
     /**
-     * "ENF TEXT" is the one v0.4.0 code containing a space. Named explicitly (rather than relying
-     * only on the loop-based assertions above happening to cover it) so the YAML
-     * quoting/round-trip and its distinctness from the unrelated "TEXT" code are self-documenting.
+     * v0.6.0 respelt the v0.4.0 code "ENF TEXT" as ENFTEXT. Named explicitly so the rename is
+     * pinned (the old spelling must not linger as a postable code) and so ENFTEXT stays distinct
+     * from the unrelated "TEXT" code.
      */
     @Test
-    void handles_the_space_containing_enf_text_code_distinctly_from_text() {
-        assertThat(schemaResultCodes).contains("ENF TEXT", "TEXT");
-        assertThat(catalogue.isKnown("ENF TEXT")).isTrue();
-        assertThat(catalogue.isPostable("ENF TEXT")).isTrue();
-        assertThat(catalogue.fieldsFor("ENF TEXT")).isEmpty();
+    void handles_the_enftext_code_distinctly_from_text() {
+        assertThat(schemaResultCodes).contains("ENFTEXT", "TEXT").doesNotContain("ENF TEXT");
+        assertThat(catalogue.isKnown("ENFTEXT")).isTrue();
+        assertThat(catalogue.isPostable("ENFTEXT")).isTrue();
+        assertThat(catalogue.isKnown("ENF TEXT")).isFalse();
+        assertThat(catalogue.fieldsFor("ENFTEXT")).isEmpty();
         assertThat(catalogue.fieldsFor("TEXT")).isEmpty();
     }
 

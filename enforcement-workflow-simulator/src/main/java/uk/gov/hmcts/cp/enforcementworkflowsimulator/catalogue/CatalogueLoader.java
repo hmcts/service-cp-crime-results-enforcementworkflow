@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
 public class CatalogueLoader {
 
     private static final String DEFAULT_CATALOGUE_BASE = "enforcement-workflow-simulator/catalogue/";
-    private static final String OPENAPI_SPEC_PATH = "openapi/libra-gateway-hearing-events-v0.4.0.yml";
+    private static final String OPENAPI_SPEC_PATH = "openapi/libra-gateway-hearing-events-v0.6.0.yml";
     private static final String UNCHECKED = "unchecked";
 
     private final String catalogueBase;

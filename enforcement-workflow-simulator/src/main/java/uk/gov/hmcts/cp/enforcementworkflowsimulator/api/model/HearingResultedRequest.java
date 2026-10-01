@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 /**
  * Only the parts of HearingResultedRequest the simulator reads are modelled; the remaining
@@ -20,7 +21,7 @@ import jakarta.validation.constraints.NotNull;
  *
  * <p>{@code results} and {@code nowsDataRequest} carry cascading validation so their nested
  * constraints ({@code HearingResult.resultCode}'s {@code @NotBlank}, {@code
- * NowsDataRequest.nowsDataItems}'s {@code @NotEmpty}, and — one level deeper, so {@code
+ * NowsDataRequest.nowsDataItems}'s {@code @Size(min = 1)}, and — one level deeper, so {@code
  * NowsDataRequest.nowsDataItems} cascades too — {@code NowsDataItemRequest.name}'s {@code
  * @NotBlank}) actually run. Jakarta Bean Validation never cascades into a nested type without
  * {@code @Valid} somewhere on the path to it; without it these three constraints are silently
@@ -31,6 +32,11 @@ import jakarta.validation.constraints.NotNull;
  * element-constraint style (annotating the container directly still works but is deprecated and
  * logs an HV000271 warning on every startup — undesirable given mandatory JSON logging to
  * stdout).
+ *
+ * <p>Since v0.6.0, {@code paymentTerms}, {@code nowsDataRequest} and {@code
+ * NowsDataRequest.nowsDataItems} are optional. {@code @Size(min = 1)} rather than {@code @NotEmpty}
+ * keeps the schema's {@code minItems: 1} (an empty list is still a 400) while letting the list be
+ * absent.
  */
 @JsonIgnoreProperties(ignoreUnknown = false)
 public record HearingResultedRequest(
@@ -40,17 +46,28 @@ public record HearingResultedRequest(
         @NotNull Map<String, Object> defendantDetails,
         Map<String, Object> employerDetails,
         Map<String, Object> parentGuardianDetails,
-        @NotNull Map<String, Object> paymentTerms,
+        Map<String, Object> paymentTerms,
         @NotNull Map<String, Object> enforcement,
         @NotEmpty List<@Valid HearingResult> results,
-        @Valid @NotNull NowsDataRequest nowsDataRequest) {
+        @Valid NowsDataRequest nowsDataRequest) {
+
+    /**
+     * The NOWS entities the caller asked for, or an empty list when it asked for none — v0.6.0
+     * makes both {@code nowsDataRequest} and its {@code nowsDataItems} optional.
+     */
+    public List<String> requestedNowsDataItemNames() {
+        final boolean noneRequested = nowsDataRequest == null || nowsDataRequest.nowsDataItems() == null;
+        return noneRequested
+                ? List.of()
+                : nowsDataRequest.nowsDataItems().stream().map(NowsDataItemRequest::name).toList();
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record HearingResult(@NotBlank String resultCode, Number enforcerCode, Number jailDays) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = false)
-    public record NowsDataRequest(@NotEmpty List<@Valid NowsDataItemRequest> nowsDataItems) {
+    public record NowsDataRequest(@Size(min = 1) List<@Valid NowsDataItemRequest> nowsDataItems) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = false)
