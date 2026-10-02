@@ -99,6 +99,10 @@ public class HearingResultedProcessor {
     }
 
     private void send(final UUID submissionId, final HearingResultedRequest request) {
+        // codes and a count only: the request itself carries defendant PII (FR-017)
+        log.info("Submission {} caseUrn {}: sending to the enforcement gateway (results {}, NOWS data items {})", submissionId,
+                request.getCaseUrn(), request.getResults().stream().map(result -> String.valueOf(result.getResultCode())).toList(),
+                request.getNowsDataRequest() == null ? 0 : request.getNowsDataRequest().getNowsDataItems().size());
         switch (gatewayClient.submit(request)) {
             case GatewayResult.Success success -> {
                 store.recordSucceeded(submissionId, success.rawResponse(), success.httpStatus());

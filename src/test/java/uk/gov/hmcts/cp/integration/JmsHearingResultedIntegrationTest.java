@@ -60,6 +60,9 @@ class JmsHearingResultedIntegrationTest extends EmbeddedBrokerIntegrationTestBas
             assertThat(GatewayContract.hearingResultedRequestViolations(post.getBodyAsString())).isEmpty();
             assertThat(LibraContract.hearingResultedRequestViolations(post.getBodyAsString())).isEmpty();
         });
+        // what QA looks for: the event arrived, and what was sent; ids, caseUrn and codes only
+        assertThat(output.getAll()).contains("Hearing resulted event received: jmsMessageId=ID:")
+                .contains("caseUrn E012345678: sending to the enforcement gateway (results [SC, DW], NOWS data items 3)");
         // FR-017: defendant PII must not reach the logs on the JMS path either
         assertThat(output.getAll()).doesNotContain("Edward", "Harrison", "2002-01-10", "NH195839C", "1 High Street");
     }

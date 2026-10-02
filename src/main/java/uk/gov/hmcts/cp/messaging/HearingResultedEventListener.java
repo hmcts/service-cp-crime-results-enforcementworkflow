@@ -32,6 +32,8 @@ public class HearingResultedEventListener {
             selector = "${cp.messaging.hearing-resulted-selector}",
             containerFactory = HearingResultedJmsConfig.CONTAINER_FACTORY)
     public void onHearingResulted(final Message message) throws JMSException {
+        // message id only: the body carries defendant PII; the processor logs the hearing id and outcome
+        log.info("Hearing resulted event received: jmsMessageId={}", message.getJMSMessageID());
         try {
             processor.process(objectMapper.readValue(message.getBody(String.class), HearingResultedEvent.class));
             // deliberately broad: a failure on one message must not kill this listener thread (constitution Principle V).
