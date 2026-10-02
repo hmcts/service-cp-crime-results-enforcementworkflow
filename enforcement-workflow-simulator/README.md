@@ -36,6 +36,18 @@ if `SPRING_PROFILES_ACTIVE` is unset (see `src/main/resources/application.yaml`)
 below requires it to be present explicitly among the active profiles in any environment that sets
 its own profile list.
 
+Every call to `/hearing` or `/hearing/result`, rejected ones included, writes two INFO lines to
+stdout: `Hearing request received` and `Hearing response sent`. The bodies appear as nested JSON
+in `requestBody` / `responseBody`, so you can pipe the output through `jq`:
+
+```bash
+... bootRun | grep '^{' | jq 'select(.message | startswith("Hearing ")) | {message, status, requestBody, responseBody}'
+```
+
+Logging full bodies deliberately deviates from the logging standard; see
+[ADR-005](../docs/pipeline/adrs/005-log-hearing-request-response-bodies.md). The `Authorization`
+header is never logged.
+
 ## Guard layers — why it cannot start in a live environment
 
 Three independent layers, so a single mistake in any one of them does not put fabricated court
