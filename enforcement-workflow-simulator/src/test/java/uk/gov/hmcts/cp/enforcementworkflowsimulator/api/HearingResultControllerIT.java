@@ -79,19 +79,6 @@ class HearingResultControllerIT {
                 .andExpect(conformsToSpec());
     }
 
-    // The workflow leaves nowsDataRequest out when no short code maps to a NOWS item (the GOB-agreed
-    // local amendment, expected in contract v0.5.0): GOB accepts it and returns no NOWS entities.
-    @Test
-    void accepts_a_request_without_nows_data_request_and_returns_no_entities() throws Exception {
-        final String request = SC_REQUEST.replaceAll("(?s),\\s*\"nowsDataRequest\".*?\\]\\s*}", "");
-        org.assertj.core.api.Assertions.assertThat(request).doesNotContain("nowsDataRequest");
-
-        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization).contentType(APPLICATION_JSON).content(request))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.nowsDataItems.length()").value(0))
-                .andExpect(conformsToSpec());
-    }
-
     @Test
     void returns_exactly_the_requested_entities_and_nothing_more() throws Exception {
         mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization).contentType(APPLICATION_JSON).content(SC_REQUEST))
@@ -99,6 +86,59 @@ class HearingResultControllerIT {
                 .andExpect(jsonPath("$.nowsDataItems.length()").value(2))
                 .andExpect(jsonPath("$.nowsDataItems.defendant").doesNotExist())
                 .andExpect(jsonPath("$.nowsDataItems.terms").doesNotExist());
+    }
+
+    // v0.6.0 made paymentTerms optional on HearingResultedRequest.
+    @Test
+    void accepts_a_hearing_result_without_payment_terms() throws Exception {
+        final String request = SC_REQUEST.replace("""
+                  "paymentTerms": {
+                    "paymentDueDate": "2026-05-31",
+                    "paymentCardRequested": "N",
+                    "parentToPay": "N"
+                  },
+                """, "");
+        assertThat(request).doesNotContain("paymentTerms");
+
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization).contentType(APPLICATION_JSON).content(request))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nowsDataItems.accountBalance").value(1250.00))
+                .andExpect(conformsToSpec());
+    }
+
+    // v0.6.0 made nowsDataRequest optional on the request and nowsDataItems optional on the
+    // response. When nothing is requested, the response leaves nowsDataItems out entirely.
+    @Test
+    void omits_nows_data_items_when_the_request_carries_no_nows_data_request() throws Exception {
+        final String request = SC_REQUEST.replace("""
+                  "results": [ { "resultCode": "SC" } ],
+                  "nowsDataRequest": {
+                    "nowsDataItems": [ { "name": "Account Balance" }, { "name": "Account Number" } ]
+                  }
+                """, """
+                  "results": [ { "resultCode": "SC" } ]
+                """);
+        assertThat(request).doesNotContain("nowsDataRequest");
+
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization).contentType(APPLICATION_JSON).content(request))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.caseUrn").value("E012345678"))
+                .andExpect(jsonPath("$.nowsDataItems").doesNotExist())
+                .andExpect(conformsToSpec());
+    }
+
+    // v0.6.0 also dropped nowsDataItems from NowsDataRequest's required list, so an empty
+    // nowsDataRequest object is contract-valid and means "nothing requested".
+    @Test
+    void omits_nows_data_items_when_the_nows_data_request_names_no_list() throws Exception {
+        final String request = SC_REQUEST.replace(
+                "\"nowsDataItems\": [ { \"name\": \"Account Balance\" }, { \"name\": \"Account Number\" } ]", "");
+        assertThat(request).doesNotContain("nowsDataItems");
+
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization).contentType(APPLICATION_JSON).content(request))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nowsDataItems").doesNotExist())
+                .andExpect(conformsToSpec());
     }
 
     @Test

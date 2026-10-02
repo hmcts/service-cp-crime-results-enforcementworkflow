@@ -73,7 +73,12 @@ class HearingControllerIT {
                         .header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .content("""
-                                { "caseUrn": "E011122334", "courtHearingLocation": "" }
+                                {
+                                  "caseUrn": "E011122334",
+                                  "courtHearingLocation": "",
+                                  "dateOfHearing": "2026-04-24",
+                                  "timeOfHearing": "14:00"
+                                }
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(conformsToSpec());
@@ -129,6 +134,34 @@ class HearingControllerIT {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 { "caseUrn": "E011122334" }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").isNotEmpty())
+                .andExpect(jsonPath("$.errorDescription").isNotEmpty());
+    }
+
+    // v0.6.0 made dateOfHearing and timeOfHearing required. As with the absent court location
+    // above, omitting either is a request-side schema violation, so no conformsToSpec().
+    @Test
+    void rejects_a_confirmation_with_the_date_of_hearing_absent() throws Exception {
+        mockMvc.perform(post("/hearing")
+                        .header(AUTHORIZATION, authorization)
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                { "caseUrn": "E011122334", "courtHearingLocation": "B02BR03", "timeOfHearing": "14:00" }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").isNotEmpty())
+                .andExpect(jsonPath("$.errorDescription").isNotEmpty());
+    }
+
+    @Test
+    void rejects_a_confirmation_with_the_time_of_hearing_absent() throws Exception {
+        mockMvc.perform(post("/hearing")
+                        .header(AUTHORIZATION, authorization)
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                { "caseUrn": "E011122334", "courtHearingLocation": "B02BR03", "dateOfHearing": "2026-04-24" }
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").isNotEmpty())

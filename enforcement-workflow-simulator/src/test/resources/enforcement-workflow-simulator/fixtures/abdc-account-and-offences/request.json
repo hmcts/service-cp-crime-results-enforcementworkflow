@@ -14,7 +14,7 @@
     "mobileTelephoneNumber": "07700900112"
   },
   "paymentTerms": {
-    "paymentTerms": "M",
+    "instalmentFrequency": "M",
     "paymentDueDate": "2026-10-17",
     "instalmentAmount": 20,
     "paymentCardRequested": "N",

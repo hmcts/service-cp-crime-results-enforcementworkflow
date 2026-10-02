@@ -14,7 +14,7 @@ import uk.gov.hmcts.cp.enforcementworkflowsimulator.api.model.nows.WarrantContac
 
 /**
  * The NOWS logical entities returned by GoB. Component names mirror
- * {@code NowsDataItems} in libra-gateway-hearing-events-v0.4.0.yml exactly; the schema is
+ * {@code NowsDataItems} in libra-gateway-hearing-events-v0.6.0.yml exactly; the schema is
  * {@code additionalProperties: false}, so nothing outside this list may ever be emitted.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
