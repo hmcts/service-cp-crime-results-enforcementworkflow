@@ -206,4 +206,27 @@ class HearingResultedProcessorTest {
         verify(store).recordSucceeded(id, "{}", 200);
         assertThat(output.getAll()).contains("GOB response caseUrn does not match the caseUrn sent (E012345678)");
     }
+
+    // QA can see what is about to be sent: ids, caseUrn, result codes and the number of NOWS items, never PII
+    @Test
+    void sending_should_be_logged_with_codes_and_item_count_only(final CapturedOutput output) {
+        final UUID id = UUID.randomUUID();
+        final HearingResultedRequest request = new HearingResultedRequest().caseUrn("E012345678")
+                .defendantDetails(new uk.gov.hmcts.cp.openapi.model.DefendantDetails().prosecutorDefendantId("1234567890").forename("Edward"))
+                .results(List.of(new uk.gov.hmcts.cp.openapi.model.HearingResult().resultCode(uk.gov.hmcts.cp.openapi.model.HearingResult.ResultCodeEnum.SC),
+                        new uk.gov.hmcts.cp.openapi.model.HearingResult().resultCode(uk.gov.hmcts.cp.openapi.model.HearingResult.ResultCodeEnum.DW)))
+                .nowsDataRequest(new uk.gov.hmcts.cp.openapi.model.NowsDataRequest().nowsDataItems(new java.util.LinkedHashSet<>(List.of(
+                        new uk.gov.hmcts.cp.openapi.model.NowsDataItemRequest().name(uk.gov.hmcts.cp.openapi.model.NowsDataItemName.ACCOUNT_BALANCE),
+                        new uk.gov.hmcts.cp.openapi.model.NowsDataItemRequest().name(uk.gov.hmcts.cp.openapi.model.NowsDataItemName.ACCOUNT_NUMBER)))));
+        when(resolver.resolve(any(), any())).thenReturn(codes());
+        when(mapper.map(any(), any(), any(), any())).thenReturn(new MappingResult.Mapped(request));
+        when(store.recordSending(any(), any(), any(), eq("E012345678"), any(), anyString())).thenReturn(Optional.of(id));
+        when(gateway.submit(request)).thenReturn(new GatewayResult.Success(new HearingResultedResponse().caseUrn("E012345678"), "{}", 200));
+
+        processor.process(event);
+
+        assertThat(output.getAll())
+                .contains("Submission " + id + " caseUrn E012345678: sending to the enforcement gateway (results [SC, DW], NOWS data items 2)")
+                .doesNotContain("Edward", "1234567890");
+    }
 }
