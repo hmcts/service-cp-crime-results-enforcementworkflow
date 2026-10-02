@@ -110,7 +110,7 @@ ADJNN:     { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, m
 BPOC:      { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
 BPOCRFSD:  { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
 CSC:       { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
-"ENF TEXT": { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
+ENFTEXT:   { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code (spelt \"ENF TEXT\" until v0.6.0), mappings pending" }
 FIDIP:     { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
 MP:        { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }
 ORD:       { fields: [], note: "No row in the CIMD-4372 table — v0.4.0 code, mappings pending" }

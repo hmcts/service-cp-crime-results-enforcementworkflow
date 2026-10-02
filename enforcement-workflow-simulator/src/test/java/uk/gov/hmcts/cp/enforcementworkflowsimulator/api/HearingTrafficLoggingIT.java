@@ -50,7 +50,6 @@ class HearingTrafficLoggingIT {
               "dateOfHearing": "2026-05-03",
               "courtHearingLocation": "B01BH01",
               "defendantDetails": { "prosecutorDefendantId": "1234567890", "address1": "1 Example Street" },
-              "paymentTerms": { "paymentDueDate": "2026-05-31", "paymentCardRequested": "N", "parentToPay": "N" },
               "enforcement": { "prisonSentenceIndicator": "N" },
               "results": [ { "resultCode": "SC" } ],
               "nowsDataRequest": { "nowsDataItems": [ { "name": "Account Balance" } ] }

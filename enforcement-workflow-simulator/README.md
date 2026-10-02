@@ -14,7 +14,7 @@ hearing-result flow without waiting for the real Libra integration.
   403 remains unreachable — there are no roles or scopes to violate.
 - **Not a shape the real Libra necessarily returns.** It follows the **published OpenAPI
   contract** bundled at
-  [`src/main/resources/openapi/libra-gateway-hearing-events-v0.4.0.yml`](src/main/resources/openapi/libra-gateway-hearing-events-v0.4.0.yml)
+  [`src/main/resources/openapi/libra-gateway-hearing-events-v0.6.0.yml`](src/main/resources/openapi/libra-gateway-hearing-events-v0.6.0.yml)
   — **not** the CIMD-4372 ticket's example response bodies, which do not validate against that
   contract. See [ADR-002](../docs/pipeline/adrs/002-contract-over-ticket-examples.md) for why, and
   [pipeline artifact 001](../docs/pipeline/artifacts/001-libra-v030-contract-gaps.html) for the
@@ -309,7 +309,7 @@ Cold builds against this module are slow (15–30 minutes has been observed) —
 These are current, known limitations — not things to silently work around:
 
 - **15 result codes have no field mappings.** `ACNOTE`, `ACON`, `ADJNN`, `BPOC`, `BPOCRFSD`, `CSC`,
-  `"ENF TEXT"`, `FIDIP`, `MP`, `ORD`, `REMCC`, `REMF`, `RT`, `TEXT`, `WDRN` are in the v0.4.0
+  `ENFTEXT` (spelt `"ENF TEXT"` before v0.6.0), `FIDIP`, `MP`, `ORD`, `REMCC`, `REMF`, `RT`, `TEXT`, `WDRN` are in the v0.4.0
   `resultCode` enum but the CIMD-4372 source table defines no required fields for them — they are
   explicit `fields: []` rows in `result-codes.yaml`, not an oversight. Posting them returns only
   default-filled entities. **Mappings are pending from the vendor.** (Two further codes, `NOENF`
@@ -360,8 +360,17 @@ These are current, known limitations — not things to silently work around:
 
 ## Contract version
 
-Bundled: `libra-gateway-hearing-events-v0.4.0.yml`. The upgrade from v0.3.0 changed only the
-`resultCode` enum (24 → 42 values); `NowsDataItems` and its nested schemas are byte-identical to
-v0.3.0. The core divergence this simulator works around — the CIMD-4372 ticket's nested response
-shapes versus the contract's flatter one — was **not** resolved by that upgrade and remains open
-with the vendor. See [pipeline artifact 001](../docs/pipeline/artifacts/001-libra-v030-contract-gaps.html).
+Bundled: `libra-gateway-hearing-events-v0.6.0.yml`. The v0.3.0 → v0.4.0 upgrade changed only the
+`resultCode` enum (24 → 42 values). The v0.4.0 → v0.6.0 upgrade changed:
+
+- `HearingConfirmedRequest`: `dateOfHearing` and `timeOfHearing` are now required (missing → 400).
+- `HearingResultedRequest`: `paymentTerms` and `nowsDataRequest` are now optional, and so is
+  `NowsDataRequest.nowsDataItems` (an empty list is still a 400 under `minItems: 1`).
+- `HearingResultedResponse.nowsDataItems` is now optional. The simulator omits it when the caller
+  requests no NOWS entities.
+- `PaymentTerms.paymentTerms` is renamed `instalmentFrequency`.
+- `resultCode` value `"ENF TEXT"` is respelt `ENFTEXT`.
+
+`NowsDataItems` and its nested schemas are byte-identical to v0.3.0. The core divergence this
+simulator works around — the CIMD-4372 ticket's nested response shapes versus the contract's
+flatter one — was **not** resolved by either upgrade and remains open with the vendor. See [pipeline artifact 001](../docs/pipeline/artifacts/001-libra-v030-contract-gaps.html).

@@ -7,6 +7,6 @@ import jakarta.validation.constraints.NotBlank;
 public record HearingConfirmedRequest(
         @NotBlank String caseUrn,
         @NotBlank String courtHearingLocation,
-        String dateOfHearing,
-        String timeOfHearing) {
+        @NotBlank String dateOfHearing,
+        @NotBlank String timeOfHearing) {
 }
