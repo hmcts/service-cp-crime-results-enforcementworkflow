@@ -1,6 +1,9 @@
 package uk.gov.hmcts.cp.client;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -22,6 +25,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+@ExtendWith(OutputCaptureExtension.class)
 class ReferenceDataClientTest {
 
     private static final String BASE_URL = "http://refdata.test";
@@ -86,5 +90,30 @@ class ReferenceDataClientTest {
         assertThat(client.findShortCode(DEFINITION_ID, ON)).isEmpty();
         assertThat(client.findShortCode(DEFINITION_ID, ON)).isEmpty();
         server.verify(); // both calls reached reference data
+    }
+
+    // TEMP DIAGNOSTICS: an error response logs the status, url and a stack trace without the response body
+    @Test
+    void server_error_should_log_status_and_url_without_body(final CapturedOutput output) {
+        server.expect(requestTo(URL)).andRespond(withStatus(SERVICE_UNAVAILABLE).body("defendant Edward Harrison"));
+
+        assertThatThrownBy(() -> client.findShortCode(DEFINITION_ID, ON)).isInstanceOf(ReferenceDataUnavailableException.class);
+        assertThat(output.getAll())
+                .contains("HTTP 503 Service Unavailable (url=" + URL)
+                .contains("at uk.gov.hmcts.cp.client.ReferenceDataClient")
+                .doesNotContain("Edward");
+    }
+
+    // TEMP DIAGNOSTICS: a transport failure logs the url, the root cause and a stack trace
+    @Test
+    void transport_failure_should_log_url_and_root_cause(final CapturedOutput output) {
+        server.expect(requestTo(URL)).andRespond(withException(new java.net.SocketTimeoutException("Read timed out")));
+
+        assertThatThrownBy(() -> client.findShortCode(DEFINITION_ID, ON)).isInstanceOf(ReferenceDataUnavailableException.class);
+        assertThat(output.getAll())
+                .contains("url=" + URL)
+                .contains("ResourceAccessException")
+                .contains("rootCause=java.net.SocketTimeoutException: Read timed out")
+                .contains("at uk.gov.hmcts.cp.client.ReferenceDataClient");
     }
 }

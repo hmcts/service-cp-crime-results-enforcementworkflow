@@ -1,6 +1,9 @@
 package uk.gov.hmcts.cp.client;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -25,6 +28,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+@ExtendWith(OutputCaptureExtension.class)
 class EnforcementGatewayClientTest {
 
     private static final String BASE_URL = "http://gateway.test";
@@ -134,5 +138,48 @@ class EnforcementGatewayClientTest {
 
         assertThat(client.submit(minimumRequest()))
                 .isEqualTo(new GatewayResult.Failure(302, "ERROR – outcome at GOB unknown: HTTP 302"));
+    }
+
+    // TEMP DIAGNOSTICS: an error response logs the status, url, codes, the gateway's message and Libra's errorDescription,
+    // and a stack trace whose message carries no response body; the stored detail still keeps the codes only
+    @Test
+    void error_response_should_log_url_message_and_error_description(final CapturedOutput output) {
+        final String body = "{\"error\":\"LIBRA_CALL_FAILED\",\"message\":\"Libra hearing-result call failed with HTTP 404\","
+                + "\"details\":{\"libraStatus\":404,\"errorCode\":\"E404\",\"errorDescription\":\"No GoB enforcement record\"}}";
+        server.expect(requestTo(BASE_URL + "/hearingResulted"))
+                .andRespond(withStatus(BAD_GATEWAY).contentType(MediaType.APPLICATION_JSON).body(body));
+
+        assertThat(client.submit(minimumRequest()))
+                .isEqualTo(new GatewayResult.Failure(502, "error=LIBRA_CALL_FAILED; libraStatus=404; errorCode=E404"));
+        assertThat(output.getAll())
+                .contains("HTTP 502 Bad Gateway (url=" + BASE_URL + "/hearingResulted")
+                .contains("errorCode=E404")
+                .contains("message=Libra hearing-result call failed with HTTP 404; errorDescription=No GoB enforcement record")
+                .contains("at uk.gov.hmcts.cp.client.EnforcementGatewayClient.submit");
+    }
+
+    // TEMP DIAGNOSTICS: a transport failure logs the url, the root cause and a stack trace
+    @Test
+    void transport_failure_should_log_url_and_root_cause(final CapturedOutput output) {
+        server.expect(requestTo(BASE_URL + "/hearingResulted")).andRespond(withException(new ConnectException("Connection refused")));
+
+        client.submit(minimumRequest());
+
+        assertThat(output.getAll())
+                .contains("url=" + BASE_URL + "/hearingResulted")
+                .contains("ResourceAccessException")
+                .contains("rootCause=java.net.ConnectException: Connection refused")
+                .contains("at uk.gov.hmcts.cp.client.EnforcementGatewayClient.submit");
+    }
+
+    // TEMP DIAGNOSTICS: a 3xx logs the status and the Location it pointed to
+    @Test
+    void redirect_should_log_status_and_location(final CapturedOutput output) {
+        server.expect(requestTo(BASE_URL + "/hearingResulted"))
+                .andRespond(withStatus(FOUND).header("Location", "https://elsewhere/hearingResulted"));
+
+        client.submit(minimumRequest());
+
+        assertThat(output.getAll()).contains("HTTP 302 (not followed; url=" + BASE_URL + "/hearingResulted, location=https://elsewhere/hearingResulted)");
     }
 }
