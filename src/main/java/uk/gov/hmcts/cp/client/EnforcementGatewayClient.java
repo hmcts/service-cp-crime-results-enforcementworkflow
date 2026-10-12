@@ -35,7 +35,9 @@ import java.net.http.HttpConnectTimeoutException;
  *   <li>Error bodies are reduced to the gateway/Libra codes. Libra's free-text {@code errorDescription} is
  *       not kept, because it may echo payload values (PII).</li>
  * </ul>
- * Only the outcome is logged.
+ * Only the outcome is logged. TEMP DIAGNOSTICS (test environments only, to be removed before release to higher
+ * environments): failures also log the url, the exception message, root cause and stack trace, and for an error
+ * response the gateway's message and Libra's errorDescription (log only, never stored); see {@link TempDiagnostics}.
  */
 @Slf4j
 @Component
@@ -46,10 +48,13 @@ public class EnforcementGatewayClient {
     public static final String OUTCOME_UNKNOWN_ERROR = "ERROR – outcome at GOB unknown";
 
     private final RestClient restClient;
+    // TEMP DIAGNOSTICS: kept only to log the url on failures
+    private final String url;
 
     public EnforcementGatewayClient(@Qualifier("enforcementGatewayRestClientBuilder") final RestClient.Builder restClientBuilder,
                                     @Value("${cp.enforcement-gateway.base-url}") final String baseUrl) {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+        this.url = baseUrl + EnforcementHearingApi.PATH_POST_HEARING_RESULTED;
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException") // the contract of this client is "never throws"
@@ -65,19 +70,37 @@ public class EnforcementGatewayClient {
                     .toEntity(String.class);
             final int status = response.getStatusCode().value();
             // only a 2xx is a success; a 3xx (not followed) means the gateway may never have seen it
-            result = response.getStatusCode().is2xxSuccessful()
-                    ? new GatewayResult.Success(parse(response.getBody()), response.getBody(), status)
-                    : new GatewayResult.Failure(status, OUTCOME_UNKNOWN_ERROR + ": HTTP " + status);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                result = new GatewayResult.Success(parse(response.getBody()), response.getBody(), status);
+            } else {
+                // TEMP DIAGNOSTICS: a 3xx was not logged at all - log the status and where it pointed
+                log.warn("Enforcement gateway answered caseUrn {} with HTTP {} (not followed; url={}, location={})",
+                        request.getCaseUrn(), status, url, response.getHeaders().getLocation());
+                result = new GatewayResult.Failure(status, OUTCOME_UNKNOWN_ERROR + ": HTTP " + status);
+            }
         } catch (RestClientResponseException e) {
-            result = new GatewayResult.Failure(e.getStatusCode().value(), summarise(e.getResponseBodyAsString()));
+            final String summary = summarise(e.getResponseBodyAsString());
+            result = new GatewayResult.Failure(e.getStatusCode().value(), summary);
+            // TEMP DIAGNOSTICS: the gateway's error was not logged here (only recorded as codes) - log the status, url,
+            // the gateway's message and Libra's errorDescription, plus a stack trace without the response body
+            log.warn("Enforcement gateway rejected caseUrn {}: HTTP {} {} (url={}, contentType={}, {}; {})",
+                    request.getCaseUrn(), e.getStatusCode().value(), e.getStatusText(), url, TempDiagnostics.contentType(e),
+                    summary, errorDescriptions(e.getResponseBodyAsString()), TempDiagnostics.withoutResponseBody(e));
         } catch (ResourceAccessException e) {
             final boolean notSent = hasCause(e, ConnectException.class) || hasCause(e, HttpConnectTimeoutException.class)
                     || hasCause(e, UnknownHostException.class);
-            log.warn("Enforcement gateway gave no response for caseUrn {}: {} ({})", request.getCaseUrn(),
-                    e.getClass().getSimpleName(), notSent ? "not sent" : "outcome unknown");
+            // TEMP DIAGNOSTICS: url, message, root cause and stack trace added
+            final Throwable rootCause = TempDiagnostics.rootCause(e);
+            log.warn("Enforcement gateway gave no response for caseUrn {}: {} ({}) - {} (url={}, rootCause={}: {})",
+                    request.getCaseUrn(), e.getClass().getSimpleName(), notSent ? "not sent" : "outcome unknown",
+                    e.getMessage(), url, rootCause.getClass().getName(), rootCause.getMessage(), e);
             result = new GatewayResult.Failure(null, notSent ? NOT_SENT_UNREACHABLE : OUTCOME_UNKNOWN_TIMEOUT);
         } catch (RuntimeException e) { // other RestClientException subtypes, JSON writing, anything unexpected
-            log.warn("Enforcement gateway call failed for caseUrn {}: {}", request.getCaseUrn(), e.getClass().getSimpleName());
+            // TEMP DIAGNOSTICS: url, message, root cause and stack trace added
+            final Throwable rootCause = TempDiagnostics.rootCause(e);
+            log.warn("Enforcement gateway call failed for caseUrn {}: {} - {} (url={}, rootCause={}: {})",
+                    request.getCaseUrn(), e.getClass().getSimpleName(), e.getMessage(), url,
+                    rootCause.getClass().getName(), rootCause.getMessage(), e);
             result = new GatewayResult.Failure(null, OUTCOME_UNKNOWN_ERROR + ": " + e.getClass().getSimpleName());
         }
         return result;
@@ -90,7 +113,9 @@ public class EnforcementGatewayClient {
             try {
                 response = PayloadJson.MAPPER.readValue(body, HearingResultedResponse.class);
             } catch (JacksonException e) {
-                log.warn("Enforcement gateway 2xx body could not be parsed as HearingResultedResponse: {}", e.getClass().getSimpleName());
+                // TEMP DIAGNOSTICS: the parser's own message added (getOriginalMessage: without the body excerpt)
+                log.warn("Enforcement gateway 2xx body could not be parsed as HearingResultedResponse: {} - {}",
+                        e.getClass().getSimpleName(), e.getOriginalMessage());
             }
         }
         return response;
@@ -108,6 +133,22 @@ public class EnforcementGatewayClient {
             summary = "non-JSON error body omitted";
         }
         return summary;
+    }
+
+    /**
+     * TEMP DIAGNOSTICS: the gateway's {@code message} and Libra's {@code details.errorDescription}, for the log only.
+     * They are never stored ({@link #summarise} keeps codes only), because Libra's free text may echo payload values.
+     */
+    private static String errorDescriptions(final String body) {
+        String text;
+        try {
+            final JsonNode json = PayloadJson.MAPPER.readTree(body);
+            text = "message=" + json.path("message").asString("") + "; errorDescription="
+                    + json.path("details").path("errorDescription").asString("");
+        } catch (JacksonException | IllegalArgumentException e) {
+            text = "non-JSON error body";
+        }
+        return text;
     }
 
     private static boolean hasCause(final Throwable error, final Class<? extends Throwable> type) {

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.time.LocalDate;
 import java.util.Map;
@@ -31,6 +32,8 @@ public class ReferenceDataClient {
 
     private final RestClient restClient;
     private final String cjscppuid;
+    // TEMP DIAGNOSTICS: kept only to log the url on failures
+    private final String baseUrl;
     private final Map<CacheKey, Optional<String>> cache = new ConcurrentHashMap<>();
 
     public ReferenceDataClient(@Qualifier("referenceDataRestClientBuilder") final RestClient.Builder restClientBuilder,
@@ -38,6 +41,7 @@ public class ReferenceDataClient {
                                @Value("${cp.reference-data.cjscppuid}") final String cjscppuid) {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
         this.cjscppuid = cjscppuid;
+        this.baseUrl = baseUrl;
     }
 
     /**
@@ -69,13 +73,31 @@ public class ReferenceDataClient {
                     .body(ResultDefinition.class);
             shortCode = Optional.ofNullable(definition).map(ResultDefinition::shortCode);
         } catch (HttpClientErrorException.NotFound e) {
-            log.warn("No reference-data result definition {} on {}", resultDefinitionId, on);
+            // TEMP DIAGNOSTICS: url added
+            log.warn("No reference-data result definition {} on {} (url={})", resultDefinitionId, on, urlOf(resultDefinitionId, on));
             shortCode = Optional.empty();
+        } catch (RestClientResponseException e) {
+            // TEMP DIAGNOSTICS: status, url, content type and a stack trace without the response body
+            log.warn("Reference data lookup failed for result definition {} on {}: HTTP {} {} (url={}, contentType={})",
+                    resultDefinitionId, on, e.getStatusCode().value(), e.getStatusText(), urlOf(resultDefinitionId, on),
+                    TempDiagnostics.contentType(e), TempDiagnostics.withoutResponseBody(e));
+            throw new ReferenceDataUnavailableException("Reference data lookup failed for result definition "
+                    + resultDefinitionId + ": " + e.getClass().getSimpleName(), e);
         } catch (RestClientException e) {
+            // TEMP DIAGNOSTICS: no HTTP response, or it couldn't be read - url, message, root cause and stack trace
+            final Throwable rootCause = TempDiagnostics.rootCause(e);
+            log.warn("Reference data lookup failed for result definition {} on {}: {} - {} (url={}, rootCause={}: {})",
+                    resultDefinitionId, on, e.getClass().getSimpleName(), e.getMessage(), urlOf(resultDefinitionId, on),
+                    rootCause.getClass().getName(), rootCause.getMessage(), e);
             throw new ReferenceDataUnavailableException("Reference data lookup failed for result definition "
                     + resultDefinitionId + ": " + e.getClass().getSimpleName(), e);
         }
         return shortCode;
+    }
+
+    // TEMP DIAGNOSTICS
+    private String urlOf(final UUID resultDefinitionId, final LocalDate on) {
+        return baseUrl + RESULT_DEFINITION_PATH.replace("{id}", String.valueOf(resultDefinitionId)) + "?on=" + on;
     }
 
     private record CacheKey(UUID id, LocalDate on) {
