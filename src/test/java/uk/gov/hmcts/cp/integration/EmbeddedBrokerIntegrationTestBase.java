@@ -41,6 +41,9 @@ public abstract class EmbeddedBrokerIntegrationTestBase extends WorkflowStubsInt
     protected static final String FIXTURE_HEARING_ID = "04180ff1-99b0-40b7-9929-ca05bdc767d8";
     /** The unknown result type in hearing-resulted-unknown-codes-only.json, replaced in the marker event. */
     private static final String UNKNOWN_RESULT_TYPE_ID = "33333333-3333-3333-3333-333333333333";
+    /** The case and defendant ids every event fixture shares, replaced in the marker event. */
+    private static final String FIXTURE_CASE_ID = "861aaa70-f142-469d-a7db-9af395347dd5";
+    private static final String FIXTURE_DEFENDANT_ID = "0ddbc4a7-3c85-4bc3-bdd5-843817320b98";
     protected static final Duration PROCESSING_TIMEOUT = Duration.ofSeconds(15);
     /** Longer than the gateway read timeout above, so a stubbed reply with this delay times out. */
     protected static final int SLOWER_THAN_READ_TIMEOUT_MS = 2500;
@@ -62,14 +65,17 @@ public abstract class EmbeddedBrokerIntegrationTestBase extends WorkflowStubsInt
 
     /**
      * Waits until every message published so far has been fully processed. The listener has a single
-     * consumer, so it publishes a marker event (one result type no stub knows, under a fresh hearing id, so
-     * it never reaches the gateway) and waits for the marker's final row, then deletes that row. This also
+     * consumer, so it publishes a marker event (one result type no stub knows, under a fresh hearing, case and
+     * defendant id, so it never reaches the gateway and has no earlier GOB data to hand over again, feature 002
+     * FR-020) and waits for the marker's final row, then deletes that row. This also
      * proves that a message expected to leave no trace was consumed, rather than still being in flight.
      */
     protected void awaitProcessed() {
         final UUID marker = UUID.randomUUID();
         publish(HEARING_RESULTED, Fixtures.json("events/hearing-resulted-unknown-codes-only.json")
                 .replace(FIXTURE_HEARING_ID, marker.toString())
+                .replace(FIXTURE_CASE_ID, UUID.randomUUID().toString())
+                .replace(FIXTURE_DEFENDANT_ID, UUID.randomUUID().toString())
                 .replace(UNKNOWN_RESULT_TYPE_ID, UUID.randomUUID().toString()));
         await().atMost(PROCESSING_TIMEOUT).until(() -> markerRow(marker).filter(row -> row.getStatus().isFinal()).isPresent());
         markerRow(marker).ifPresent(repository::delete);

@@ -60,6 +60,14 @@ cp:
     base-url: ${ENFORCEMENT_GATEWAY_URL:http://localhost:8082}
     connect-timeout-ms: 5000
     read-timeout-ms: 50000   # must exceed the gateway's own total towards APIM (5s + 40s)
+  # Hand-over of GOB's reply to cpp-context-hearing-nows (feature 002, research R9): the CP backend host
+  # serving /hearingnows-command-api/...; CJSCPPUID is a placeholder until the platform supplies a
+  # "System Users" member (OQ-5).
+  hearing-nows:
+    base-url: ${HEARING_NOWS_URL:http://localhost:8080}
+    cjscppuid: ${HEARING_NOWS_CJSCPPUID:00000000-0000-0000-0000-000000000000}
+    connect-timeout-ms: 5000
+    read-timeout-ms: 10000
   hearing-result:
     # research.md R13: default NONE (unsendable). HEARING_DATE only via explicit local/test/simulator config.
     payment-due-date-fallback: ${PAYMENT_DUE_DATE_FALLBACK:NONE}
@@ -69,6 +77,8 @@ cp:
       WWDN: WDN
     # research.md R7: CP shortCode -> GOB NowsDataItemName values (rows from the updated Confluence page)
     nows-data-items-by-short-code: {}
+    # feature 002 research R19 (OQ-13): shortCodes marking an adjournment; an offence adjourned in a share is not sent
+    adjournment-result-codes: ${ADJOURNMENT_RESULT_CODES:NEXH,ADJNN}
     # research.md R19: stale SENDING -> FAILED (INTERRUPTED), never resent
     stale-sending-threshold: ${STALE_SENDING_THRESHOLD:PT5M}
     stale-sending-sweep-interval: ${STALE_SENDING_SWEEP_INTERVAL:PT1M}

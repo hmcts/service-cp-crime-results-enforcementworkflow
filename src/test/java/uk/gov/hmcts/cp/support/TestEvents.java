@@ -21,7 +21,7 @@ public final class TestEvents {
     }
 
     public static JudicialResult result(final UUID typeId) {
-        return new JudicialResult(UUID.randomUUID(), typeId, "label", LocalDate.parse("2026-05-03"), List.of());
+        return new JudicialResult(UUID.randomUUID(), typeId, "label", LocalDate.parse("2026-05-03"), List.of(), null, null);
     }
 
     /** The enforcement fixture with the defendant's results replaced at each of the three levels. */

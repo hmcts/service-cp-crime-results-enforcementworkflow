@@ -3,13 +3,13 @@
 **Feature Branch**: `001-cimd-4246-hearing-resulted-to-libra`
 **Created**: 2026-09-25
 **Status**: Draft
-**Input**: User description: "CIMD-4246: When an Enforcement case (prosecutionAuthorityOUCode GAPGD00) defendant offence is resulted in Common Platform (public.events.hearing.hearing-resulted), send a HearingResultedRequest to GOB (Libra) via service-cp-crime-results-enforcementgateway and Azure APIM, requesting the NOWS data items matching the resulted short codes, and persist the returned HearingResultedResponse for later NOWS generation. Reshares never call GOB; out-of-scope shapes (multi-defendant, multi-case, linked application) are ignored. Decisions: specs/001-cimd-4246-hearing-resulted-to-libra/docs/CIMD-4246-gap-analysis.md; stories CIMD-4246..4256."
+**Input**: User description: "CIMD-4246: When an Enforcement case (prosecutionAuthorityOUCode GAPGD00) defendant offence is resulted in Common Platform (public.events.hearing.hearing-resulted), send a HearingResultedRequest to GOB (Libra) via service-cp-crime-results-enforcementgateway and Azure APIM, requesting the NOWS data items matching the resulted short codes, and persist the returned HearingResultedResponse for later NOWS generation. Reshares never call GOB; out-of-scope shapes (multi-defendant, multi-case, linked application) are ignored. Decisions: specs/docs/CIMD-4246-gap-analysis.md; stories CIMD-4246..4256."
 
 **Source material**:
-- Jira stories `specs/001-cimd-4246-hearing-resulted-to-libra/docs/CIMD-4246.pdf` … `CIMD-4256.pdf`
-- Confluence `specs/001-cimd-4246-hearing-resulted-to-libra/docs/CCT-1222-Details-20260925.pdf`
-- GOB contract `specs/001-cimd-4246-hearing-resulted-to-libra/docs/libra-gateway-hearing-events-openapi-v0.4.0.yml`
-- Decision log `specs/001-cimd-4246-hearing-resulted-to-libra/docs/CIMD-4246-gap-analysis.md`
+- Jira stories `specs/docs/CIMD-4246.pdf` … `CIMD-4256.pdf`
+- Confluence `specs/docs/CCT-1222-Details-20260925.pdf`
+- GOB contract `specs/docs/libra-gateway-hearing-events-openapi-v0.4.0.yml`
+- Decision log `specs/docs/CIMD-4246-gap-analysis.md`
 
 ## Clarifications
 
@@ -49,6 +49,8 @@ A court user results an Enforcement case defendant's offence in CP and shares th
 ### User Story 2 - Only first-time, in-scope results are sent (Priority: P2)
 
 GOB can't handle amended or reshared results, or case shapes that are out of scope for this phase. So CP sends each defendant's first share once, and ignores reshares, duplicates of the same share, and out-of-scope shapes. Nothing is lost silently: each skip is traceable.
+
+> **Changed by feature 002** (2026-10-09, `specs/002-enforcement-nows-generation/` US6, FR-018 to FR-021): a "share" is a hearing day's share (correlation id = hearing id + hearing day), so a later hearing day of the same hearing is sent too, with only its newly resulted offences: each offence's final result, and each result not attached to an offence, is sent to GOB at most once, and an adjourned offence is sent when finally resulted. A repeated delivery is the same hearing day's share delivered again.
 
 **Why this priority**: Without it, GOB could receive duplicate or unsupported updates to live accounts. It protects the data integrity of User Story 1.
 
@@ -134,7 +136,7 @@ GOB receives the other optional blocks when the results call for them:
 
 ### Edge Cases
 
-- **Reshare**: never sent (US2), including the case where the first share failed.
+- **Reshare**: never sent (US2), including the case where the first share failed. *(Feature 002: still never sent to GOB; the GOB data already received for the case and defendant is handed to the NOWS service again, so the reshare's enforcement NOWS can be generated.)*
 - **Same share delivered twice**, for example after a service restart: sent at most once (US2).
 - **Codes CP uses but GOB doesn't list** (e.g. PGPAY, LATG): dropped and logged. If no codes remain, nothing is sent (US4).
 - **`BPOCRFSD` (BPOC refused)**: a genuine, distinct code, sent as-is.
@@ -160,7 +162,7 @@ GOB receives the other optional blocks when the results call for them:
 - **FR-009**: The system MUST send one result entry per distinct GOB-recognised code, and MUST drop and record codes GOB doesn't recognise.
 - **FR-010**: The system MUST ask GOB for the de-duplicated union of data items needed by the results' short codes, using GOB's twelve item names, and MUST leave out the data request entirely when no item is needed.
 - **FR-011**: The short-code-to-data-item mapping MUST be maintainable without changing the system's behaviour code.
-- **FR-012**: The system MUST store each submission sent and GOB's reply against the hearing, case and defendant, so they are available to the later NOWS generation step.
+- **FR-012**: The system MUST store each submission sent and GOB's reply against the hearing, case and defendant, as an audit and error-handling record. *(Revised by feature 002: GOB's reply is handed to the NOWS service right after it is received; the NOWS step does not read this record.)*
 - **FR-013**: The system MUST record the outcome of every attempted submission: accepted, rejected or failed (with GOB's status and reason), unsendable (with the reason), interrupted with the outcome at GOB unknown, or no GOB-recognised result codes. No attempt may remain without a final outcome for longer than a configured period (by default about 6 minutes: 5 minutes before an attempt counts as stale, plus up to 1 minute until the next check).
 - **FR-014**: The system MUST end each GOB call within 60 seconds end to end. Every hop's time limit MUST be shorter than its caller's, so the outcome is normally reported back rather than lost. The system MUST continue processing later results after any single failure.
 - **FR-015**: The system MUST fill GOB's mandatory fields in every submission, using the agreed defaults (payment card requested "N", parent to pay "N", prison-sentence indicator "N" unless a rule gives "Y").
@@ -186,7 +188,7 @@ GOB receives the other optional blocks when the results call for them:
 - **SC-002**: 0 submissions are sent for reshares, non-Enforcement cases, out-of-scope case shapes, or repeated deliveries of the same share.
 - **SC-003**: 100% of submissions carry the case reference and GOB account number identical to CP's values: 0 altered or truncated identifiers.
 - **SC-004**: 100% of attempted submissions have a recorded outcome. Support staff can find the outcome and reason for any defendant's submission within 5 minutes of being asked.
-- **SC-005**: GOB's reply is available to the NOWS generation step for 100% of accepted submissions.
+- **SC-005**: GOB's reply is stored for 100% of accepted submissions. *(Revised by feature 002: it is also handed to the NOWS service for each accepted submission, feature 002 SC-001.)*
 - **SC-006**: No submission waits more than 60 seconds for GOB before its outcome is recorded.
 - **SC-007**: A mapping change (short code → data items) takes effect without a code change.
 

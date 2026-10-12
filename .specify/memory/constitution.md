@@ -1,25 +1,30 @@
 <!--
 Sync Impact Report
-- Version change: (unratified template) → 1.0.0
-- Principles defined (from the plan gates G1-G8 in specs/001-cimd-4246-hearing-resulted-to-libra/plan.md §3):
-  I. Business Logic in the Workflow, Thin Gateway (G1)
-  II. Compile-Time Contracts (G2)
-  III. Persistence by Convention (G3)
-  IV. Personal Data Protection (G4)
-  V. Bounded, Resilient Processing (G5)
-  VI. Pass-Through Identifiers Are Immutable (G6)
-  VII. Tested and Clean by Default (G7)
-  VIII. Security Boundary (G8)
-  IX. Iterative Delivery with Explicit Assumptions (new)
-- Added sections: Architecture & Technology Constraints; Development Workflow & Quality Gates; Governance
-- Removed sections: none (template placeholders replaced)
+- Version change: 1.1.0 → 1.1.1 (PATCH: clarification of Principle II for `cpp-context-hearing-nows`; no new obligation for other interfaces)
+- Modified principles (1.1.1, 2026-10-08):
+  II. Compile-Time Contracts: added how the contract rule applies to commands/events this project adds to
+      `cpp-context-hearing-nows` (its RAML + JSON schema is the contract; consumers keep a verbatim, sync-noted
+      copy and validate every payload they build against it in a test). From feature 002 analysis finding C1.
+- Previous change: 1.0.0 → 1.1.0 (MINOR: materially expanded guidance; no principle removed or redefined)
+- Modified principles:
+  I. Business Logic in the Workflow, Thin Gateway: added that the hearing NOWS context owns NOWS document
+     assembly and generation, while enforcement decisions stay in the workflow
+  III. Persistence by Convention: scoped to this project's services (the hearing NOWS context keeps its own)
+  VII. Tested and Clean by Default: integration tests in the hearing NOWS context use that context's tooling
+- Modified sections: Architecture & Technology Constraints: `cpp-context-hearing-nows` may now be changed for
+  enforcement NOWS generation (feature 002), under its own conventions and owning team's review; all other
+  `cpp-context-*` repositories stay read-only
+- Added sections: none
+- Removed sections: none
 - Templates:
   ✅ .specify/templates/plan-template.md: "Constitution Check" is generic (gates derived from this file); no change needed
   ✅ .specify/templates/spec-template.md: no mandatory sections added or removed; no change needed
-  ✅ .specify/templates/tasks-template.md: "Tests are OPTIONAL" note amended to reference Principle VII
+  ✅ .specify/templates/tasks-template.md: no new task type; no change needed
   ⚠ .specify/templates/commands/*.md: directory not present in this project; nothing to check
-  ✅ specs/001-cimd-4246-hearing-resulted-to-libra/plan.md §3: now references this constitution (v1.0.0)
+  ✅ specs/002-enforcement-nows-generation/spec.md: dependency note updated to this version
+  ✅ specs/001-cimd-4246-hearing-resulted-to-libra/plan.md §3: evaluated against v1.0.0 and unaffected (W/G/A only)
 - Deferred TODOs: none
+- Previous: (unratified template) → 1.0.0 on 2026-09-27, from plan gates G1-G8 of feature 001 plus Principle IX
 -->
 
 # service-cp-crime-results-enforcementworkflow Constitution
@@ -31,12 +36,14 @@ Sync Impact Report
 - All enforcement decision logic MUST live in `service-cp-crime-results-enforcementworkflow`: event filtering, eligibility, mapping, code translation, persistence and idempotency.
 - `service-cp-crime-results-enforcementgateway` MUST remain a thin outbound connection point. It validates against the contract, forwards, and returns the upstream status and body unchanged. It holds no business rules and no persistence.
 - CP-internal reads (e.g. reference data) belong to the workflow. Only calls to external enforcement systems (GOB/Libra via APIM) go through the gateway.
+- The hearing NOWS context (`cpp-context-hearing-nows`) owns NOWS document assembly and generation: it combines the GOB account data handed to it with hearing and case data, and drives the document generator, material storage and distribution. It MUST NOT re-decide enforcement eligibility or GOB outcomes; those stay in the workflow.
 
 *Rationale*: one owner for enforcement behaviour (strangler-fig consolidation), and a gateway that can be reasoned about and secured on its own.
 
 ### II. Compile-Time Contracts
 
 - Every service-to-service interface this project owns MUST be defined in an OpenAPI contract repo (e.g. `api-cp-crime-results-enforcementgateway`) and consumed through its published, generated API jar. Hand-written copies of contract DTOs are not allowed for new interfaces.
+- Exception for `cpp-context-hearing-nows` (see Architecture & Technology Constraints): for commands and events this project adds to that context, the contract is the context's own RAML resource and JSON schema, not an OpenAPI repo. A consumer in this project MUST keep a verbatim copy of that schema marked "keep in sync; do not edit independently" and MUST validate every payload it builds against the copy in a test. A hand-written request model in the consumer is allowed only together with that validation.
 - Release builds MUST depend only on fixed contract versions (`X.Y.Z`), enforced by `validateApiSpecVersions`. Draft versions are allowed during development only.
 - Schemas copied from external contracts (e.g. the Libra Gateway API) MUST be copied verbatim and marked "keep in sync; do not edit independently". Local amendments MUST be commented and tracked until the owner publishes them.
 
@@ -44,7 +51,7 @@ Sync Impact Report
 
 ### III. Persistence by Convention
 
-- Persistence MUST follow the `service-cp-crime-results-pcr` pattern: Spring Data JPA, PostgreSQL, Flyway at `classpath:db/migration`, and `V1.NNN__description.sql` migrations with one change per file.
+- Persistence in this project's services (workflow, gateway) MUST follow the `service-cp-crime-results-pcr` pattern: Spring Data JPA, PostgreSQL, Flyway at `classpath:db/migration`, and `V1.NNN__description.sql` migrations with one change per file.
 - The datasource is configured from env vars with local defaults, and Hibernate runs with `ddl-auto: validate`. Applied migrations MUST NOT be edited; change the schema only through new migrations.
 - Idempotency MUST be enforced by database constraints (unique keys), not only by application checks.
 
@@ -76,7 +83,7 @@ Sync Impact Report
 
 ### VII. Tested and Clean by Default
 
-- Every new component MUST have unit tests, and every flow MUST have an integration test: real local Postgres (PCR `PostgresInitialise` pattern), and WireMock or `MockRestServiceServer` for HTTP.
+- Every new component MUST have unit tests, and every flow MUST have an integration test: real local Postgres (PCR `PostgresInitialise` pattern), and WireMock or `MockRestServiceServer` for HTTP. In `cpp-context-hearing-nows`, the same obligation is met with that context's own tooling (Maven unit tests, `*IT` integration tests with WireMock stubs via `runIntegrationTests.sh`).
 - Tests are written first and MUST fail before the implementation is added. Test tasks are mandatory in `tasks.md`, not optional.
 - Payloads built for external contracts MUST be validated against the contract schema in a test.
 - `./gradlew build`, including PMD (`pmdMain`, `pmdTest`), MUST pass with no violations before merge. Suppressions need an inline justification.
@@ -104,7 +111,11 @@ Sync Impact Report
 - Java 25, Spring Boot 4.x and the Gradle wrapper, following `service-hmcts-crime-springboot-template` conventions (packages `client`, `config`, `event`, `messaging`, `service`, `mapper`, `entity`, `repository`).
 - Inbound CP events are consumed from Artemis `public.event` through dedicated durable subscriptions with a `CPPNAME` selector. Listeners are active only under the `docker` profile.
 - Outbound HTTP uses Spring `RestClient` with named, prototype-scoped builders per target, each with its own timeouts.
-- No changes to `cpp-context-*` repositories are made from this project. They are read-only sources (events, query APIs).
+- `cpp-context-*` repositories are read-only sources (events, query APIs) for this project, with one exception: `cpp-context-hearing-nows` MAY be changed for enforcement NOWS generation (feature 002). Changes there MUST:
+  - follow that context's own conventions, not this project's Spring Boot/Gradle ones: CPP framework on WildFly/Java EE, Maven, RAML and JSON schemas, Drools access rules, Liquibase viewstore changesets, jobstore tasks, and its own build, unit and integration tests;
+  - keep its existing behaviour for every non-enforcement NOW unchanged;
+  - go through that repository's owning team for review and merge (CODEOWNERS);
+  - still satisfy Principles II, IV, V, VI, VII and VIII where they apply (contracts, personal data, bounded processing, immutable identifiers, tests, security boundary).
 - Every outbound call to GOB/Libra goes gateway → Azure APIM (`cppi-v4`) → Libra. APIM owns the onward OAuth2 to Libra.
 
 ## Development Workflow & Quality Gates
@@ -121,4 +132,4 @@ Sync Impact Report
 - **Versioning** (semantic): MAJOR for removing or redefining a principle incompatibly; MINOR for a new principle or section, or materially expanded guidance; PATCH for wording or clarification.
 - **Compliance review**: every PR review checks the principles that apply. `/speckit-analyze` treats a conflict with any MUST in this file as CRITICAL.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-27 | **Last Amended**: 2026-09-27
+**Version**: 1.1.1 | **Ratified**: 2026-09-27 | **Last Amended**: 2026-10-08

@@ -22,6 +22,11 @@
     "httpStatus": 200,
     "logMustContain": [
       "result codes not sent to GOB [PGPAY]"
-    ]
+    ],
+    "handover": {
+      "posts": 1,
+      "status": "HANDED_OVER",
+      "gobDataReused": false
+    }
   }
 }

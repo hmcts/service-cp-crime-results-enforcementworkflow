@@ -19,6 +19,11 @@
     "httpStatus": 200,
     "responsePayloadContains": [
       "\"nowsDataItems\": {}"
-    ]
+    ],
+    "handover": {
+      "posts": 1,
+      "status": "HANDED_OVER",
+      "gobDataReused": false
+    }
   }
 }

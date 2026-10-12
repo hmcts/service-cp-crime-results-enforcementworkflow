@@ -101,11 +101,22 @@ class ResultCodeResolverTest {
     @Test
     void lookup_should_fall_back_to_hearing_day_when_ordered_date_is_missing() {
         final HearingResultedEvent.JudicialResult undated =
-                new HearingResultedEvent.JudicialResult(UUID.randomUUID(), SC_TYPE, "label", null, List.of());
+                new HearingResultedEvent.JudicialResult(UUID.randomUUID(), SC_TYPE, "label", null, List.of(), null, null);
         final HearingResultedEvent event = withResults(List.of(undated), List.of(), List.of());
 
         assertThat(resolver.resolve(event, defendantOf(event)).gobCodes()).containsExactly(ResultCodeEnum.SC);
         verify(referenceData).findShortCode(SC_TYPE, LocalDate.parse("2026-05-03")); // the event's hearingDay
+    }
+
+    // a later payload repeats earlier days' results: each is looked up on its own ordered date, not the share's hearing day
+    @Test
+    void lookup_should_use_the_ordered_date_of_the_result() {
+        final HearingResultedEvent.JudicialResult earlier =
+                new HearingResultedEvent.JudicialResult(UUID.randomUUID(), SC_TYPE, "label", LocalDate.parse("2026-04-20"), List.of(), null, null);
+        final HearingResultedEvent event = withResults(List.of(earlier), List.of(), List.of());
+
+        assertThat(resolver.resolve(event, defendantOf(event)).gobCodes()).containsExactly(ResultCodeEnum.SC);
+        verify(referenceData).findShortCode(SC_TYPE, LocalDate.parse("2026-04-20"));
     }
 
     // W9: a hearing-level result carrying no ids must not be counted for a defendant that also lacks one
@@ -124,5 +135,24 @@ class ResultCodeResolverTest {
                 base.hearing().courtApplications()), base.isReshare(), base.sharedTime(), base.hearingDay());
 
         assertThat(resolver.resolve(event, noMasterId).cpShortCodes()).containsExactly("SC");
+    }
+
+    // feature 002 T045: each result keeps its offence (or none), ids, codes and adjournment marker
+    @Test
+    void each_result_should_keep_its_offence_ids_codes_and_adjournment_marker() {
+        final HearingResultedEvent.JudicialResult adjournment = new HearingResultedEvent.JudicialResult(UUID.randomUUID(), PGPAY_TYPE,
+                "next hearing", LocalDate.parse("2026-05-03"), List.of(), null, Map.of("listedStartDateTime", "x"));
+        final HearingResultedEvent.JudicialResult offenceResult = result(SC_TYPE);
+        final HearingResultedEvent.JudicialResult caseResult = result(WC_TYPE);
+        final HearingResultedEvent event = withResults(List.of(offenceResult, adjournment), List.of(caseResult), List.of());
+        final UUID offenceId = defendantOf(event).offences().getFirst().id();
+
+        final List<ResolvedResult> results = resolver.resolve(event, defendantOf(event)).results();
+
+        assertThat(results).containsExactly(
+                new ResolvedResult(offenceId, offenceResult.judicialResultId(), SC_TYPE, "SC", ResultCodeEnum.SC, false,
+                        LocalDate.parse("2026-05-03")),
+                new ResolvedResult(offenceId, adjournment.judicialResultId(), PGPAY_TYPE, "PGPAY", null, true, LocalDate.parse("2026-05-03")),
+                new ResolvedResult(null, caseResult.judicialResultId(), WC_TYPE, "WC", ResultCodeEnum.DW, false, LocalDate.parse("2026-05-03")));
     }
 }

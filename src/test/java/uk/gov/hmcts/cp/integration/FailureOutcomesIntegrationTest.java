@@ -4,11 +4,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
 import uk.gov.hmcts.cp.entity.HearingResultSubmissionEntity;
 import uk.gov.hmcts.cp.entity.SubmissionStatus;
+import uk.gov.hmcts.cp.service.ShareCorrelationId;
 import uk.gov.hmcts.cp.event.HearingResultedEvent;
 import uk.gov.hmcts.cp.support.Fixtures;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
@@ -118,7 +120,7 @@ class FailureOutcomesIntegrationTest extends WorkflowStubsIntegrationTestBase {
     @Test
     void a_recorded_mapping_failure_should_not_affect_the_next_event() {
         processor.process(Fixtures.event("hearing-resulted-missing-account-number.json"));
-        repository.deleteAll(); // same hearing/case/defendant ids: clear so the valid event is a first share
+        deleteRows(); // same hearing/case/defendant ids: clear so the valid event is a first share
 
         processor.process(Fixtures.event("hearing-resulted-enforcement.json"));
 
@@ -133,6 +135,8 @@ class FailureOutcomesIntegrationTest extends WorkflowStubsIntegrationTestBase {
     private void insertSending(final UUID hearingId, final UUID caseId, final UUID defendantId, final Instant updatedAt) {
         final HearingResultSubmissionEntity row = new HearingResultSubmissionEntity();
         row.setId(UUID.randomUUID());
+        // the fixture's share: hearing day 2026-05-03 (feature 002 research R18)
+        row.setCorrelationId(ShareCorrelationId.forShare(hearingId, LocalDate.parse("2026-05-03")));
         row.setHearingId(hearingId);
         row.setCaseId(caseId);
         row.setDefendantId(defendantId);

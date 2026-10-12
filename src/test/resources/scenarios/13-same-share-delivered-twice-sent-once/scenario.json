@@ -22,6 +22,11 @@
   "expected": {
     "gatewayPosts": 1,
     "status": "SUCCEEDED",
-    "httpStatus": 200
+    "httpStatus": 200,
+    "handover": {
+      "posts": 1,
+      "status": "HANDED_OVER",
+      "gobDataReused": false
+    }
   }
 }
