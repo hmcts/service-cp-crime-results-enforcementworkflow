@@ -17,7 +17,7 @@ Built so far (**CIMD-4246**, iteration 1; spec, plan and tasks in
 1. **Consume** `public.events.hearing.hearing-resulted` on a durable subscription
    (`HearingResultedEventListener`, `docker` profile only).
 2. **Select** the Enforcement case and defendant (`EnforcementCaseSelector`). Prosecuting authority OU
-   code `GAPGD00`. **Reshares are never sent.** More than one enforcement case, more than one defendant,
+   code `GAPGD00`. **Reshares are never sent to GOB** (feature 002 hands the GOB data already received over again). More than one enforcement case, more than one defendant,
    or a linked application are ignored with a warning.
 3. **Resolve** result shortCodes from reference data and translate them to GOB codes
    (`ReferenceDataClient`, `ResultCodeResolver`: TFOUT→TFOOUT, WC→DW, WWDN→WDN; codes GOB doesn't
@@ -26,11 +26,30 @@ Built so far (**CIMD-4246**, iteration 1; spec, plan and tasks in
 5. **Build** the `HearingResultedRequest` (`HearingResultedRequestMapper`). `caseUrn` and the GoB
    account number are passed through unchanged.
 6. **Submit** it through the gateway (`EnforcementGatewayClient`) and **store** the request, GOB's reply
-   and the outcome in Postgres (`SubmissionStore`, table `hearing_result_submission`). Each
-   hearing/case/defendant is submitted at most once, and there are no retries (CIMD-4259 will add them).
+   and the outcome in Postgres (`SubmissionStore`, table `hearing_result_submission`). There are no
+   retries (CIMD-4259 will add them).
+
+Feature 002 (**CCT-1222 / CIMD-4462**, enforcement NOWS; spec, plan and tasks in
+[`specs/002-enforcement-nows-generation/`](specs/002-enforcement-nows-generation/spec.md)):
+
+7. **Each offence once**: one submission per *share* (correlation id = hearing id + hearing day), and each
+   offence's final result (and each result not attached to an offence) is sent to GOB at most once
+   (`OffenceResultFilter`, table `gob_sent_offence`). A later hearing day of the same hearing sends only its
+   newly resulted offences; an adjourned offence is not sent until its final result (adjournment codes in
+   `cp.hearing-result.adjournment-result-codes`, default `NEXH,ADJNN`). A share with nothing new is not sent.
+8. **Hand over** GOB's data to `cpp-context-hearing-nows` (`HearingNowsClient`, command
+   `hearingnows.add-enforcement-nows-data`), which completes the share's enforcement NOWS. A share with
+   nothing new reuses the most recent GOB data for the case and defendant (`GobDataReuseHandover`). The
+   outcome is recorded in `nows_handover_status` / `nows_handover_detail` / `nows_handover_at`; a failure is
+   never a reason to send to GOB again.
+
+9. **Amend & reshare** (feature 002 US5): never sent to GOB and no row is written; the most recent GOB data for the
+   case and defendant is handed over again with the reshare's covered results (the result types already sent to
+   GOB). hearing-nows completes an amended NOW only for a covered result type, otherwise it fails it "result not sent
+   to GOB". The outcome is recorded on the reused submission's row, detail prefixed `reshare:`.
 
 Still to come: full defendant/result detail and the other payload blocks (CIMD-4247…4256; spec US5/US6),
-NOWS document generation, and the reshare email.
+and the Enforcement/Confiscation team emails (notification story).
 
 > Owned by the **cp-case-ingestion-and-material** team. Over time, enforcement logic from the results
 > service, the SJP flow and the enforcement function apps is intended to move here (strangler-fig).
@@ -49,12 +68,15 @@ Contract consumed: [`api-cp-crime-results-enforcementgateway`](https://github.co
 | `REFERENCE_DATA_CJSCPPUID` | placeholder UUID | CJSCPPUID system user for reference data (**to be confirmed**) |
 | `ENFORCEMENT_GATEWAY_URL` | `http://localhost:8082` | `service-cp-crime-results-enforcementgateway` base |
 | `ENFORCEMENT_AUTHORITY_CODE` | `GAPGD00` | OU code that identifies an Enforcement case |
+| `HEARING_NOWS_URL` | `http://localhost:8080` | CP backend host serving `/hearingnows-command-api/…` (hand-over of GOB data, feature 002) |
+| `HEARING_NOWS_CJSCPPUID` | placeholder UUID | CJSCPPUID system user for hearing-nows, a "System Users" member (**to be confirmed**, OQ-5). Switch hearing-nows' `EnforcementNows` toggle on together with this |
+| `ADJOURNMENT_RESULT_CODES` | `NEXH,ADJNN` | CP shortCodes that mark an offence as adjourned (not sent to GOB in that share; OQ-13) |
 | `SPRING_PROFILES_ACTIVE` | none | **Must be `docker` when deployed**: the JMS listeners only run under that profile, so without it no events are consumed |
 | `PAYMENT_DUE_DATE_FALLBACK` | `NONE` | **Leave as `NONE` in deployed environments.** `HEARING_DATE` is a local/test/simulator stand-in only (logs a warning at startup) |
 | `STALE_SENDING_THRESHOLD` / `STALE_SENDING_SWEEP_INTERVAL` | `PT5M` / `PT1M` | when an interrupted submission is marked failed |
 
 Timeouts follow a budget where each hop gives up before its caller (research.md R20): reference data
-5s + 10s; gateway 5s + 50s (the gateway itself uses 5s + 40s towards APIM, and APIM 35s towards Libra).
+5s + 10s; hearing-nows 5s + 10s (after GOB's reply); gateway 5s + 50s (the gateway itself uses 5s + 40s towards APIM, and APIM 35s towards Libra).
 The shortCode → NOWS data item mapping lives in `cp.hearing-result.nows-data-items-by-short-code` and
 takes GOB's `NowsDataItemName` values; an unknown name stops the service at startup.
 
@@ -84,10 +106,18 @@ defendant PII and bank details (specs/001-cimd-4246-hearing-resulted-to-libra/ad
 | `FAILED`, `error_detail` `TIMEOUT – …` / `INTERRUPTED – …` / `ERROR – …` (outcome at GOB unknown) | CP stopped waiting, or the service stopped mid-call. **GOB may or may not have applied the update** | check the GoB account before any replay; never resend blindly |
 | `MAPPING_FAILED` | could not be built: `CASE_URN_INVALID`, `PROSECUTOR_DEFENDANT_ID_MISSING`, `ADDRESS1_MISSING`, `DATE_OF_HEARING_MISSING`, `COURT_HEARING_LOCATION_INVALID`, `PAYMENT_DUE_DATE_UNAVAILABLE`, `ORGANISATION_DEFENDANT_NOT_SUPPORTED_YET` | fix the source data in CP; a new share for the same hearing isn't sent automatically (replay is CIMD-4259) |
 | `SKIPPED_NO_RESULT_CODE` | none of the results is a code GOB accepts; `error_detail` lists the dropped codes | usually none |
+| `SKIPPED_NOTHING_NEW` | a later share with nothing new for GOB (every offence already sent, or the rest adjourned); `error_detail` gives counts. The most recent GOB data is handed over again | none |
+
+`nows_handover_status` (feature 002): `HANDED_OVER` = hearing-nows accepted GOB's data; `FAILED` = it did not,
+`nows_handover_detail` = `HTTP <status>` or the cause class (prefixed `reshare:` for a reshare); null = no
+hand-over (GOB did not accept, or nothing to reuse). A failed hand-over leaves the share's enforcement NOWS
+waiting until they fail "no GOB data" in hearing-nows; replay is CIMD-4259. Rows are per share
+(`correlation_id`): a hearing resulted over several days has a row per day.
 
 > ⚠️ Until payment terms are mapped (CIMD-4251), or GOB makes `paymentDueDate` optional, the default `PAYMENT_DUE_DATE_FALLBACK=NONE` makes **every** submission `MAPPING_FAILED / PAYMENT_DUE_DATE_UNAVAILABLE`. Don't switch this flow on in production before then (research.md open item 12). Run a **single replica** (open item 13).
 
-Reshares and out-of-scope shapes are not stored. Look for them in the logs by hearing id or `caseUrn`.
+Reshares and out-of-scope shapes are not stored (a reshare's hand-over is recorded on the submission whose GOB data it
+reuses). Look for them in the logs by hearing id or `caseUrn`.
 
 ```sql
 -- One defendant's submission, by caseUrn (or hearing_id / defendant_id)
@@ -100,6 +130,18 @@ select id, case_urn, hearing_id, defendant_id, error_detail, updated_at
 from hearing_result_submission
 where status = 'FAILED' and (error_detail like 'INTERRUPTED%' or error_detail like 'TIMEOUT%' or error_detail like 'ERROR%')
 order by updated_at desc;
+
+-- GOB accepted but the hand-over to hearing-nows did not happen or failed (feature 002)
+select id, correlation_id, case_urn, hearing_id, defendant_id, nows_handover_status, nows_handover_detail, nows_handover_at
+from hearing_result_submission
+where status in ('SUCCEEDED', 'SKIPPED_NOTHING_NEW') and (nows_handover_status is null or nows_handover_status = 'FAILED')
+order by updated_at desc;
+
+-- Which offences of a case have been sent to GOB, and in which submission (feature 002: each offence once)
+select o.offence_id, o.judicial_result_id, o.submission_id, s.status, o.created_at
+from gob_sent_offence o join hearing_result_submission s on s.id = o.submission_id
+where o.case_id = :case_id
+order by o.created_at;
 
 -- Recent failures of any kind
 select status, count(*) from hearing_result_submission

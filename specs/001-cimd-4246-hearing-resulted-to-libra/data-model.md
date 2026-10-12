@@ -76,6 +76,8 @@ CREATE TABLE hearing_result_submission (
     updated_at        timestamp with time zone NOT NULL
 );
 -- Idempotency (gap 11): one submission per first share of a hearing/case/defendant.
+-- Replaced by feature 002 (V1.003): uq_hrs_correlation_case_defendant (correlation_id, case_id, defendant_id), one per share,
+-- and table gob_sent_offence (each offence sent at most once); see specs/002-enforcement-nows-generation/data-model.md §1, §1b.
 CREATE UNIQUE INDEX uq_hrs_hearing_case_defendant ON hearing_result_submission (hearing_id, case_id, defendant_id);
 -- Correlation lookups (gap 5).
 CREATE INDEX idx_hrs_case_urn ON hearing_result_submission (case_urn);
@@ -98,7 +100,8 @@ CREATE INDEX idx_hrs_status_updated_at ON hearing_result_submission (status, upd
 - **Mapping to spec FR-013 outcomes:** accepted = `SUCCEEDED`. Rejected, failed, timed out and interrupted = `FAILED` (with `http_status` where known and `error_detail`). Unsendable = `MAPPING_FAILED`. No GOB code = `SKIPPED_NO_RESULT_CODE`. `SENDING` is transient and becomes `FAILED` if it goes stale (R19). A `FAILED` `error_detail` starts `NOT_SENT –` when nothing reached GOB, or with `TIMEOUT –` / `INTERRUPTED –` / `ERROR –` when the outcome at GOB is unknown. Otherwise it holds the gateway/Libra codes (`error=…; libraStatus=…; errorCode=…`, never Libra's free text; R24). `MAPPING_FAILED` reasons: `CASE_URN_INVALID`, `PROSECUTOR_DEFENDANT_ID_MISSING`, `ADDRESS1_MISSING`, `DATE_OF_HEARING_MISSING`, `COURT_HEARING_LOCATION_INVALID`, `PAYMENT_DUE_DATE_UNAVAILABLE`, `ORGANISATION_DEFENDANT_NOT_SUPPORTED_YET`.
 - "Already submitted" means a final status (`SUCCEEDED`, `FAILED`, `MAPPING_FAILED`, `SKIPPED_NO_RESULT_CODE`) **or** a `SENDING` row younger than the stale threshold. A stale `SENDING` row found on redelivery is set to `FAILED` (INTERRUPTED) and the message is acknowledged without a POST.
 - A reshare and the out-of-scope shapes are **not persisted** in iteration 1. They are only logged.
-- `response_payload` is kept for the later system-doc-generator step (gap #16).
+- `response_payload` is kept for the later system-doc-generator step (gap #16). Feature 002 hands GOB's reply to hearing-nows right after it is received; the row stays an audit/error-handling record (write-only for the NOWS step, except the workflow's own reuse of the most recent GOB data).
+- Feature 002 adds status `SKIPPED_NOTHING_NEW` (a later share with nothing new for GOB) and the hand-over columns `nows_handover_status`, `nows_handover_detail`, `nows_handover_at`.
 - There are no `expires_at` or purge columns yet (open item, gap #10).
 
 JPA: `HearingResultSubmissionEntity` stores the `jsonb` columns as `String` with `@JdbcTypeCode(SqlTypes.JSON)`. Repository: `HearingResultSubmissionRepository extends JpaRepository<…, UUID>` with `findByHearingIdAndCaseIdAndDefendantId(...)` (the unique key's lookup).

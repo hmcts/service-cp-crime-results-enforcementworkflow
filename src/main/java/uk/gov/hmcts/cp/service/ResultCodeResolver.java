@@ -27,6 +27,8 @@ import java.util.stream.Stream;
  *   <li>rename CP codes to GOB codes (TFOUT→TFOOUT, WC→DW, WWDN→WDN);</li>
  *   <li>keep only codes in the GOB {@code resultCode} enum. The others are dropped and reported.</li>
  * </ol>
+ * Each result is kept with its offence (feature 002 research R19), so offences already sent or adjourned can be
+ * left out before the request is built.
  */
 @Component
 @RequiredArgsConstructor
@@ -38,39 +40,49 @@ public class ResultCodeResolver {
     private final HearingResultProperties properties;
 
     public ResolvedCodes resolve(final HearingResultedEvent event, final Defendant defendant) {
-        final Set<String> cpShortCodes = new LinkedHashSet<>();
-        final Set<ResultCodeEnum> gobCodes = new LinkedHashSet<>();
+        final List<ResolvedResult> resolved = new ArrayList<>();
         final Set<String> dropped = new LinkedHashSet<>();
-        for (final JudicialResult result : resultsFor(event, defendant)) {
+        for (final OffenceResult offenceResult : resultsFor(event, defendant)) {
+            final JudicialResult result = offenceResult.result();
             final LocalDate on = result.orderedDate() != null ? result.orderedDate() : event.hearingDay();
             final Optional<String> shortCode = referenceDataClient.findShortCode(result.judicialResultTypeId(), on);
+            ResultCodeEnum gobCode = null;
             if (shortCode.isEmpty()) {
                 dropped.add(UNKNOWN_DEFINITION_PREFIX + result.judicialResultTypeId());
-                continue;
+            } else {
+                final String renamed = properties.getResultCodeRenames().getOrDefault(shortCode.get(), shortCode.get());
+                gobCode = toGobEnum(renamed).orElse(null);
+                if (gobCode == null) {
+                    dropped.add(shortCode.get());
+                }
             }
-            cpShortCodes.add(shortCode.get());
-            final String gobCode = properties.getResultCodeRenames().getOrDefault(shortCode.get(), shortCode.get());
-            toGobEnum(gobCode).ifPresentOrElse(gobCodes::add, () -> dropped.add(shortCode.get()));
+            resolved.add(new ResolvedResult(offenceResult.offenceId(), result.judicialResultId(), result.judicialResultTypeId(),
+                    shortCode.orElse(null), gobCode, result.hasAdjournmentMarker(), result.orderedDate()));
         }
-        return new ResolvedCodes(List.copyOf(cpShortCodes), gobCodes, new ArrayList<>(dropped));
+        return ResolvedCodes.fromResults(resolved, new ArrayList<>(dropped));
     }
 
     private static boolean sameId(final UUID a, final UUID b) {
         return a != null && a.equals(b);
     }
 
-    private static List<JudicialResult> resultsFor(final HearingResultedEvent event, final Defendant defendant) {
-        final Stream<JudicialResult> offenceLevel = safe(defendant.offences()).stream()
-                .flatMap(offence -> safe(offence.judicialResults()).stream());
-        final Stream<JudicialResult> defendantCaseLevel = safe(defendant.defendantCaseJudicialResults()).stream();
-        final Stream<JudicialResult> hearingLevel = safe(event.hearing().defendantJudicialResults()).stream()
+    private static List<OffenceResult> resultsFor(final HearingResultedEvent event, final Defendant defendant) {
+        final Stream<OffenceResult> offenceLevel = safe(defendant.offences()).stream()
+                .flatMap(offence -> safe(offence.judicialResults()).stream().map(r -> new OffenceResult(offence.id(), r)));
+        final Stream<OffenceResult> defendantCaseLevel = safe(defendant.defendantCaseJudicialResults()).stream()
+                .map(r -> new OffenceResult(null, r));
+        final Stream<OffenceResult> hearingLevel = safe(event.hearing().defendantJudicialResults()).stream()
                 // R16: by masterDefendantId, or by defendantId when that is what CP populated; never on two nulls
                 .filter(r -> sameId(r.masterDefendantId(), defendant.masterDefendantId()) || sameId(r.defendantId(), defendant.id()))
-                .map(HearingResultedEvent.DefendantJudicialResult::judicialResult);
+                .map(r -> new OffenceResult(null, r.judicialResult()));
         return Stream.of(offenceLevel, defendantCaseLevel, hearingLevel)
                 .flatMap(s -> s)
-                .filter(r -> r != null && r.judicialResultTypeId() != null)
+                .filter(r -> r.result() != null && r.result().judicialResultTypeId() != null)
                 .toList();
+    }
+
+    /** A result with its offence; {@code offenceId} is null for defendant-case and hearing-level results. */
+    private record OffenceResult(UUID offenceId, JudicialResult result) {
     }
 
     private static Optional<ResultCodeEnum> toGobEnum(final String code) {

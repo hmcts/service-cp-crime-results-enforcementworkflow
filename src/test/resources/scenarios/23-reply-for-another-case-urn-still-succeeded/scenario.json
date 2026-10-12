@@ -25,6 +25,11 @@
     ],
     "logMustContain": [
       "GOB response caseUrn does not match the caseUrn sent (E012345678)"
-    ]
+    ],
+    "handover": {
+      "posts": 1,
+      "status": "HANDED_OVER",
+      "gobDataReused": false
+    }
   }
 }

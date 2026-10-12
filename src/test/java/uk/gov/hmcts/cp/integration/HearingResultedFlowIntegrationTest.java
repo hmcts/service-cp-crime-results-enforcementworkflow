@@ -1,5 +1,6 @@
 package uk.gov.hmcts.cp.integration;
 
+import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -7,10 +8,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import uk.gov.hmcts.cp.entity.HearingResultSubmissionEntity;
+import uk.gov.hmcts.cp.entity.NowsHandoverStatus;
 import uk.gov.hmcts.cp.entity.SubmissionStatus;
+import uk.gov.hmcts.cp.service.ShareCorrelationId;
 import uk.gov.hmcts.cp.support.Fixtures;
+import uk.gov.hmcts.cp.support.HearingNowsContract;
 import uk.gov.hmcts.cp.support.LibraContract;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
@@ -44,6 +49,19 @@ class HearingResultedFlowIntegrationTest extends WorkflowStubsIntegrationTestBas
         assertThat(row.getResponsePayload()).contains("9f3d2e42-8d30-4d16-9dd6-6d4e26889d5c").contains("accountBalance");
         assertThat(row.getRequestPayload()).contains("\"prosecutorDefendantId\"");
 
+        // feature 002 US1: GOB's data handed over to hearing-nows once, valid against its schema, recorded on the row
+        final List<LoggedRequest> handovers = STUBS.findAll(postRequestedFor(urlEqualTo(HEARING_NOWS_PATH)));
+        assertThat(handovers).singleElement().satisfies(handover -> {
+            assertThat(HearingNowsContract.addEnforcementNowsDataViolations(handover.getBodyAsString())).isEmpty();
+            assertThat(handover.getHeader("Content-Type")).isEqualTo("application/vnd.hearingnows.add-enforcement-nows-data+json");
+            assertThat(handover.getBodyAsString())
+                    .contains("\"correlationId\":\"" + ShareCorrelationId.forShare(row.getHearingId(), LocalDate.parse("2026-05-03")) + "\"")
+                    .contains("\"accountNumber\":\"1234567890\"")
+                    .contains("\"nowsDataItems\":{\"accountBalance\":125.5}");
+        });
+        assertThat(row.getNowsHandoverStatus()).isEqualTo(NowsHandoverStatus.HANDED_OVER);
+        assertThat(row.getNowsHandoverAt()).isNotNull();
+
         // FR-017: ids, caseUrn and outcome may be logged; defendant PII must not be
         assertThat(output.getAll())
                 .contains("E012345678")
@@ -64,6 +82,7 @@ class HearingResultedFlowIntegrationTest extends WorkflowStubsIntegrationTestBas
         processor.process(Fixtures.event("hearing-resulted-enforcement.json"));
 
         STUBS.verify(1, postRequestedFor(urlEqualTo(GATEWAY_PATH)));
+        STUBS.verify(1, postRequestedFor(urlEqualTo(HEARING_NOWS_PATH)));
         assertThat(repository.count()).isEqualTo(1);
     }
 

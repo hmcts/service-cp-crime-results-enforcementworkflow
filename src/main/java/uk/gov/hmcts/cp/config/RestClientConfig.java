@@ -38,6 +38,15 @@ public class RestClientConfig {
         return builderWithTimeouts(connectTimeoutMs, readTimeoutMs);
     }
 
+    /** Hand-over to hearing-nows (feature 002 research R9): outside the GOB call's budget, after GOB has replied. */
+    @Bean(name = "hearingNowsRestClientBuilder")
+    @Scope("prototype")
+    public RestClient.Builder hearingNowsRestClientBuilder(
+            @Value("${cp.hearing-nows.connect-timeout-ms:5000}") final long connectTimeoutMs,
+            @Value("${cp.hearing-nows.read-timeout-ms:10000}") final long readTimeoutMs) {
+        return builderWithTimeouts(connectTimeoutMs, readTimeoutMs);
+    }
+
     /* default */ static RestClient.Builder builderWithTimeouts(final long connectTimeoutMs, final long readTimeoutMs) {
         @SuppressWarnings("PMD.CloseResource") // wrapped into requestFactory below and kept open for the bean's lifetime, not closed here
         final HttpClient httpClient = HttpClient.newBuilder()
