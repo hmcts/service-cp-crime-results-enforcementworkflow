@@ -24,7 +24,7 @@ LIBRA_APIM_BASE_URL=http://localhost:8089 LIBRA_APIM_SUBSCRIPTION_KEY=local-key 
 
 # 4. Workflow (8083), listener active
 cd ../service-cp-crime-results-enforcementworkflow
-ENFORCEMENT_GATEWAY_URL=http://localhost:8082 REFERENCE_DATA_URL=http://localhost:8089 \
+ENFORCEMENT_GATEWAY_URL=http://localhost:8082 REFERENCEDATA_URL=http://localhost:8089 \
 PAYMENT_DUE_DATE_FALLBACK=HEARING_DATE SPRING_PROFILES_ACTIVE=docker ./gradlew bootRun
 
 # 5. A broker on 61616 (a throwaway one is fine) and a published fixture event

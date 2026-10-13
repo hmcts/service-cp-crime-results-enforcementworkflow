@@ -4,7 +4,7 @@
 |---|---|
 | Owner | `cpp-context-reference-data` (`referencedata-query-api`) |
 | Definition | `referencedata-query/referencedata-query-api/src/raml/referencedata-query-api.raml:445-470`; response schema `…/src/raml/json/schema/referencedata.get-result-definition.json` |
-| Request | `GET {REFERENCE_DATA_URL}/referencedata-query-api/query/api/rest/referencedata/result-definitions/{resultDefinitionId}?on={yyyy-MM-dd}` |
+| Request | `GET {REFERENCEDATA_URL}/referencedata-query-api/query/api/rest/referencedata/result-definitions/{resultDefinitionId}?on={yyyy-MM-dd}` |
 | Headers | `Accept: application/vnd.referencedata.get-result-definition+json`; `CJSCPPUID: {system user uuid}` (PCR `ReferenceDataClient` convention) |
 | Path param | `resultDefinitionId` = event `judicialResult.judicialResultTypeId` |
 | Query param | `on` = `judicialResult.orderedDate` (fallback `hearingDay`); optional, defaults to today |
