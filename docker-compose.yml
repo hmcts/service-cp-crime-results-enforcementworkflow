@@ -10,6 +10,8 @@ services:
       ARTEMIS_BROKER_URL: tcp://host.docker.internal:61616
       REFERENCE_DATA_URL: http://host.docker.internal:8089
       ENFORCEMENT_GATEWAY_URL: http://host.docker.internal:8082
+      # Feature 002 hand-over: the WireMock stub (--profile stubs); use http://host.docker.internal:8080 for a local CP backend
+      HEARING_NOWS_URL: http://host.docker.internal:8089
       # Local only: placeholder paymentDueDate when no payment result (research.md R13).
       # Never set this in a deployed environment; the application default is NONE.
       PAYMENT_DUE_DATE_FALLBACK: HEARING_DATE
@@ -31,7 +33,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-  # Optional local stubs for reference data and the enforcement gateway (tasks.md T077):
+  # Optional local stubs for reference data, the enforcement gateway and hearing-nows (tasks.md T077):
   #   docker compose --profile stubs up -d wiremock
   wiremock:
     image: wiremock/wiremock:3.13.2

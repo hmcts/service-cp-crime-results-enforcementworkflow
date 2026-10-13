@@ -86,8 +86,12 @@ and the Libra contract, and every stubbed 2xx reply against the gateway `Hearing
   | `gateway` | The gateway's reply: `status`, then `body` (JSON) or `bodyText` (sent as is), and optional `delayMs` (over 1000 ms times out). Omit it when the scenario must not reach the gateway |
   | `expected.gatewayPosts` | Required: the number of POSTs the gateway receives |
   | `expected.status` | The row's status; omit it for "no row" |
-  | `expected.httpStatus`, `expected.errorDetail` / `expected.errorDetailStartsWith` | Always checked; absent means null |
+  | `expected.httpStatus`, `expected.errorDetail` / `expected.errorDetailStartsWith` | Checked with `expected.status` (single row); absent means null. Not checked in `expected.statuses` mode |
+  | `expected.statuses` | Feature 002: instead of `status`, the statuses of several rows (several shares), oldest first. Only the statuses are checked, not `httpStatus`, `errorDetail` or the stored request |
+  | `expected.resultCodesPerPost` | Feature 002: the GOB result codes of each gateway POST, in order |
   | `expected.responsePayloadContains`, `expected.logMustContain`, `expected.logMustNotContain` | Optional text checks on `response_payload` and on the logs. The enforcement fixture's defendant PII is always checked as never logged (FR-017) |
+  | `hearingNowsStatus` | Feature 002: the status hearing-nows answers a hand-over with; default 202 |
+  | `expected.handover` | Feature 002: hand-overs to hearing-nows; absent means none. `posts` (required), `status` (recorded outcome; then every `SUCCEEDED` row must have one), `gobDataReused` (all POSTs) or `gobDataReusedPerPost`, `coveredResultDefinitionIdsPerPost`, `hearingDayPerPost`, `sharedTimePerPost`, `detailsPerRow` (`nows_handover_detail` of each row with a hand-over, oldest first). Every hand-over is always checked against hearing-nows' schema copy and for a `correlationId` matching its hearing id and day |
 
 - `expected-request.json` (optional): the exact request the gateway must receive (array order ignored).
 

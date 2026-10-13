@@ -79,10 +79,19 @@ public record HearingResultedEvent(Hearing hearing, Boolean isReshare, Instant s
     public record DefendantJudicialResult(UUID masterDefendantId, UUID defendantId, JudicialResult judicialResult) {
     }
 
-    /** {@code judicialResultTypeId} is the reference-data result definition id used to look up the shortCode (R4). */
+    /**
+     * {@code judicialResultTypeId} is the reference-data result definition id used to look up the shortCode (R4).
+     * {@code isAdjournmentResult} and {@code nextHearing} (kept only to know whether it is present) mark an adjournment:
+     * an adjourned offence is not sent to GOB (feature 002 FR-018, research R19).
+     */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record JudicialResult(UUID judicialResultId, UUID judicialResultTypeId, String label, LocalDate orderedDate,
-                                 List<JudicialResultPrompt> judicialResultPrompts) {
+                                 List<JudicialResultPrompt> judicialResultPrompts, Boolean isAdjournmentResult,
+                                 Object nextHearing) {
+
+        public boolean hasAdjournmentMarker() {
+            return Boolean.TRUE.equals(isAdjournmentResult) || nextHearing != null;
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

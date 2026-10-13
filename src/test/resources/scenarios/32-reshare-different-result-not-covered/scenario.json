@@ -1,0 +1,48 @@
+{
+  "description": "Feature 002 US5 (quickstart 13): the reshare adds a completely different result (COLLO): GOB is not called; the hand-over's covered results exclude it, so hearing-nows fails its amended NOW 'result not sent to GOB'",
+  "events": [
+    "events/hearing-resulted-enforcement.json",
+    "events/hearing-resulted-reshare-with-a-different-result.json"
+  ],
+  "referenceData": {
+    "11111111-1111-1111-1111-111111111111": "SC",
+    "22222222-2222-2222-2222-222222222222": "WC",
+    "66666666-6666-6666-6666-666666666666": "COLLO"
+  },
+  "gateway": {
+    "status": 200,
+    "body": {
+      "caseUrn": "E012345678",
+      "timestamp": "2026-05-03T14:30:00Z",
+      "correlationId": "9f3d2e42-8d30-4d16-9dd6-6d4e26889d5c",
+      "nowsDataItems": {
+        "accountBalance": 125.5
+      }
+    }
+  },
+  "expected": {
+    "gatewayPosts": 1,
+    "status": "SUCCEEDED",
+    "httpStatus": 200,
+    "responsePayloadContains": [
+      "accountBalance"
+    ],
+    "handover": {
+      "posts": 2,
+      "status": "HANDED_OVER",
+      "gobDataReusedPerPost": [
+        false,
+        true
+      ],
+      "coveredResultDefinitionIdsPerPost": [
+        [
+          "11111111-1111-1111-1111-111111111111",
+          "22222222-2222-2222-2222-222222222222"
+        ],
+        [
+          "11111111-1111-1111-1111-111111111111"
+        ]
+      ]
+    }
+  }
+}

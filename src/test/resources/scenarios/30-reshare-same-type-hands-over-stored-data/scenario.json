@@ -1,0 +1,60 @@
+{
+  "description": "Feature 002 US5 (quickstart 11): first share accepted, then an amend & reshare of the same results: GOB is called once; the reshare hands over the GOB data already received, reused, with the same correlation id (same hearing day)",
+  "events": [
+    "events/hearing-resulted-enforcement.json",
+    "events/hearing-resulted-reshare.json"
+  ],
+  "referenceData": {
+    "11111111-1111-1111-1111-111111111111": "SC",
+    "22222222-2222-2222-2222-222222222222": "WC",
+    "66666666-6666-6666-6666-666666666666": "COLLO"
+  },
+  "gateway": {
+    "status": 200,
+    "body": {
+      "caseUrn": "E012345678",
+      "timestamp": "2026-05-03T14:30:00Z",
+      "correlationId": "9f3d2e42-8d30-4d16-9dd6-6d4e26889d5c",
+      "nowsDataItems": {
+        "accountBalance": 125.5
+      }
+    }
+  },
+  "expected": {
+    "gatewayPosts": 1,
+    "status": "SUCCEEDED",
+    "httpStatus": 200,
+    "responsePayloadContains": [
+      "accountBalance"
+    ],
+    "handover": {
+      "posts": 2,
+      "status": "HANDED_OVER",
+      "gobDataReusedPerPost": [
+        false,
+        true
+      ],
+      "coveredResultDefinitionIdsPerPost": [
+        [
+          "11111111-1111-1111-1111-111111111111",
+          "22222222-2222-2222-2222-222222222222"
+        ],
+        [
+          "11111111-1111-1111-1111-111111111111",
+          "22222222-2222-2222-2222-222222222222"
+        ]
+      ],
+      "hearingDayPerPost": [
+        "2026-05-03",
+        "2026-05-03"
+      ],
+      "sharedTimePerPost": [
+        "2026-05-03T14:30:00Z",
+        "2026-05-03T16:00:00Z"
+      ],
+      "detailsPerRow": [
+        "reshare"
+      ]
+    }
+  }
+}

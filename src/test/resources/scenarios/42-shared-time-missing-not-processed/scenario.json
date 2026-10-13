@@ -1,0 +1,14 @@
+{
+  "description": "Feature 002 edge case (data-model §2): an event without sharedTime cannot be recorded or handed over: not processed, no row, no GOB call, no hand-over; the reason is logged for support",
+  "event": "events/hearing-resulted-enforcement-no-shared-time.json",
+  "referenceData": {
+    "11111111-1111-1111-1111-111111111111": "SC",
+    "22222222-2222-2222-2222-222222222222": "WC"
+  },
+  "expected": {
+    "gatewayPosts": 0,
+    "logMustContain": [
+      "caseUrn E012345678 not submitted to GOB: SHARED_TIME_MISSING"
+    ]
+  }
+}
