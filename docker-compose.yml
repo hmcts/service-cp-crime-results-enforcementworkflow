@@ -8,7 +8,7 @@ services:
       # Dependencies on the host when run from compose (bootRun uses the localhost defaults instead)
       SPRING_PROFILES_ACTIVE: docker
       ARTEMIS_BROKER_URL: tcp://host.docker.internal:61616
-      REFERENCE_DATA_URL: http://host.docker.internal:8089
+      REFERENCEDATA_URL: http://host.docker.internal:8089
       ENFORCEMENT_GATEWAY_URL: http://host.docker.internal:8082
       # Feature 002 hand-over: the WireMock stub (--profile stubs); use http://host.docker.internal:8080 for a local CP backend
       HEARING_NOWS_URL: http://host.docker.internal:8089

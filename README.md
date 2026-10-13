@@ -64,8 +64,8 @@ Contract consumed: [`api-cp-crime-results-enforcementgateway`](https://github.co
 |---|---|---|
 | `DATASOURCE_URL` / `DATASOURCE_USERNAME` / `DATASOURCE_PASSWORD` | `jdbc:postgresql://localhost:5432/enforcementworkflowdb` / `postgres` / `postgres` | Postgres (Flyway migrates on start) |
 | `ARTEMIS_BROKER_URL` / `ARTEMIS_USER` / `ARTEMIS_PASSWORD` | `tcp://localhost:61616` / `admin` / `admin` | CP `public.event` topic |
-| `REFERENCE_DATA_URL` | `http://localhost:8081` | reference-data query API base (shortCode lookup) |
-| `REFERENCE_DATA_CJSCPPUID` | placeholder UUID | CJSCPPUID system user for reference data (**to be confirmed**) |
+| `REFERENCEDATA_URL` | `http://localhost:8081` | referencedata context base URL (host only; the client appends `/referencedata-query-api/...`), used for the shortCode lookup |
+| `REFERENCEDATA_CJSCPPUID` | placeholder UUID | CJSCPPUID system user for reference data (**to be confirmed**) |
 | `ENFORCEMENT_GATEWAY_URL` | `http://localhost:8082` | `service-cp-crime-results-enforcementgateway` base |
 | `ENFORCEMENT_AUTHORITY_CODE` | `GAPGD00` | OU code that identifies an Enforcement case |
 | `HEARING_NOWS_URL` | `http://localhost:8080` | CP backend host serving `/hearingnows-command-api/…` (hand-over of GOB data, feature 002) |
@@ -88,7 +88,7 @@ See [`quickstart.md`](specs/001-cimd-4246-hearing-resulted-to-libra/quickstart.m
 docker compose up -d postgres                      # or reuse a local Postgres on 5432 with database enforcementworkflowdb
 docker compose --profile stubs up -d wiremock      # optional: stubs reference data, the gateway and hearing-nows on :8089
 ./gradlew build                                    # unit + integration tests (need Postgres on 5432)
-REFERENCE_DATA_URL=http://localhost:8089 ENFORCEMENT_GATEWAY_URL=http://localhost:8089 HEARING_NOWS_URL=http://localhost:8089 \
+REFERENCEDATA_URL=http://localhost:8089 ENFORCEMENT_GATEWAY_URL=http://localhost:8089 HEARING_NOWS_URL=http://localhost:8089 \
 PAYMENT_DUE_DATE_FALLBACK=HEARING_DATE SPRING_PROFILES_ACTIVE=docker ./gradlew bootRun
 ```
 

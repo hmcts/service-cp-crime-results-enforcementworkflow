@@ -258,7 +258,7 @@ Verified compatible (no change needed): cpp-context-subscriptions (latest main) 
 
 Cross-checked against hearing-nows PR #186 (CIMD-4462, the document model for system-doc-generator; not to be merged, this feature's H PR carries it): its model and schema files (`financialOrderDetails.enfNowsDataItems`, the `NowsDataItems` POJO tree, schemas and fixtures) are identical in this branch. New `EnforcementNowDocumentModelTest` (H event processor) sends that PR's fixture through the `NowDocumentContent` POJOs the way `StorePayloadToFileServiceTask` does before the file service, and checks that the GOB data reaches the document generator unchanged.
 
-Still open (outside these repos): `cpp-aks-deploy` values for W (`HEARING_NOWS_URL`, `HEARING_NOWS_CJSCPPUID` and the pre-existing `REFERENCE_DATA_URL`, `REFERENCE_DATA_CJSCPPUID`, `ENFORCEMENT_GATEWAY_URL`); `EnforcementNows` toggle and optional JNDI values in priming; H's PR targets `team/CCT-1222` (branch based on it).
+Still open (outside these repos): `cpp-aks-deploy` values for W (`HEARING_NOWS_URL`, `HEARING_NOWS_CJSCPPUID` and the pre-existing `REFERENCEDATA_URL`, `REFERENCEDATA_CJSCPPUID`, `ENFORCEMENT_GATEWAY_URL`); `EnforcementNows` toggle and optional JNDI values in priming; H's PR targets `team/CCT-1222` (branch based on it).
 
 ## Dependencies & Execution Order
 
