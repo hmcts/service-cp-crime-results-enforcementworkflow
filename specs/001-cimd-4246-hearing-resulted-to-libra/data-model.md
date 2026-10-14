@@ -121,8 +121,8 @@ cp:
   enforcement:
     authority-code: ${ENFORCEMENT_AUTHORITY_CODE:GAPGD00}
   reference-data:
-    base-url: ${REFERENCE_DATA_URL:http://localhost:8081}
-    cjscppuid: ${REFERENCE_DATA_CJSCPPUID:<placeholder system-user uuid>}
+    base-url: ${REFERENCEDATA_URL:http://localhost:8081}
+    cjscppuid: ${REFERENCEDATA_CJSCPPUID:<placeholder system-user uuid>}
     connect-timeout-ms: 5000                   # R20
     read-timeout-ms: 10000                     # R20
   enforcement-gateway:

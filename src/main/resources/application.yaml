@@ -51,9 +51,9 @@ cp:
     authority-code: ${ENFORCEMENT_AUTHORITY_CODE:GAPGD00}
   # Timeout budget (research.md R20): each hop gives up before its caller
   reference-data:
-    base-url: ${REFERENCE_DATA_URL:http://localhost:8081}
+    base-url: ${REFERENCEDATA_URL:http://localhost:8081}
     # Placeholder system-user UUID until a real value is confirmed (same convention as service-cp-crime-results-pcr).
-    cjscppuid: ${REFERENCE_DATA_CJSCPPUID:00000000-0000-0000-0000-000000000000}
+    cjscppuid: ${REFERENCEDATA_CJSCPPUID:00000000-0000-0000-0000-000000000000}
     connect-timeout-ms: 5000
     read-timeout-ms: 10000
   enforcement-gateway:
