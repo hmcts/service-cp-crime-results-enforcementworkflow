@@ -20,10 +20,12 @@
     "responsePayloadContains": [
       "\"nowsDataItems\": {}"
     ],
-    "handover": {
-      "posts": 1,
-      "status": "HANDED_OVER",
+    "published": {
+      "events": 1,
       "gobDataReused": false
-    }
+    },
+    "notificationStatuses": [
+      "PUBLISHED"
+    ]
   }
 }

@@ -38,12 +38,12 @@ public class RestClientConfig {
         return builderWithTimeouts(connectTimeoutMs, readTimeoutMs);
     }
 
-    /** Hand-over to hearing-nows (feature 002 research R9): outside the GOB call's budget, after GOB has replied. */
-    @Bean(name = "hearingNowsRestClientBuilder")
+    /** Results query (feature 003, research R17): stage 1 reads the share's results. */
+    @Bean(name = "resultsRestClientBuilder")
     @Scope("prototype")
-    public RestClient.Builder hearingNowsRestClientBuilder(
-            @Value("${cp.hearing-nows.connect-timeout-ms:5000}") final long connectTimeoutMs,
-            @Value("${cp.hearing-nows.read-timeout-ms:10000}") final long readTimeoutMs) {
+    public RestClient.Builder resultsRestClientBuilder(
+            @Value("${cp.results.connect-timeout-ms:5000}") final long connectTimeoutMs,
+            @Value("${cp.results.read-timeout-ms:10000}") final long readTimeoutMs) {
         return builderWithTimeouts(connectTimeoutMs, readTimeoutMs);
     }
 

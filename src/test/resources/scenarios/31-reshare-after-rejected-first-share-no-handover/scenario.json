@@ -1,5 +1,5 @@
 {
-  "description": "Feature 002 US5 (quickstart 12): GOB rejected the first share; the reshare has no GOB data to reuse, so nothing is handed over",
+  "description": "Feature 002 US5 (quickstart 12), feature 003: GOB rejected the first share; the reshare is never sent and has no GOB data to reuse: nothing is published (NO_GOB_DATA)",
   "events": [
     "events/hearing-resulted-enforcement.json",
     "events/hearing-resulted-reshare.json"
@@ -21,11 +21,15 @@
   },
   "expected": {
     "gatewayPosts": 1,
-    "status": "FAILED",
-    "httpStatus": 502,
-    "errorDetail": "error=LIBRA_CALL_FAILED; libraStatus=400; errorCode=E400",
     "logMustContain": [
       "no GOB data to reuse"
-    ]
+    ],
+    "notificationStatuses": [
+      "GOB_FAILED",
+      "NO_GOB_DATA"
+    ],
+    "status": "FAILED",
+    "httpStatus": 502,
+    "errorDetail": "error=LIBRA_CALL_FAILED; libraStatus=400; errorCode=E400"
   }
 }

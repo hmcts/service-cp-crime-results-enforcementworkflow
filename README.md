@@ -14,14 +14,15 @@ which is a thin pass-through to Azure APIM.
 Built so far (**CIMD-4246**, iteration 1; spec, plan and tasks in
 [`specs/001-cimd-4246-hearing-resulted-to-libra/`](specs/001-cimd-4246-hearing-resulted-to-libra/spec.md)):
 
-1. **Consume** `public.events.hearing.hearing-resulted` on a durable subscription
-   (`HearingResultedEventListener`, `docker` profile only).
+1. ~~Consume `public.events.hearing.hearing-resulted`~~: replaced in feature 003 by the notification from the
+   results-processing Function App (see below).
 2. **Select** the Enforcement case and defendant (`EnforcementCaseSelector`). Prosecuting authority OU
-   code `GAPGD00`. **Reshares are never sent to GOB** (feature 002 hands the GOB data already received over again). More than one enforcement case, more than one defendant,
+   code `GAPGD00`. Feature 003: an amend & reshare is never sent to GOB (the notification says whether a share is a reshare; step 10). More than one enforcement case, more than one defendant,
    or a linked application are ignored with a warning.
 3. **Resolve** result shortCodes from reference data and translate them to GOB codes
-   (`ReferenceDataClient`, `ResultCodeResolver`: TFOUT→TFOOUT, WC→DW, WWDN→WDN; codes GOB doesn't
-   list are dropped).
+   (`ReferenceDataClient`, `ResultCodeResolver`: TFOUT→TFOOUT, WC→DW, WWDN→WDN). Since feature 003 every code
+   is sent, also codes GOB did not use before (agreed with GOB/Libra); only results without a shortCode, or with a code
+   over 10 characters, are left out and logged.
 4. **Choose** the NOWS data items GOB should return (`NowsDataItemSelector`; mapping in config).
 5. **Build** the `HearingResultedRequest` (`HearingResultedRequestMapper`). `caseUrn` and the GoB
    account number are passed through unchanged.
@@ -32,21 +33,33 @@ Built so far (**CIMD-4246**, iteration 1; spec, plan and tasks in
 Feature 002 (**CCT-1222 / CIMD-4462**, enforcement NOWS; spec, plan and tasks in
 [`specs/002-enforcement-nows-generation/`](specs/002-enforcement-nows-generation/spec.md)):
 
-7. **Each offence once**: one submission per *share* (correlation id = hearing id + hearing day), and each
+7. **Each offence once**: one submission per *share* (correlation id = the notification id since feature 003), and each
    offence's final result (and each result not attached to an offence) is sent to GOB at most once
    (`OffenceResultFilter`, table `gob_sent_offence`). A later hearing day of the same hearing sends only its
    newly resulted offences; an adjourned offence is not sent until its final result (adjournment codes in
    `cp.hearing-result.adjournment-result-codes`, default `NEXH,ADJNN`). A share with nothing new is not sent.
-8. **Hand over** GOB's data to `cpp-context-hearing-nows` (`HearingNowsClient`, command
-   `hearingnows.add-enforcement-nows-data`), which completes the share's enforcement NOWS. A share with
-   nothing new reuses the most recent GOB data for the case and defendant (`GobDataReuseHandover`). The
-   outcome is recorded in `nows_handover_status` / `nows_handover_detail` / `nows_handover_at`; a failure is
-   never a reason to send to GOB again.
+8. **Hand over** GOB's data to `cpp-context-hearing-nows`: a share with nothing new reuses the most recent GOB data
+   for the case and defendant (`GobDataReuseHandover`); a failure is never a reason to send to GOB again. Feature 003
+   replaces the REST hand-over by a public event (below).
 
-9. **Amend & reshare** (feature 002 US5): never sent to GOB and no row is written; the most recent GOB data for the
-   case and defendant is handed over again with the reshare's covered results (the result types already sent to
-   GOB). hearing-nows completes an amended NOW only for a covered result type, otherwise it fails it "result not sent
-   to GOB". The outcome is recorded on the reused submission's row, detail `reshare` (or `reshare: <reason>` when it failed).
+Feature 003 (**CIMD-4530**, triggering NOWS generation for enforcement hearings; spec, plan and tasks in
+[`specs/003-enforcement-nows-trigger/`](specs/003-enforcement-nows-trigger/spec.md)):
+
+9. **Notification**: the results-processing Function App creates a share's enforcement NOW requests in hearing-nows
+   (held there) and calls `POST /enforcement-notifications` (internal network only; `CJSCPPUID` must be in
+   `NOTIFICATION_ALLOWED_SYSTEM_USERS`) with the hearing id, hearing date, whether it is an amend & reshare
+   (`isReshare`) and the NOW request ids. The notification
+   and its request ids are stored (`enforcement_notification`, `enforcement_notification_now`) and processed
+   asynchronously by cp-task-manager jobs (`jobs` table). A repeat with the same request ids is a no-op.
+10. **Results**: stage 1 reads the share's results from the Results cache (off by default) or the Results query, and
+    runs steps 2-7. A **first-time** share sends only offences not yet sent to GOB; an **amend & reshare** (`isReshare`
+    in the notification) is never sent to GOB, even when the first-time result never got there. Both reuse the earlier
+    GOB data when there is nothing to send; with none, nothing is published (a reshare is retried while the hearing's
+    first share is still in progress) and the NOWS stay held in hearing-nows without a time limit. A first-time share with no result that has a code sends nothing to GOB or hearing-nows.
+11. **GOB data event**: stage 2 publishes `public.enforcementworkflow.enforcement-nows-data-ready` (request ids, GOB
+    account number and NOWS data items) to `public.event`; hearing-nows completes the held NOWS by request id.
+12. **Retries**: each stage is retried (`NOTIFICATION_RETRY_DURATIONS`), then stored as `STORED_FAILURE` for a
+    replay (`NOTIFICATION_REPLAY_SCHEDULE`; the replay sweep is still to come, CIMD-4530 iteration 3).
 
 Still to come: full defendant/result detail and the other payload blocks (CIMD-4247…4256; spec US5/US6),
 and the Enforcement/Confiscation team emails (notification story).
@@ -68,27 +81,39 @@ Contract consumed: [`api-cp-crime-results-enforcementgateway`](https://github.co
 | `REFERENCEDATA_CJSCPPUID` | placeholder UUID | CJSCPPUID system user for reference data (**to be confirmed**) |
 | `ENFORCEMENT_GATEWAY_URL` | `http://localhost:8082` | `service-cp-crime-results-enforcementgateway` base |
 | `ENFORCEMENT_AUTHORITY_CODE` | `GAPGD00` | OU code that identifies an Enforcement case |
-| `HEARING_NOWS_URL` | `http://localhost:8080` | CP backend host serving `/hearingnows-command-api/…` (hand-over of GOB data, feature 002) |
-| `HEARING_NOWS_CJSCPPUID` | placeholder UUID | CJSCPPUID system user for hearing-nows, a "System Users" member (**to be confirmed**, OQ-5). Switch hearing-nows' `EnforcementNows` toggle on together with this |
+| `NOTIFICATION_ALLOWED_SYSTEM_USERS` | empty (endpoint closed) | comma-separated CJSCPPUID system users allowed to call `POST /enforcement-notifications` (the Function App's) |
+| `NOTIFICATION_RETRY_DURATIONS` / `NOTIFICATION_REPLAY_SCHEDULE` | `10s,60s,300s` / `15m,1h,4h,12h,24h` | back-offs of a notification stage, then the replay schedule of a stored failure |
+| `RESULTS_URL` / `RESULTS_CJSCPPUID` | `http://localhost:8080` / placeholder UUID | CP host serving the Results internal hearing-details query, and its System Users CJSCPPUID (**to be confirmed**) |
+| `RESULTS_CACHE_ENABLED` / `RESULTS_CACHE_USERNAME` / `AZURE_CLIENT_ID` | `false` / empty / empty | Results Redis cache with Entra ID (managed identity token, no access key); `REDIS_HOST` / `REDIS_PORT` / `REDIS_SSL_ENABLED` |
+| `CP_MESSAGING_PUBLIC_EVENT_TOPIC` | `public.event` | topic for the GOB data event; locally `jms.topic.public.event` |
+| `CP_MESSAGING_SYSTEM_USER` | placeholder UUID | `_metadata.context.user` of the GOB data event (**to be confirmed**, research OP-16). Switch hearing-nows' `EnforcementNows` toggle on together with the Function App's flag |
+| `DATASOURCE_MAX_POOL` / `DATASOURCE_CONNECTION_TIMEOUT_MS` / `JOB_EXECUTOR_POLL_INTERVAL` | `12` / `5000` / `5000` | a running task holds two connections: pool ≥ 2 × executor threads (4) + headroom (research OP-15); a pod claims at most 4 jobs at a time (OP-14) |
 | `ADJOURNMENT_RESULT_CODES` | `NEXH,ADJNN` | CP shortCodes that mark an offence as adjourned (not sent to GOB in that share; OQ-13) |
-| `SPRING_PROFILES_ACTIVE` | none | **Must be `docker` when deployed**: the JMS listeners only run under that profile, so without it no events are consumed |
+| `SPRING_PROFILES_ACTIVE` | none | `docker` adds the diagnostic `public.event` logger (`PublicEventLoggingListener`); publishing the GOB data event does not depend on it |
 | `PAYMENT_DUE_DATE_FALLBACK` | `NONE` | **Leave as `NONE` in deployed environments.** `HEARING_DATE` is a local/test/simulator stand-in only (logs a warning at startup) |
 | `STALE_SENDING_THRESHOLD` / `STALE_SENDING_SWEEP_INTERVAL` | `PT5M` / `PT1M` | when an interrupted submission is marked failed |
 
+> ⚠️ TEMP DIAGNOSTICS (CIMD-4530, until T090): logger `uk.gov.hmcts.cp.TempDiagnostics` writes full payloads, including
+> personal and GOB data. Test environments with synthetic data only; never preprod/prod. To silence it, set
+> `logging.level.uk.gov.hmcts.cp.TempDiagnostics=OFF` (e.g. `SPRING_APPLICATION_JSON`); a `LOGGING_LEVEL_…` env var
+> does not work here because env var names are lower-cased and the logger name has capitals.
+
 Timeouts follow a budget where each hop gives up before its caller (research.md R20): reference data
-5s + 10s; hearing-nows 5s + 10s (after GOB's reply); gateway 5s + 50s (the gateway itself uses 5s + 40s towards APIM, and APIM 35s towards Libra).
+5s + 10s; gateway 5s + 50s (the gateway itself uses 5s + 40s towards APIM, and APIM 35s towards Libra).
 The shortCode → NOWS data item mapping lives in `cp.hearing-result.nows-data-items-by-short-code` and
 takes GOB's `NowsDataItemName` values; an unknown name stops the service at startup.
 
 ## Running locally
 
-See [`quickstart.md`](specs/001-cimd-4246-hearing-resulted-to-libra/quickstart.md) for the full steps.
+See [`quickstart.md`](specs/001-cimd-4246-hearing-resulted-to-libra/quickstart.md) for the full steps, and
+[feature 003's quickstart](specs/003-enforcement-nows-trigger/quickstart.md) for the notification flow.
 
 ```bash
 docker compose up -d postgres                      # or reuse a local Postgres on 5432 with database enforcementworkflowdb
-docker compose --profile stubs up -d wiremock      # optional: stubs reference data, the gateway and hearing-nows on :8089
+docker compose --profile stubs up -d wiremock      # optional: stubs reference data, the gateway and the Results query on :8089
 ./gradlew build                                    # unit + integration tests (need Postgres on 5432)
-REFERENCEDATA_URL=http://localhost:8089 ENFORCEMENT_GATEWAY_URL=http://localhost:8089 HEARING_NOWS_URL=http://localhost:8089 \
+REFERENCEDATA_URL=http://localhost:8089 ENFORCEMENT_GATEWAY_URL=http://localhost:8089 RESULTS_URL=http://localhost:8089 \
+CP_MESSAGING_PUBLIC_EVENT_TOPIC=jms.topic.public.event NOTIFICATION_ALLOWED_SYSTEM_USERS=5f1a6c2e-0000-4000-8000-00000000fa01 \
 PAYMENT_DUE_DATE_FALLBACK=HEARING_DATE SPRING_PROFILES_ACTIVE=docker ./gradlew bootRun
 ```
 
@@ -105,19 +130,21 @@ defendant PII and bank details (specs/001-cimd-4246-hearing-resulted-to-libra/ad
 | `FAILED`, `error_detail` `NOT_SENT – …` | nothing reached GOB (reference data unavailable, or the gateway unreachable) | fix the cause; safe to replay (CIMD-4259) |
 | `FAILED`, `error_detail` `TIMEOUT – …` / `INTERRUPTED – …` / `ERROR – …` (outcome at GOB unknown) | CP stopped waiting, or the service stopped mid-call. **GOB may or may not have applied the update** | check the GoB account before any replay; never resend blindly |
 | `MAPPING_FAILED` | could not be built: `CASE_URN_INVALID`, `PROSECUTOR_DEFENDANT_ID_MISSING`, `ADDRESS1_MISSING`, `DATE_OF_HEARING_MISSING`, `COURT_HEARING_LOCATION_INVALID`, `PAYMENT_DUE_DATE_UNAVAILABLE`, `ORGANISATION_DEFENDANT_NOT_SUPPORTED_YET` | fix the source data in CP; a repeated delivery of the same share isn't sent again (a later hearing day's share is a new share; replay is CIMD-4259) |
-| `SKIPPED_NO_RESULT_CODE` | none of the results is a code GOB accepts; `error_detail` lists the dropped codes. On a later share the most recent GOB data is handed over again (feature 002 FR-020) | usually none |
+| `SKIPPED_NO_RESULT_CODE` | no result has a code to send (unknown in reference data, or a code over 10 characters); `error_detail` lists the dropped results. GOB is not contacted and nothing is sent to hearing-nows (feature 003 FR-010) | usually none |
 | `SKIPPED_NOTHING_NEW` | a later share with nothing new for GOB (every offence already sent, or the rest adjourned); `error_detail` gives counts. The most recent GOB data is handed over again | none |
 
-`nows_handover_status` (feature 002): `HANDED_OVER` = hearing-nows accepted GOB's data; `FAILED` = it did not,
-`nows_handover_detail` = `HTTP <status>` or the cause class (`reshare` / `reshare: <reason>` for a reshare); null = no
-hand-over (GOB did not accept, or nothing to reuse). A failed hand-over leaves the share's enforcement NOWS
-waiting until they fail "no GOB data" in hearing-nows; replay is CIMD-4259. Rows are per share
-(`correlation_id`): a hearing resulted over several days has a row per day.
+Feature 003: each notification ends in one row of `enforcement_notification` with a final status (data-model.md):
+`PUBLISHED` (GOB data event sent to hearing-nows), `SKIPPED_NOT_ENFORCEMENT`, `SKIPPED_NO_RESULT_CODE` (no result
+with a code, or only codes over 10 characters; nothing sent), `NO_GOB_DATA` (nothing new, or an amend & reshare, and no
+earlier GOB data; NOWS stay held without a time limit), `GOB_FAILED` (see the submission row), `PUBLISH_REJECTED` (`last_error`, e.g.
+`NO_ACCOUNT_NUMBER`), or `STORED_FAILURE` (`failed_stage`, `last_error`, `next_replay_at`). The share's enforcement
+NOWS stay held in hearing-nows until a GOB data event reaches them. `nows_handover_*` columns on
+`hearing_result_submission` are no longer written. Rows are per share (`correlation_id` = the notification id).
 
 > ⚠️ Until payment terms are mapped (CIMD-4251), or GOB makes `paymentDueDate` optional, the default `PAYMENT_DUE_DATE_FALLBACK=NONE` makes **every** submission `MAPPING_FAILED / PAYMENT_DUE_DATE_UNAVAILABLE`. Don't switch this flow on in production before then (research.md open item 12). Run a **single replica** (open item 13).
 
-Reshares and out-of-scope shapes are not stored (a reshare's hand-over is recorded on the submission whose GOB data it
-reuses). Look for them in the logs by hearing id or `caseUrn`.
+Reshares have no submission row; see `enforcement_notification` (`is_reshare`). Out-of-scope shapes are not stored;
+look for them in the logs by hearing id or `caseUrn`.
 
 ```sql
 -- One defendant's submission, by caseUrn (or hearing_id / defendant_id)
@@ -131,12 +158,10 @@ from hearing_result_submission
 where status = 'FAILED' and (error_detail like 'INTERRUPTED%' or error_detail like 'TIMEOUT%' or error_detail like 'ERROR%')
 order by updated_at desc;
 
--- GOB accepted but the hand-over to hearing-nows did not happen or failed, or a reuse hand-over failed (feature 002).
--- A skipped share with a null hand-over status had no earlier GOB data to reuse, which is expected.
-select id, correlation_id, case_urn, hearing_id, defendant_id, status, nows_handover_status, nows_handover_detail, nows_handover_at
-from hearing_result_submission
-where (status = 'SUCCEEDED' and (nows_handover_status is null or nows_handover_status = 'FAILED'))
-   or (status in ('SKIPPED_NOTHING_NEW', 'SKIPPED_NO_RESULT_CODE') and nows_handover_status = 'FAILED')
+-- Feature 003: notifications not published (NOWS still held in hearing-nows), newest first
+select id, hearing_id, hearing_date, status, failed_stage, last_error, next_replay_at, submission_id, updated_at
+from enforcement_notification
+where status <> 'PUBLISHED'
 order by updated_at desc;
 
 -- Which offences of a case have been sent to GOB, and in which submission (feature 002: each offence once)
@@ -175,8 +200,8 @@ gradle -v
 ./gradlew pmdMain        # PMD for main sources (runs only when named, per gradle/pmd.gradle)
 ```
 
-Integration tests run the flow end to end through an embedded Artemis broker, WireMock (reference data
-and the gateway) and the local Postgres. Most flow cases are data-driven: add a folder under
+Integration tests run the flow end to end through an embedded Artemis broker, WireMock (reference data,
+the gateway and the Results query) and the local Postgres. Most flow cases are data-driven: add a folder under
 `src/test/resources/scenarios/` (format in
 [quickstart.md](specs/001-cimd-4246-hearing-resulted-to-libra/quickstart.md#integration-test-scenarios-automated)).
 

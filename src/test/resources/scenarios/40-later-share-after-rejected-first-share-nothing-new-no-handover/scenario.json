@@ -37,6 +37,10 @@
     "logMustContain": [
       "nothing new (offences already sent 1, offences adjourned 0, other results already sent 0)",
       "no GOB data to reuse"
+    ],
+    "notificationStatuses": [
+      "GOB_FAILED",
+      "NO_GOB_DATA"
     ]
   }
 }

@@ -1,87 +1,168 @@
 package uk.gov.hmcts.cp.integration;
 
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.JMSConsumer;
+import jakarta.jms.JMSContext;
+import jakarta.jms.JMSException;
+import jakarta.jms.Message;
 import jakarta.jms.TextMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jms.core.JmsTemplate;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
-import uk.gov.hmcts.cp.entity.HearingResultSubmissionEntity;
+import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.JsonNode;
+import uk.gov.hmcts.cp.entity.EnforcementNotificationEntity;
 import uk.gov.hmcts.cp.support.Fixtures;
 
 import java.time.Duration;
-import java.util.Optional;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import static org.awaitility.Awaitility.await;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Drives the flow through JMS, the way CP does: a message on {@code public.event} with a
- * {@code CPPNAME} property, consumed by the real listeners (the {@code docker} profile) from an
- * embedded, non-persistent Artemis broker (research.md R25). Postgres and the WireMock stubs come
- * from {@link WorkflowStubsIntegrationTestBase}.
+ * Drives the flow the way the results-processing Function App does (feature 003): the share's results are what the
+ * Results query answers (WireMock), a notification is POSTed to {@code /enforcement-notifications}, cp-task-manager runs
+ * stage 1 and stage 2, and the GOB data events published on {@code public.event} of an embedded, non-persistent Artemis
+ * broker are read back. Postgres and the other stubs come from {@link WorkflowStubsIntegrationTestBase}.
  *
- * <p>Subclasses must not add their own properties or profiles: every embedded-broker test class has to
- * share one Spring context, because a second cached context would start a second in-VM broker with
- * the same server id. The gateway read timeout is shortened here, for the timeout scenario.
+ * <p>Subclasses must not add their own properties or profiles: every embedded-broker test class has to share one Spring
+ * context, because a second cached context would start a second in-VM broker with the same server id. The gateway read
+ * timeout is shortened here, for the timeout scenario; the task poll and retry intervals for speed.
  */
-// docker: the real listeners; nowsmapping-test: a shortCode -> NOWS data item mapping, so requests carry nowsDataRequest
+// docker: the diagnostic listener; nowsmapping-test: a shortCode -> NOWS data item mapping, so requests carry nowsDataRequest
 @ActiveProfiles({"docker", "nowsmapping-test"})
 @TestPropertySource(properties = {
     "spring.artemis.mode=embedded",
     "spring.artemis.embedded.persistent=false",
     "spring.artemis.embedded.topics=public.event",
     "spring.jms.listener.auto-startup=true",
-    "cp.enforcement-gateway.read-timeout-ms=1000"
+    "cp.enforcement-gateway.read-timeout-ms=1000",
+    "cp.notification.allowed-system-users=" + EmbeddedBrokerIntegrationTestBase.FUNCTION_APP_USER,
+    "cp.notification.retry-durations=1s,1s,1s",
+    "job.executor.poll-interval=200"
 })
 public abstract class EmbeddedBrokerIntegrationTestBase extends WorkflowStubsIntegrationTestBase {
 
-    protected static final String HEARING_RESULTED = "public.events.hearing.hearing-resulted";
-    /** The hearing id every event fixture shares. */
-    protected static final String FIXTURE_HEARING_ID = "04180ff1-99b0-40b7-9929-ca05bdc767d8";
-    /** The unknown result type in hearing-resulted-unknown-codes-only.json, replaced in the marker event. */
-    private static final String UNKNOWN_RESULT_TYPE_ID = "33333333-3333-3333-3333-333333333333";
-    /** The case and defendant ids every event fixture shares, replaced in the marker event. */
-    private static final String FIXTURE_CASE_ID = "861aaa70-f142-469d-a7db-9af395347dd5";
-    private static final String FIXTURE_DEFENDANT_ID = "0ddbc4a7-3c85-4bc3-bdd5-843817320b98";
-    protected static final Duration PROCESSING_TIMEOUT = Duration.ofSeconds(15);
-    /** Longer than the gateway read timeout above, so a stubbed reply with this delay times out. */
-    protected static final int SLOWER_THAN_READ_TIMEOUT_MS = 2500;
+    protected static final String FUNCTION_APP_USER = "5f1a6c2e-0000-4000-8000-00000000fa01";
+    protected static final String GOB_DATA_EVENT = "public.enforcementworkflow.enforcement-nows-data-ready";
+    protected static final Duration PROCESSING_TIMEOUT = Duration.ofSeconds(20);
+    private static final String ENFORCEMENT_AUTHORITY = "GAPGD00";
+    private static final LocalDate DEFAULT_HEARING_DAY = LocalDate.parse("2026-05-03");
+
+    private static JMSContext context;
+    private static JMSConsumer gobDataEvents;
 
     @Autowired
-    protected JmsTemplate jmsTemplate;
+    private ConnectionFactory connectionFactory;
 
     @Value("${cp.messaging.public-event-topic}")
     private String publicEventTopic;
 
-    /** Publishes a CP public event: a text message with the event name in {@code CPPNAME}. */
-    protected void publish(final String cppName, final String body) {
-        jmsTemplate.send(publicEventTopic, session -> {
-            final TextMessage message = session.createTextMessage(body);
-            message.setStringProperty("CPPNAME", cppName);
-            return message;
-        });
+    /**
+     * Notifies the workflow of one share, as the Function App does: its results become the Results query's answer, its
+     * {@code isReshare} is sent in the notification (research R22), one NOW request for the Enforcement case's defendant, a request id derived from {@code requestKey} (the same key gives
+     * the same id, i.e. a repeated notification). Returns the notification id.
+     */
+    protected UUID notifyShare(final String eventFixture, final String requestKey) {
+        final JsonNode event = Fixtures.MAPPER.readTree(Fixtures.json(eventFixture));
+        stubResults(UUID.fromString(event.path("hearing").path("id").asString()), Fixtures.json(eventFixture));
+        return notifyShareWithoutResultsStub(eventFixture, requestKey);
+    }
+
+    /** As {@link #notifyShare}, leaving the Results query's answer to the test. */
+    protected UUID notifyShareWithoutResultsStub(final String eventFixture, final String requestKey) {
+        final JsonNode event = Fixtures.MAPPER.readTree(Fixtures.json(eventFixture));
+        return postNotification(event, List.of(requestKey), UUID.fromString(masterDefendantOf(event)));
     }
 
     /**
-     * Waits until every message published so far has been fully processed. The listener has a single
-     * consumer, so it publishes a marker event (one result type no stub knows, under a fresh hearing, case and
-     * defendant id, so it never reaches the gateway and has no earlier GOB data to hand over again, feature 002
-     * FR-020) and waits for the marker's final row, then deletes that row. This also
-     * proves that a message expected to leave no trace was consumed, rather than still being in flight.
+     * As {@link #notifyShare}, with one NOW request per key, all for the given master defendant (e.g. several NOW
+     * requests of the share, or a NOW request of another defendant).
      */
-    protected void awaitProcessed() {
-        final UUID marker = UUID.randomUUID();
-        publish(HEARING_RESULTED, Fixtures.json("events/hearing-resulted-unknown-codes-only.json")
-                .replace(FIXTURE_HEARING_ID, marker.toString())
-                .replace(FIXTURE_CASE_ID, UUID.randomUUID().toString())
-                .replace(FIXTURE_DEFENDANT_ID, UUID.randomUUID().toString())
-                .replace(UNKNOWN_RESULT_TYPE_ID, UUID.randomUUID().toString()));
-        await().atMost(PROCESSING_TIMEOUT).until(() -> markerRow(marker).filter(row -> row.getStatus().isFinal()).isPresent());
-        markerRow(marker).ifPresent(repository::delete);
+    protected UUID notifyShare(final String eventFixture, final List<String> requestKeys, final UUID masterDefendantId) {
+        final JsonNode event = Fixtures.MAPPER.readTree(Fixtures.json(eventFixture));
+        stubResults(UUID.fromString(event.path("hearing").path("id").asString()), Fixtures.json(eventFixture));
+        return postNotification(event, requestKeys, masterDefendantId);
     }
 
-    private Optional<HearingResultSubmissionEntity> markerRow(final UUID marker) {
-        return repository.findAll().stream().filter(row -> marker.equals(row.getHearingId())).findFirst();
+    /** The request id the notification carries for {@code requestKey}. */
+    protected static UUID requestIdOf(final String requestKey) {
+        return UUID.nameUUIDFromBytes(requestKey.getBytes());
+    }
+
+    private UUID postNotification(final JsonNode event, final List<String> requestKeys, final UUID masterDefendantId) {
+        ensureEventConsumer();
+        final UUID hearingId = UUID.fromString(event.path("hearing").path("id").asString());
+        final LocalDate hearingDay = event.path("hearingDay").isMissingNode() ? DEFAULT_HEARING_DAY
+                : LocalDate.parse(event.path("hearingDay").asString());
+        final String nows = String.join(",", requestKeys.stream().map(key -> """
+                {"requestId":"%s","masterDefendantId":"%s"}""".formatted(requestIdOf(key), masterDefendantId)).toList());
+        final String body = """
+                {"hearingId":"%s","hearingDate":"%s","isReshare":%s,"nows":[%s]}"""
+                .formatted(hearingId, hearingDay, event.path("isReshare").asBoolean(false), nows);
+        try {
+            final MvcResult result = mockMvc.perform(post("/enforcement-notifications")
+                            .contentType(MediaType.APPLICATION_JSON).header("CJSCPPUID", FUNCTION_APP_USER).content(body))
+                    .andExpect(status().isAccepted())
+                    .andReturn();
+            return UUID.fromString(Fixtures.MAPPER.readTree(result.getResponse().getContentAsString()).path("notificationId").asString());
+        } catch (Exception e) {
+            throw new IllegalStateException("notification not accepted", e);
+        }
+    }
+
+    /** Waits until the notification has reached a final state (stage 2 included). */
+    protected EnforcementNotificationEntity awaitFinal(final UUID notificationId) {
+        await().atMost(PROCESSING_TIMEOUT).until(() -> notification(notificationId).getStatus().isFinal());
+        return notification(notificationId);
+    }
+
+    /** The GOB data events published since the last call, oldest first (body text including {@code _metadata}). */
+    protected List<String> publishedGobDataEvents() {
+        ensureEventConsumer();
+        final List<String> bodies = new ArrayList<>();
+        Message message = gobDataEvents.receive(200);
+        while (message != null) {
+            try {
+                bodies.add(((TextMessage) message).getText());
+                if (!GOB_DATA_EVENT.equals(message.getStringProperty("CPPNAME"))) {
+                    throw new IllegalStateException("unexpected CPPNAME " + message.getStringProperty("CPPNAME"));
+                }
+            } catch (JMSException e) {
+                throw new IllegalStateException(e);
+            }
+            message = gobDataEvents.receive(200);
+        }
+        return bodies;
+    }
+
+    private void ensureEventConsumer() {
+        synchronized (EmbeddedBrokerIntegrationTestBase.class) {
+            if (gobDataEvents == null) {
+                context = connectionFactory.createContext();
+                gobDataEvents = context.createSharedDurableConsumer(context.createTopic(publicEventTopic), "it-gob-data-events",
+                        "CPPNAME = '" + GOB_DATA_EVENT + "'");
+            }
+        }
+    }
+
+    /** The master defendant of the Enforcement case's first defendant, else of any defendant, else a fresh id. */
+    private static String masterDefendantOf(final JsonNode event) {
+        String id = null;
+        for (final JsonNode prosecutionCase : event.path("hearing").path("prosecutionCases")) {
+            final JsonNode defendant = prosecutionCase.path("defendants").path(0);
+            if (id == null || ENFORCEMENT_AUTHORITY.equals(prosecutionCase.path("prosecutionCaseIdentifier")
+                    .path("prosecutionAuthorityOUCode").asString())) {
+                id = defendant.path("masterDefendantId").isMissingNode() ? id : defendant.path("masterDefendantId").asString();
+            }
+        }
+        return id == null ? UUID.randomUUID().toString() : id;
     }
 }

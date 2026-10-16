@@ -1,8 +1,10 @@
 package uk.gov.hmcts.cp.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.core.JacksonException;
@@ -10,7 +12,6 @@ import uk.gov.hmcts.cp.config.HearingResultProperties;
 import uk.gov.hmcts.cp.config.PayloadJson;
 import uk.gov.hmcts.cp.entity.GobSentOffenceEntity;
 import uk.gov.hmcts.cp.entity.HearingResultSubmissionEntity;
-import uk.gov.hmcts.cp.entity.NowsHandoverStatus;
 import uk.gov.hmcts.cp.entity.SubmissionStatus;
 import uk.gov.hmcts.cp.mapper.MappingFailureReason;
 import uk.gov.hmcts.cp.repository.GobSentOffenceRepository;
@@ -25,14 +26,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Persists hearing-result submissions (data-model.md §3). Each write is its own short transaction, so
- * no transaction is held open across the HTTP call to the gateway. Two unique keys enforce idempotency
+ * Persists hearing-result submissions (data-model.md §3). Each write is its own short transaction, committed on its
+ * own even inside cp-task-manager's task transaction (REQUIRES_NEW, feature 003), so a SENDING row is durable before
+ * the HTTP call to the gateway and is never rolled back by a later failure of the same task. Two unique keys enforce idempotency
  * (constitution Principle III): {@code (correlation_id, case_id, defendant_id)}, at most one submission per
  * share (feature 002 research R18/R19), and the sent-offence keys of {@code gob_sent_offence}, each offence
  * (or result not attached to an offence) sent to GOB at most once (FR-018).
  */
 @Component
-@RequiredArgsConstructor
 public class SubmissionStore {
 
     public static final String OUTCOME_UNKNOWN_INTERRUPTED = "INTERRUPTED – outcome at GOB unknown";
@@ -47,19 +48,20 @@ public class SubmissionStore {
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
 
+    public SubmissionStore(final HearingResultSubmissionRepository repository, final GobSentOffenceRepository sentOffenceRepository,
+                           final HearingResultProperties properties, final Clock clock,
+                           final PlatformTransactionManager transactionManager) {
+        this.repository = repository;
+        this.sentOffenceRepository = sentOffenceRepository;
+        this.properties = properties;
+        this.clock = clock;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    }
+
     public Optional<ExistingSubmission> findExisting(final UUID correlationId, final UUID caseId, final UUID defendantId) {
         return repository.findByCorrelationIdAndCaseIdAndDefendantId(correlationId, caseId, defendantId)
                 .map(e -> new ExistingSubmission(e.getId(), e.getStatus(), e.getUpdatedAt()));
-    }
-
-    /**
-     * A SENDING row older than the stale threshold: its call was interrupted (research.md R19). It is marked
-     * FAILED with an unknown outcome and never resent. A final row, or a younger SENDING row (a call that may
-     * still be in flight), is not stale.
-     */
-    public boolean isStale(final ExistingSubmission existing) {
-        return existing.status() == SubmissionStatus.SENDING
-                && existing.updatedAt().isBefore(Instant.now(clock).minus(properties.getStaleSendingThreshold()));
     }
 
     /**
@@ -106,7 +108,7 @@ public class SubmissionStore {
      */
     public Optional<UUID> recordSkippedNoResultCode(final SubmissionKey key, final List<String> droppedCodes) {
         final HearingResultSubmissionEntity entity = newRow(key, SubmissionStatus.SKIPPED_NO_RESULT_CODE);
-        entity.setErrorDetail("no GOB-recognised result code; dropped " + droppedCodes);
+        entity.setErrorDetail("no result code to send; dropped " + droppedCodes);
         return insertIfAbsent(entity);
     }
 
@@ -140,17 +142,8 @@ public class SubmissionStore {
                 .toList();
     }
 
-    /** The outcome of a hand-over of GOB data to hearing-nows (feature 002 FR-003); {@code detail} carries no PII. */
-    @Transactional
-    public void recordHandover(final UUID id, final NowsHandoverStatus status, final String detail) {
-        final HearingResultSubmissionEntity entity = repository.findById(id).orElseThrow();
-        entity.setNowsHandoverStatus(status);
-        entity.setNowsHandoverDetail(detail);
-        entity.setNowsHandoverAt(Instant.now(clock));
-    }
-
     /** The gateway rejected or failed the call. {@code httpStatus} is null when no response was received. No retry (R12). */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFailed(final UUID id, final Integer httpStatus, final String detail) {
         final HearingResultSubmissionEntity entity = repository.findById(id).orElseThrow();
         entity.setStatus(SubmissionStatus.FAILED);
@@ -163,7 +156,7 @@ public class SubmissionStore {
     }
 
     /** A stale SENDING row becomes FAILED with an unknown outcome, and is never resent (research.md R19). */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markInterrupted(final UUID id) {
         repository.failIfSending(id, OUTCOME_UNKNOWN_INTERRUPTED, Instant.now(clock), SubmissionStatus.FAILED, SubmissionStatus.SENDING);
     }
@@ -209,7 +202,7 @@ public class SubmissionStore {
     private Optional<UUID> insertIfAbsent(final HearingResultSubmissionEntity entity) {
         Optional<UUID> id;
         try {
-            id = Optional.of(repository.saveAndFlush(entity).getId());
+            id = Optional.of(transactionTemplate.execute(status -> repository.saveAndFlush(entity).getId()));
         } catch (DataIntegrityViolationException e) {
             if (findExisting(entity.getCorrelationId(), entity.getCaseId(), entity.getDefendantId()).isEmpty()) {
                 throw new IllegalStateException("Could not record " + entity.getStatus() + " submission for hearing "
@@ -225,7 +218,7 @@ public class SubmissionStore {
      * GOB accepted the submission (a 2xx). The reply is kept even when it isn't JSON (research.md R24):
      * {@code response_payload} is jsonb, so such a reply is stored as a JSON string, and a blank one as null.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordSucceeded(final UUID id, final String responseBody, final int httpStatus) {
         final HearingResultSubmissionEntity entity = repository.findById(id).orElseThrow();
         entity.setStatus(SubmissionStatus.SUCCEEDED);

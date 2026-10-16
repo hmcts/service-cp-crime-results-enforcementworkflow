@@ -1,76 +1,85 @@
 package uk.gov.hmcts.cp.service;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
-import tools.jackson.databind.JsonNode;
-import uk.gov.hmcts.cp.client.HandoverResult;
-import uk.gov.hmcts.cp.client.HearingNowsClient;
-import uk.gov.hmcts.cp.config.PayloadJson;
-import uk.gov.hmcts.cp.entity.NowsHandoverStatus;
+import uk.gov.hmcts.cp.entity.NotificationStatus;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-/** Feature 002 FR-001 to FR-004: the hand-over outcome is recorded; a failure is logged without GOB data. */
-@ExtendWith(OutputCaptureExtension.class)
+/** Feature 003 (FR-012): GOB data is marked ready to publish on the notification; never sent from here. */
 class NowsHandoverTest {
 
-    private static final UUID ROW = UUID.randomUUID();
-    private static final SubmissionKey KEY = new SubmissionKey(UUID.randomUUID(), UUID.randomUUID(), LocalDate.parse("2026-05-03"),
+    private static final UUID NOTIFICATION_ID = UUID.randomUUID();
+    private static final UUID SUBMISSION_ID = UUID.randomUUID();
+    private static final UUID MASTER_DEFENDANT_ID = UUID.randomUUID();
+    private static final SubmissionKey KEY = new SubmissionKey(NOTIFICATION_ID, UUID.randomUUID(), LocalDate.parse("2026-05-03"),
             UUID.randomUUID(), UUID.randomUUID(), "E012345678", Instant.parse("2026-05-03T14:30:00Z"));
 
-    private final HearingNowsClient client = mock(HearingNowsClient.class);
-    private final SubmissionStore store = mock(SubmissionStore.class);
-    private final NowsHandover handover = new NowsHandover(new NowsHandoverPayloadBuilder(), client, store);
+    private final NotificationStore store = mock(NotificationStore.class);
+    private final NowsHandover handover = new NowsHandover(store);
 
     @Test
-    void accepted_hand_over_should_be_recorded_as_handed_over() {
-        when(client.handOver(anyString())).thenReturn(new HandoverResult.HandedOver());
+    void new_gob_data_should_be_ready_to_publish() {
+        handover.handOver(SUBMISSION_ID, KEY, MASTER_DEFENDANT_ID, "26000123A", false);
 
-        handover.handOver(ROW, KEY, UUID.randomUUID(), "26000123A", items(), false, List.of(), null);
-
-        verify(store).recordHandover(ROW, NowsHandoverStatus.HANDED_OVER, null);
+        verify(store).markReadyToPublish(NOTIFICATION_ID, SUBMISSION_ID, MASTER_DEFENDANT_ID, false);
     }
 
     @Test
-    void failed_hand_over_should_be_recorded_with_the_detail_and_logged_without_gob_data(final CapturedOutput output) {
-        when(client.handOver(anyString())).thenReturn(new HandoverResult.Failed("HTTP 403"));
+    void reused_gob_data_should_be_ready_to_publish_as_reused() {
+        handover.handOver(SUBMISSION_ID, KEY, MASTER_DEFENDANT_ID, "26000123A", true);
 
-        handover.handOver(ROW, KEY, UUID.randomUUID(), "26000123A", items(), true, List.of(), "reshare");
-
-        verify(store).recordHandover(ROW, NowsHandoverStatus.FAILED, "reshare: HTTP 403");
-        assertThat(output.getAll()).contains("hand-over to hearing NOWS failed: HTTP 403").doesNotContain("26000123A", "125.5");
+        verify(store).markReadyToPublish(NOTIFICATION_ID, SUBMISSION_ID, MASTER_DEFENDANT_ID, true);
     }
 
     @Test
-    void missing_master_defendant_id_should_be_recorded_as_failed_without_calling_hearing_nows() {
-        handover.handOver(ROW, KEY, null, "26000123A", items(), false, List.of(), null);
+    void no_gob_data_should_end_the_notification_with_nothing_to_publish() {
+        handover.noGobData(KEY, "RESHARE_NO_GOB_DATA");
 
-        verify(store).recordHandover(ROW, NowsHandoverStatus.FAILED, "no masterDefendantId");
-        verifyNoInteractions(client);
+        verify(store).markFinal(NOTIFICATION_ID, NotificationStatus.NO_GOB_DATA, "RESHARE_NO_GOB_DATA");
+        verify(store, never()).markReadyToPublish(any(), any(), any(), anyBoolean());
     }
 
-    // e.g. a reused accepted request without prosecutorDefendantId: hearing-nows needs the account number, so nothing is sent
     @Test
-    void missing_account_number_should_be_recorded_as_failed_without_calling_hearing_nows() {
-        handover.handOver(ROW, KEY, UUID.randomUUID(), null, items(), true, List.of(), "reshare");
+    void reshare_should_go_on_when_no_first_share_is_in_progress() {
+        when(store.firstShareInProgress(KEY.hearingId(), NOTIFICATION_ID)).thenReturn(false);
 
-        verify(store).recordHandover(ROW, NowsHandoverStatus.FAILED, "reshare: no account number");
-        verifyNoInteractions(client);
+        handover.awaitFirstShare(KEY);
+
+        verify(store, never()).markFinal(any(), any(), any());
     }
 
-    private static JsonNode items() {
-        return PayloadJson.MAPPER.readTree("{\"accountBalance\":125.5}");
+    // feature 003 FR-009: the first share may still bring GOB data, so the reshare's stage is retried, not ended
+    @Test
+    void reshare_should_wait_while_the_first_share_is_in_progress() {
+        when(store.firstShareInProgress(KEY.hearingId(), NOTIFICATION_ID)).thenReturn(true);
+
+        assertThatThrownBy(() -> handover.awaitFirstShare(KEY)).isInstanceOf(FirstShareInProgressException.class)
+                .hasMessageContaining(NOTIFICATION_ID.toString());
+        verify(store, never()).markFinal(any(), any(), any());
+    }
+
+    @Test
+    void missing_account_number_should_reject_publishing() {
+        handover.handOver(SUBMISSION_ID, KEY, MASTER_DEFENDANT_ID, null, false);
+
+        verify(store).markFinal(NOTIFICATION_ID, NotificationStatus.PUBLISH_REJECTED, "NO_ACCOUNT_NUMBER");
+        verify(store, never()).markReadyToPublish(any(), any(), any(), anyBoolean());
+    }
+
+    @Test
+    void missing_master_defendant_should_reject_publishing() {
+        handover.handOver(SUBMISSION_ID, KEY, null, "26000123A", false);
+
+        verify(store).markFinal(NOTIFICATION_ID, NotificationStatus.PUBLISH_REJECTED, "NO_MASTER_DEFENDANT_ID");
     }
 }

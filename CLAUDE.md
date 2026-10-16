@@ -101,5 +101,5 @@ Stage 5 — see the Hard rules.
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/002-enforcement-nows-generation/plan.md`
+`specs/003-enforcement-nows-trigger/plan.md`
 <!-- SPECKIT END -->

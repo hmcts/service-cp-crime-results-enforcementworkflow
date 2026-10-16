@@ -15,13 +15,14 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 import uk.gov.hmcts.cp.client.ReferenceDataClient;
+import uk.gov.hmcts.cp.entity.EnforcementNotificationEntity;
+import uk.gov.hmcts.cp.entity.EnforcementNotificationNowEntity;
 import uk.gov.hmcts.cp.entity.HearingResultSubmissionEntity;
-import uk.gov.hmcts.cp.entity.NowsHandoverStatus;
+import uk.gov.hmcts.cp.entity.NotificationStatus;
 import uk.gov.hmcts.cp.entity.SubmissionStatus;
-import uk.gov.hmcts.cp.service.ShareCorrelationId;
 import uk.gov.hmcts.cp.support.Fixtures;
 import uk.gov.hmcts.cp.support.GatewayContract;
-import uk.gov.hmcts.cp.support.HearingNowsContract;
+import uk.gov.hmcts.cp.support.GobDataEventContract;
 import uk.gov.hmcts.cp.support.LibraContract;
 
 import java.io.IOException;
@@ -31,7 +32,6 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -47,24 +47,29 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.assertj.core.api.Assertions.assertThat;
+import static uk.gov.hmcts.cp.support.TempDiagnosticsLogFilter.withoutTempDiagnostics;
 
 /**
- * Runs every scenario folder under {@code src/test/resources/scenarios/} through the whole flow: the
- * event is published on {@code public.event}, reference data and the gateway answer as the scenario
- * says, and the gateway POSTs and the stored row are checked against its expectations (research.md
- * R25). Every request the gateway receives must satisfy both the gateway and the Libra contract, and
- * every stubbed 2xx reply the gateway contract; every hand-over to hearing-nows must satisfy hearing-nows'
- * command schema (feature 002). New behaviour is covered by adding a folder; the format is described in
- * quickstart.md ("Integration test scenarios").
+ * Runs every scenario folder under {@code src/test/resources/scenarios/} through the whole flow: each event fixture is
+ * one share, which the Results query answers and the results-processing Function App notifies (feature 003); reference
+ * data and the gateway answer as the scenario says, and the gateway POSTs, the stored rows and the published GOB data
+ * events are checked against its expectations (research.md R25). Every request the gateway receives must satisfy both the
+ * gateway and the Libra contract, and every stubbed 2xx reply the gateway contract; every GOB data event must satisfy
+ * hearing-nows' event schema. New behaviour is covered by adding a folder; the format is described in quickstart.md
+ * ("Integration test scenarios").
  */
 @ExtendWith(OutputCaptureExtension.class)
 class ScenarioIntegrationTest extends EmbeddedBrokerIntegrationTestBase {
 
     private static final String SCENARIOS = "scenarios";
     private static final String ANY_DEFINITION = "*";
-    /** Defendant PII in the enforcement fixture and the fixtures derived from it. */
-    private static final List<String> NEVER_LOGGED = List.of("Edward", "Harrison", "2002-01-10", "NH195839C", "1 High Street",
-            "02081234567", "07700900123");
+    /**
+     * Defendant PII in the enforcement fixture and the fixtures derived from it, and GOB account data: the account number
+     * (the defendant's prosecutionAuthorityReference, sent to GOB and published to hearing-nows) and GOB's balance.
+     */
+    private static final List<String> NEVER_LOGGED = List.of("Edward", "Harrison", "2002-01-10", "QQ123456C", "1 High Street",
+            "02079460000", "07700900123", "Tottenham", "ZZTST001101EJ9ZZ", "ZZ25A00001", "PAYROLL0001", "Example Employer Ltd",
+            "hr@example.org", "020 7946 0001", "1234567890", "125.5", "accountBalance");
     // strict, so a mistyped field in a scenario fails the test instead of being ignored
     private static final ObjectMapper SCENARIO_MAPPER = JsonMapper.builder()
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -93,10 +98,11 @@ class ScenarioIntegrationTest extends EmbeddedBrokerIntegrationTestBase {
         if (scenario.gateway() != null) {
             stubGatewayReply(scenario.gateway());
         }
-        stubHearingNows(scenario.hearingNowsStatus());
+        publishedGobDataEvents(); // nothing left over from an earlier test
 
-        scenario.eventsInOrder().forEach(event -> publish(scenario.cppName(), Fixtures.json(event)));
-        awaitProcessed();
+        // one notification per share, in order; the same fixture again is the same notification again (a repeat)
+        final List<EnforcementNotificationEntity> notifications = scenario.eventsInOrder().stream()
+                .map(event -> awaitFinal(notifyShare(event, folder.getFileName() + "/" + event))).toList();
 
         final Expected expected = scenario.expected();
         final List<LoggedRequest> posts = STUBS.findAll(postRequestedFor(urlEqualTo(GATEWAY_PATH)));
@@ -115,7 +121,20 @@ class ScenarioIntegrationTest extends EmbeddedBrokerIntegrationTestBase {
         for (int i = 1; Files.exists(folder.resolve("expected-request-" + i + ".json")); i++) {
             assertMatches(folder.resolve("expected-request-" + i + ".json"), posts.get(i - 1));
         }
-        assertHandover(expected.handover());
+        final List<String> events = publishedGobDataEvents();
+        assertPublished(expected.published(), events);
+        // every share ends in a final state of its own; none is left as a stored failure, and each published event
+        // belongs to exactly one PUBLISHED notification (a repeated notification is the same notification)
+        assertThat(notifications).as("notifications").noneMatch(n -> n.getStatus() == NotificationStatus.STORED_FAILURE);
+        // feature 003 data-model: each share's notification ends in the expected final state, in the order sent
+        if (!expected.notificationStatuses().isEmpty()) {
+            assertThat(notifications.stream().map(EnforcementNotificationEntity::getStatus).toList()).as("notification final states")
+                    .isEqualTo(expected.notificationStatuses());
+        }
+        assertThat(notifications.stream().map(EnforcementNotificationEntity::getId).distinct()
+                .filter(id -> notification(id).getStatus() == NotificationStatus.PUBLISHED).count())
+                .as("PUBLISHED notifications").isEqualTo(events.size());
+        assertEachEventBelongsToItsOwnNotification(events, notifications);
         if (expected.statuses().isEmpty()) {
             assertRow(expected);
         } else {
@@ -124,8 +143,31 @@ class ScenarioIntegrationTest extends EmbeddedBrokerIntegrationTestBase {
         }
         // FR-017: the fixtures' defendant PII is never logged, whatever the outcome
         Stream.concat(NEVER_LOGGED.stream(), expected.logMustNotContain().stream())
-                .forEach(text -> assertThat(output.getAll()).as("log").doesNotContain(text));
-        expected.logMustContain().forEach(text -> assertThat(output.getAll()).as("log").contains(text));
+                .forEach(text -> assertThat(withoutTempDiagnostics(output.getAll())).as("log").doesNotContain(text));
+        expected.logMustContain().forEach(text -> assertThat(withoutTempDiagnostics(output.getAll())).as("log").contains(text));
+    }
+
+    /**
+     * Each published event carries the request ids of exactly one PUBLISHED notification of this scenario, with that
+     * notification's master defendant, and no two events carry the same notification's request ids.
+     */
+    private void assertEachEventBelongsToItsOwnNotification(final List<String> events, final List<EnforcementNotificationEntity> notifications) {
+        final List<UUID> scenarioNotifications = notifications.stream().map(EnforcementNotificationEntity::getId).toList();
+        final List<UUID> owners = events.stream().map(event -> {
+            final JsonNode nows = Fixtures.MAPPER.readTree(event).path("nows");
+            final List<UUID> requestIds = nows.valueStream().map(now -> UUID.fromString(now.path("requestId").asString())).toList();
+            final List<EnforcementNotificationNowEntity> stored = notificationNowRepository.findByRequestIdIn(requestIds);
+            assertThat(stored).as("stored NOW requests of the event's request ids").hasSize(requestIds.size());
+            final UUID owner = stored.getFirst().getNotificationId();
+            assertThat(stored).as("one notification per event").allSatisfy(now -> assertThat(now.getNotificationId()).isEqualTo(owner));
+            assertThat(scenarioNotifications).as("the event's notification is one of the scenario's").contains(owner);
+            assertThat(notification(owner).getStatus()).as("the event's notification status").isEqualTo(NotificationStatus.PUBLISHED);
+            nows.valueStream().forEach(now -> assertThat(now.path("masterDefendantId").asString()).as("event masterDefendantId")
+                    .isEqualTo(stored.stream().filter(s -> s.getRequestId().toString().equals(now.path("requestId").asString()))
+                            .findFirst().orElseThrow().getMasterDefendantId().toString()));
+            return owner;
+        }).toList();
+        assertThat(owners).as("notifications of the published events").doesNotHaveDuplicates();
     }
 
     private static void assertMatches(final Path expectedRequest, final LoggedRequest post) {
@@ -133,54 +175,23 @@ class ScenarioIntegrationTest extends EmbeddedBrokerIntegrationTestBase {
                 .as("request equals " + expectedRequest.getFileName()).isTrue();
     }
 
-    /** Feature 002: hand-overs to hearing-nows; absent expectation = none. Each one must satisfy hearing-nows' schema. */
-    private void assertHandover(final Handover expected) {
-        final List<LoggedRequest> handovers = STUBS.findAll(postRequestedFor(urlEqualTo(HEARING_NOWS_PATH)));
-        assertThat(handovers).as("hand-over POSTs").hasSize(expected == null ? 0 : expected.posts());
-        handovers.forEach(post -> assertThat(HearingNowsContract.addEnforcementNowsDataViolations(post.getBodyAsString()))
-                .as("hearing-nows contract violations").isEmpty());
-        // the correlation id is always the one hearing-nows recomputes from the hand-over's hearing id and day (research R18)
-        handovers.forEach(post -> {
-            final JsonNode body = Fixtures.MAPPER.readTree(post.getBodyAsString());
-            assertThat(body.path("correlationId").asString()).as("hand-over correlationId").isEqualTo(ShareCorrelationId.forShare(
-                    UUID.fromString(body.path("hearingId").asString()), LocalDate.parse(body.path("hearingDay").asString())).toString());
-        });
-        if (expected != null && !expected.hearingDayPerPost().isEmpty()) {
-            assertThat(handovers.stream().map(post -> Fixtures.MAPPER.readTree(post.getBodyAsString()).path("hearingDay").asString())
-                    .toList()).as("hand-over hearingDay per POST").isEqualTo(expected.hearingDayPerPost());
+    /** Feature 003: GOB data events published to hearing-nows; absent expectation = none. Each must satisfy hearing-nows' schema. */
+    private static void assertPublished(final Published expected, final List<String> events) {
+        assertThat(events).as("GOB data events").hasSize(expected == null ? 0 : expected.events());
+        events.forEach(event -> assertThat(GobDataEventContract.violations(event)).as("hearing-nows event contract violations").isEmpty());
+        events.forEach(event -> assertThat(Fixtures.MAPPER.readTree(event).path("_metadata").path("name").asString())
+                .as("_metadata.name").isEqualTo(GOB_DATA_EVENT));
+        if (expected != null && !expected.sharedTimePerEvent().isEmpty()) {
+            assertThat(events.stream().map(event -> Instant.parse(Fixtures.MAPPER.readTree(event).path("sharedTime").asString())).toList())
+                    .as("event sharedTime per event").isEqualTo(expected.sharedTimePerEvent().stream().map(Instant::parse).toList());
         }
-        if (expected != null && !expected.sharedTimePerPost().isEmpty()) {
-            assertThat(handovers.stream().map(post -> Instant.parse(Fixtures.MAPPER.readTree(post.getBodyAsString()).path("sharedTime")
-                    .asString())).toList()).as("hand-over sharedTime per POST")
-                    .isEqualTo(expected.sharedTimePerPost().stream().map(Instant::parse).toList());
-        }
-        if (expected != null && !expected.gobDataReusedPerPost().isEmpty()) {
-            assertThat(handovers.stream().map(post -> Fixtures.MAPPER.readTree(post.getBodyAsString()).path("gobDataReused").asBoolean())
-                    .toList()).as("hand-over gobDataReused per POST").isEqualTo(expected.gobDataReusedPerPost());
-        }
-        if (expected != null && !expected.coveredResultDefinitionIdsPerPost().isEmpty()) {
-            assertThat(handovers.stream().map(post -> Fixtures.MAPPER.readTree(post.getBodyAsString()).path("coveredResultDefinitionIds")
-                    .valueStream().map(JsonNode::asString).toList()).toList()).as("hand-over coveredResultDefinitionIds per POST")
-                    .isEqualTo(expected.coveredResultDefinitionIdsPerPost());
+        if (expected != null && !expected.gobDataReusedPerEvent().isEmpty()) {
+            assertThat(events.stream().map(event -> Fixtures.MAPPER.readTree(event).path("gobDataReused").asBoolean()).toList())
+                    .as("event gobDataReused per event").isEqualTo(expected.gobDataReusedPerEvent());
         }
         if (expected != null && expected.gobDataReused() != null) {
-            assertThat(handovers).as("hand-over gobDataReused").allSatisfy(post -> assertThat(
-                    Fixtures.MAPPER.readTree(post.getBodyAsString()).path("gobDataReused").asBoolean()).isEqualTo(expected.gobDataReused()));
-        }
-        if (expected != null && expected.status() != null) {
-            assertThat(repository.findAll()).as("rows with a hand-over")
-                    .filteredOn(row -> row.getNowsHandoverStatus() != null)
-                    .isNotEmpty()
-                    .allSatisfy(row -> assertThat(row.getNowsHandoverStatus()).isEqualTo(expected.status()));
-            // GOB accepted the share, so its hand-over must have been recorded
-            assertThat(repository.findAll()).as("SUCCEEDED rows without a recorded hand-over")
-                    .filteredOn(row -> row.getStatus() == SubmissionStatus.SUCCEEDED && row.getNowsHandoverStatus() == null).isEmpty();
-        }
-        if (expected != null && !expected.detailsPerRow().isEmpty()) {
-            assertThat(repository.findAll().stream().filter(row -> row.getNowsHandoverStatus() != null)
-                    .sorted(Comparator.comparing(HearingResultSubmissionEntity::getCreatedAt))
-                    .map(HearingResultSubmissionEntity::getNowsHandoverDetail).toList())
-                    .as("nows_handover_detail per row with a hand-over, oldest first").isEqualTo(expected.detailsPerRow());
+            assertThat(events).as("event gobDataReused").allSatisfy(event -> assertThat(
+                    Fixtures.MAPPER.readTree(event).path("gobDataReused").asBoolean()).isEqualTo(expected.gobDataReused()));
         }
     }
 
@@ -251,21 +262,20 @@ class ScenarioIntegrationTest extends EmbeddedBrokerIntegrationTestBase {
     /**
      * One scenario.json.
      *
-     * @param event         event fixture on the test classpath, e.g. {@code events/hearing-resulted-enforcement.json}
-     * @param events        instead of {@code event}: fixtures published in order (a redelivery, or a first share then a reshare)
-     * @param cppName       the {@code CPPNAME} it is published under; defaults to the hearing-resulted event
+     * @param event         event fixture on the test classpath, e.g. {@code events/hearing-resulted-enforcement.json}: one
+     *                      share's results, notified once
+     * @param events        instead of {@code event}: shares notified in order (the same fixture twice is a repeated
+     *                      notification, or a first share then a reshare)
      * @param referenceData result type id (or "*") → shortCode, or {@code {"status": N}}; unlisted ids answer 404
      * @param gateway       the gateway's reply; omitted when the scenario must not reach the gateway
      */
-    private record Scenario(String description, String event, List<String> events, String cppName,
-                            Map<String, JsonNode> referenceData, GatewayReply gateway, Integer hearingNowsStatus, Expected expected) {
+    private record Scenario(String description, String event, List<String> events, Map<String, JsonNode> referenceData,
+                            GatewayReply gateway, Expected expected) {
         Scenario {
             if ((event == null) == (events == null)) {
                 throw new IllegalArgumentException("give exactly one of event and events");
             }
-            cppName = cppName == null ? HEARING_RESULTED : cppName;
             referenceData = referenceData == null ? Map.of() : referenceData;
-            hearingNowsStatus = hearingNowsStatus == null ? 202 : hearingNowsStatus;
         }
 
         List<String> eventsInOrder() {
@@ -285,13 +295,14 @@ class ScenarioIntegrationTest extends EmbeddedBrokerIntegrationTestBase {
      * error detail are always checked (absent = null); give {@code errorDetail} or {@code errorDetailStartsWith}.
      * {@code statuses} instead of {@code status}: the statuses of several rows (several shares), oldest first.
      * {@code resultCodesPerPost}: the GOB result codes of each gateway POST, in order (several shares).
-     * {@code handover}: the hand-overs to hearing-nows (feature 002); absent = none.
+     * {@code published}: the GOB data events to hearing-nows (feature 003); absent = none.
      */
     private record Expected(int gatewayPosts, SubmissionStatus status, List<SubmissionStatus> statuses, Integer httpStatus,
                             String errorDetail, String errorDetailStartsWith, List<String> responsePayloadContains,
                             List<String> logMustNotContain, List<String> logMustContain, List<List<String>> resultCodesPerPost,
-                            Handover handover) {
+                            Published published, List<NotificationStatus> notificationStatuses) {
         Expected {
+            notificationStatuses = notificationStatuses == null ? List.of() : notificationStatuses;
             statuses = statuses == null ? List.of() : statuses;
             resultCodesPerPost = resultCodesPerPost == null ? List.of() : resultCodesPerPost;
             responsePayloadContains = responsePayloadContains == null ? List.of() : responsePayloadContains;
@@ -301,19 +312,13 @@ class ScenarioIntegrationTest extends EmbeddedBrokerIntegrationTestBase {
     }
 
     /**
-     * Hand-overs to hearing-nows: how many, the outcome recorded on the rows, and their {@code gobDataReused} flag (for all
-     * of them, or per POST in order); optionally each POST's covered ids, {@code hearingDay} and {@code sharedTime}, and the
-     * {@code nows_handover_detail} of each row with a hand-over (oldest first; null for a plain success).
+     * GOB data events to hearing-nows (feature 003): how many, and their {@code gobDataReused} flag (for all of them, or per
+     * event in order) and {@code sharedTime} per event (the share time of the submission whose GOB data is published).
      */
-    private record Handover(int posts, NowsHandoverStatus status, Boolean gobDataReused, List<Boolean> gobDataReusedPerPost,
-                            List<List<String>> coveredResultDefinitionIdsPerPost, List<String> hearingDayPerPost,
-                            List<String> sharedTimePerPost, List<String> detailsPerRow) {
-        Handover {
-            gobDataReusedPerPost = gobDataReusedPerPost == null ? List.of() : gobDataReusedPerPost;
-            coveredResultDefinitionIdsPerPost = coveredResultDefinitionIdsPerPost == null ? List.of() : coveredResultDefinitionIdsPerPost;
-            hearingDayPerPost = hearingDayPerPost == null ? List.of() : hearingDayPerPost;
-            sharedTimePerPost = sharedTimePerPost == null ? List.of() : sharedTimePerPost;
-            detailsPerRow = detailsPerRow == null ? List.of() : detailsPerRow;
+    private record Published(int events, Boolean gobDataReused, List<Boolean> gobDataReusedPerEvent, List<String> sharedTimePerEvent) {
+        Published {
+            gobDataReusedPerEvent = gobDataReusedPerEvent == null ? List.of() : gobDataReusedPerEvent;
+            sharedTimePerEvent = sharedTimePerEvent == null ? List.of() : sharedTimePerEvent;
         }
     }
 }

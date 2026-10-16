@@ -33,20 +33,19 @@
       "SUCCEEDED",
       "SKIPPED_NOTHING_NEW"
     ],
-    "handover": {
-      "posts": 2,
-      "status": "HANDED_OVER",
-      "gobDataReusedPerPost": [
-        false,
-        true
-      ],
-      "hearingDayPerPost": [
-        "2026-05-03",
-        "2026-05-10"
-      ]
-    },
     "logMustContain": [
       "nothing new (offences already sent 1, offences adjourned 0, other results already sent 0)"
+    ],
+    "published": {
+      "events": 2,
+      "gobDataReusedPerEvent": [
+        false,
+        true
+      ]
+    },
+    "notificationStatuses": [
+      "PUBLISHED",
+      "PUBLISHED"
     ]
   }
 }

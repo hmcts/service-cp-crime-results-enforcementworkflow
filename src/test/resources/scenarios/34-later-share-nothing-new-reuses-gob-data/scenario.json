@@ -33,16 +33,19 @@
       "SUCCEEDED",
       "SKIPPED_NOTHING_NEW"
     ],
-    "handover": {
-      "posts": 2,
-      "status": "HANDED_OVER",
-      "gobDataReusedPerPost": [
+    "logMustContain": [
+      "nothing new (offences already sent 1, offences adjourned 0, other results already sent 0)"
+    ],
+    "published": {
+      "events": 2,
+      "gobDataReusedPerEvent": [
         false,
         true
       ]
     },
-    "logMustContain": [
-      "nothing new (offences already sent 1, offences adjourned 0, other results already sent 0)"
+    "notificationStatuses": [
+      "PUBLISHED",
+      "PUBLISHED"
     ]
   }
 }

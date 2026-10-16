@@ -3,7 +3,6 @@ package uk.gov.hmcts.cp.service;
 import org.junit.jupiter.api.Test;
 import uk.gov.hmcts.cp.config.HearingResultProperties;
 import uk.gov.hmcts.cp.entity.GobSentOffenceEntity;
-import uk.gov.hmcts.cp.openapi.model.HearingResult.ResultCodeEnum;
 import uk.gov.hmcts.cp.repository.GobSentOffenceRepository;
 
 import java.time.LocalDate;
@@ -32,30 +31,30 @@ class OffenceResultFilterTest {
     @Test
     void offence_already_sent_should_be_dropped_with_all_its_results_even_when_repeated() {
         sentOffences(OFFENCE_1);
-        final ResolvedCodes codes = codes(sc(OFFENCE_1, DAY_1), result(OFFENCE_2, "DW", ResultCodeEnum.DW, false, DAY_2));
+        final ResolvedCodes codes = codes(sc(OFFENCE_1, DAY_1), result(OFFENCE_2, "DW", "DW", false, DAY_2));
 
         final OffenceFilterResult result = filter.filter(CASE_ID, DAY_2, codes);
 
-        assertThat(result.toSend().gobCodes()).containsExactly(ResultCodeEnum.DW);
+        assertThat(result.toSend().gobCodes()).containsExactly("DW");
         assertThat(result.sentItems()).containsExactly(SentItem.offence(OFFENCE_2));
         assertThat(result.offencesAlreadySent()).isEqualTo(1);
     }
 
     @Test
     void offence_adjourned_in_this_share_should_not_be_sent_even_with_a_gob_code() {
-        final ResolvedCodes codes = codes(sc(OFFENCE_1, DAY_1), result(OFFENCE_2, "SUMM", ResultCodeEnum.SUMM, false, DAY_1),
+        final ResolvedCodes codes = codes(sc(OFFENCE_1, DAY_1), result(OFFENCE_2, "SUMM", "SUMM", false, DAY_1),
                 result(OFFENCE_2, "NEXH", null, true, DAY_1));
 
         final OffenceFilterResult result = filter.filter(CASE_ID, DAY_1, codes);
 
-        assertThat(result.toSend().gobCodes()).containsExactly(ResultCodeEnum.SC);
+        assertThat(result.toSend().gobCodes()).containsExactly("SC");
         assertThat(result.sentItems()).containsExactly(SentItem.offence(OFFENCE_1));
         assertThat(result.offencesAdjourned()).isEqualTo(1);
     }
 
     @Test
     void adjournment_code_without_marker_should_also_adjourn_the_offence() {
-        final ResolvedCodes codes = codes(result(OFFENCE_2, "ADJNN", ResultCodeEnum.ADJNN, false, DAY_1));
+        final ResolvedCodes codes = codes(result(OFFENCE_2, "ADJNN", "ADJNN", false, DAY_1));
 
         final OffenceFilterResult result = filter.filter(CASE_ID, DAY_1, codes);
 
@@ -66,32 +65,32 @@ class OffenceResultFilterTest {
     // an earlier day's adjournment repeated in this payload does not stop the final result; the adjournment itself is never sent
     @Test
     void earlier_adjournment_repeated_in_the_payload_should_not_stop_the_final_result() {
-        final ResolvedCodes codes = codes(result(OFFENCE_2, "ADJNN", ResultCodeEnum.ADJNN, false, DAY_1),
-                result(OFFENCE_2, "SUMM", ResultCodeEnum.SUMM, false, DAY_2));
+        final ResolvedCodes codes = codes(result(OFFENCE_2, "ADJNN", "ADJNN", false, DAY_1),
+                result(OFFENCE_2, "SUMM", "SUMM", false, DAY_2));
 
         final OffenceFilterResult result = filter.filter(CASE_ID, DAY_2, codes);
 
-        assertThat(result.toSend().gobCodes()).containsExactly(ResultCodeEnum.SUMM);
+        assertThat(result.toSend().gobCodes()).containsExactly("SUMM");
         assertThat(result.sentItems()).containsExactly(SentItem.offence(OFFENCE_2));
     }
 
     // payloads repeat earlier days' results (research F16): an offence adjourned on day 1 and not resulted since stays adjourned
     @Test
     void offence_adjourned_on_an_earlier_day_and_not_resulted_since_should_not_be_sent() {
-        final ResolvedCodes codes = codes(sc(OFFENCE_1, DAY_2), result(OFFENCE_2, "SUMM", ResultCodeEnum.SUMM, false, DAY_1),
+        final ResolvedCodes codes = codes(sc(OFFENCE_1, DAY_2), result(OFFENCE_2, "SUMM", "SUMM", false, DAY_1),
                 result(OFFENCE_2, "NEXH", null, true, DAY_1));
 
         final OffenceFilterResult result = filter.filter(CASE_ID, DAY_2, codes);
 
-        assertThat(result.toSend().gobCodes()).containsExactly(ResultCodeEnum.SC);
+        assertThat(result.toSend().gobCodes()).containsExactly("SC");
         assertThat(result.sentItems()).containsExactly(SentItem.offence(OFFENCE_1));
         assertThat(result.offencesAdjourned()).isEqualTo(1);
     }
 
     @Test
     void offence_adjourned_again_on_a_later_day_should_not_be_sent() {
-        final ResolvedCodes codes = codes(result(OFFENCE_2, "SUMM", ResultCodeEnum.SUMM, false, DAY_1),
-                result(OFFENCE_2, "NEXH", null, true, DAY_1), result(OFFENCE_2, "ADJNN", ResultCodeEnum.ADJNN, false, DAY_2));
+        final ResolvedCodes codes = codes(result(OFFENCE_2, "SUMM", "SUMM", false, DAY_1),
+                result(OFFENCE_2, "NEXH", null, true, DAY_1), result(OFFENCE_2, "ADJNN", "ADJNN", false, DAY_2));
 
         final OffenceFilterResult result = filter.filter(CASE_ID, DAY_2, codes);
 
@@ -102,12 +101,12 @@ class OffenceResultFilterTest {
     // a result without an ordered date counts as ordered on the share's hearing day, whichever side of the adjournment it is
     @Test
     void result_without_an_ordered_date_should_count_as_ordered_on_the_hearing_day() {
-        final ResolvedCodes codes = codes(result(OFFENCE_1, "NEXH", null, true, DAY_1), result(OFFENCE_1, "SUMM", ResultCodeEnum.SUMM, false, null),
+        final ResolvedCodes codes = codes(result(OFFENCE_1, "NEXH", null, true, DAY_1), result(OFFENCE_1, "SUMM", "SUMM", false, null),
                 sc(OFFENCE_2, DAY_1), result(OFFENCE_2, "NEXH", null, true, null));
 
         final OffenceFilterResult result = filter.filter(CASE_ID, DAY_2, codes);
 
-        assertThat(result.toSend().gobCodes()).containsExactly(ResultCodeEnum.SUMM);
+        assertThat(result.toSend().gobCodes()).containsExactly("SUMM");
         assertThat(result.sentItems()).containsExactly(SentItem.offence(OFFENCE_1));
         assertThat(result.offencesAdjourned()).isEqualTo(1);
     }
@@ -121,7 +120,7 @@ class OffenceResultFilterTest {
 
     @Test
     void non_offence_result_should_be_sent_once_by_judicial_result_id() {
-        final ResolvedResult collectionOrder = result(null, "COLLO", ResultCodeEnum.COLLO, false, DAY_1);
+        final ResolvedResult collectionOrder = result(null, "COLLO", "COLLO", false, DAY_1);
         when(repository.findByCaseIdAndJudicialResultIdIn(eq(CASE_ID), any())).thenReturn(List.of());
         final OffenceFilterResult first = filter.filter(CASE_ID, DAY_1, codes(collectionOrder));
 
@@ -136,20 +135,21 @@ class OffenceResultFilterTest {
     // an adjournment not attached to an offence is never sent, and never recorded as sent
     @Test
     void non_offence_adjournment_should_never_be_sent() {
-        final ResolvedResult collectionOrder = result(null, "COLLO", ResultCodeEnum.COLLO, false, DAY_1);
-        final ResolvedResult adjournment = result(null, "ADJNN", ResultCodeEnum.ADJNN, false, DAY_1);
+        final ResolvedResult collectionOrder = result(null, "COLLO", "COLLO", false, DAY_1);
+        final ResolvedResult adjournment = result(null, "ADJNN", "ADJNN", false, DAY_1);
         when(repository.findByCaseIdAndJudicialResultIdIn(eq(CASE_ID), any())).thenReturn(List.of());
 
         final OffenceFilterResult result = filter.filter(CASE_ID, DAY_1, codes(collectionOrder, adjournment));
 
-        assertThat(result.toSend().gobCodes()).containsExactly(ResultCodeEnum.COLLO);
+        assertThat(result.toSend().gobCodes()).containsExactly("COLLO");
         assertThat(result.sentItems()).containsExactly(SentItem.judicialResult(collectionOrder.judicialResultId()));
     }
 
-    // R20: a non-offence result is tracked by its judicialResultId, and only when it carries a GOB code
+    // R20: a non-offence result is tracked by its judicialResultId, and only when it carries a code to send (since feature 003
+    // FR-010 a null code means unknown or too long, e.g. a result reference data does not know)
     @Test
     void non_offence_result_without_judicial_result_id_or_gob_code_should_be_sent_but_not_recorded() {
-        final ResolvedResult untracked = new ResolvedResult(null, null, UUID.randomUUID(), "COLLO", ResultCodeEnum.COLLO, false, DAY_1);
+        final ResolvedResult untracked = new ResolvedResult(null, null, UUID.randomUUID(), "COLLO", "COLLO", false, DAY_1);
         final ResolvedResult notForGob = result(null, "PGPAY", null, false, DAY_1);
         when(repository.findByCaseIdAndJudicialResultIdIn(eq(CASE_ID), any())).thenReturn(List.of());
 
@@ -182,10 +182,10 @@ class OffenceResultFilterTest {
     }
 
     private static ResolvedResult sc(final UUID offenceId, final LocalDate orderedDate) {
-        return result(offenceId, "SC", ResultCodeEnum.SC, false, orderedDate);
+        return result(offenceId, "SC", "SC", false, orderedDate);
     }
 
-    private static ResolvedResult result(final UUID offenceId, final String shortCode, final ResultCodeEnum gobCode,
+    private static ResolvedResult result(final UUID offenceId, final String shortCode, final String gobCode,
                                          final boolean adjournmentMarker, final LocalDate orderedDate) {
         return new ResolvedResult(offenceId, UUID.randomUUID(), UUID.randomUUID(), shortCode, gobCode, adjournmentMarker, orderedDate);
     }

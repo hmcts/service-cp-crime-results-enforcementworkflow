@@ -7,6 +7,7 @@ import uk.gov.hmcts.cp.client.EnforcementGatewayClient;
 import uk.gov.hmcts.cp.client.GatewayResult;
 import uk.gov.hmcts.cp.client.ReferenceDataUnavailableException;
 import uk.gov.hmcts.cp.config.PayloadJson;
+import uk.gov.hmcts.cp.entity.SubmissionStatus;
 import uk.gov.hmcts.cp.event.HearingResultedEvent;
 import uk.gov.hmcts.cp.mapper.HearingResultedRequestMapper;
 import uk.gov.hmcts.cp.mapper.MappingResult;
@@ -16,13 +17,14 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Turns one hearing-resulted event into at most one GOB hearing-result submission per share. The steps are:
- * select the enforcement case and defendant, key the share (correlation id = hearing id + hearing day), resolve
+ * Turns one share's results into at most one GOB hearing-result submission per notification (feature 003: the
+ * notification id is the submission's correlation id). The steps are:
+ * select the enforcement case and defendant, key the share, resolve
  * the result codes, leave out offences already sent or adjourned (feature 002: each offence's final result is sent
  * once), choose the NOWS data items, build the request, record it as SENDING with the items it sends, call the
- * gateway, record the outcome, and hand GOB's data to hearing-nows. A share with nothing new reuses the most recent
- * GOB data instead of contacting GOB. Logs carry ids, {@code caseUrn}, codes, counts and outcomes, never payloads
- * (FR-017).
+ * gateway, record the outcome, and mark GOB's data ready for the GOB data event (feature 003). A first-time share with
+ * nothing new, and every amend &amp; reshare (never sent to GOB, feature 003 FR-008), reuses the most recent GOB data
+ * instead of contacting GOB. Logs carry ids, {@code caseUrn}, codes, counts and outcomes, never payloads (FR-017).
  */
 @Slf4j
 @Component
@@ -41,7 +43,7 @@ public class HearingResultedProcessor {
     private final NowsHandover nowsHandover;
     private final GobDataReuseHandover gobDataReuseHandover;
 
-    public void process(final HearingResultedEvent event) {
+    public void process(final HearingResultedEvent event, final UUID notificationId) {
         switch (selector.select(event)) {
             case SelectionResult.Skipped skipped ->
                     log.info("Hearing {} not submitted to GOB: {}", event.hearing() == null ? null : event.hearing().id(),
@@ -52,51 +54,64 @@ public class HearingResultedProcessor {
                     // no share correlation id can be built (feature 002 research R18), or nothing to record the share time with
                     log.warn("Hearing {} caseUrn {} not submitted to GOB: {}", event.hearing().id(), caseUrn(selected), missing);
                 } else {
-                    processShare(event, selected, keyOf(event, selected));
+                    processShare(event, selected, keyOf(event, selected, notificationId));
                 }
             }
-            case SelectionResult.Reshare reshare -> processReshare(event, reshare);
+            case SelectionResult.Reshare reshare -> processReshare(event, reshare, notificationId);
         }
     }
 
     /**
-     * Feature 002 FR-016, research R16: an amend &amp; reshare is never sent to GOB and leaves no submission row; the most
-     * recent GOB data for the case and defendant is handed over again with the reshare's covered results, recorded on
-     * the submission whose data is reused (detail prefix {@code reshare}).
+     * Feature 002 FR-016, feature 003 FR-008/FR-009 (decided 2026-10-22): an amend &amp; reshare is never sent to GOB, even
+     * when the first-time result never reached GOB, and leaves no submission row; the most recent GOB data for the case
+     * and defendant is published with the reshare's request ids, or, with none, the notification ends NO_GOB_DATA. While a
+     * first-time share of the hearing is still in progress the reshare is retried first, as that share may bring newer GOB data.
      */
-    private void processReshare(final HearingResultedEvent event, final SelectionResult.Reshare reshare) {
+    private void processReshare(final HearingResultedEvent event, final SelectionResult.Reshare reshare, final UUID notificationId) {
+        // the hearing day comes from the notification and a reshare writes no row, so neither needs the shared time
         final SelectionResult.Selected selected = new SelectionResult.Selected(reshare.prosecutionCase(), reshare.defendant());
-        final SkipReason missing = missingShareAttribute(event);
-        if (missing != null) {
-            log.warn("Hearing {} caseUrn {} reshare not handed over: {}", event.hearing().id(), caseUrn(selected), missing);
-            return;
-        }
-        final SubmissionKey key = keyOf(event, selected);
-        log.info("Hearing {} caseUrn {}: reshare, not sent to GOB (R2); reusing the GOB data already received", key.hearingId(),
-                key.caseUrn());
-        try {
-            gobDataReuseHandover.handOver(key, reshare.defendant().masterDefendantId(),
-                    resultCodeResolver.resolve(event, reshare.defendant()), null, RESHARE);
-        } catch (ReferenceDataUnavailableException e) {
-            log.warn("Hearing {} caseUrn {} reshare not handed over: reference data unavailable (no retry, R12)", key.hearingId(),
-                    key.caseUrn());
+        final SubmissionKey key = keyOf(event, selected, notificationId);
+        log.info("Hearing {} caseUrn {}: {}, never sent to GOB (FR-008); looking for GOB data already received", key.hearingId(),
+                key.caseUrn(), RESHARE);
+        // checked first: a first share committing its GOB data between the two reads must not leave the reshare without it
+        nowsHandover.awaitFirstShare(key);
+        if (!gobDataReuseHandover.handOver(key, reshare.defendant().masterDefendantId())) {
+            nowsHandover.noGobData(key, "RESHARE_NO_GOB_DATA");
         }
     }
 
     private void processShare(final HearingResultedEvent event, final SelectionResult.Selected selected, final SubmissionKey key) {
         store.findExisting(key.correlationId(), key.caseId(), key.defendantId())
-                .ifPresentOrElse(existing -> onExisting(key, existing), () -> processSelected(event, selected, key));
+                .ifPresentOrElse(existing -> onExisting(key, existing, selected.defendant().masterDefendantId()),
+                        () -> processSelected(event, selected, key));
     }
 
-    /** A repeated delivery of the same share: never resent. A stale SENDING row is marked interrupted (R19; open point with the BA/GOB). */
-    private void onExisting(final SubmissionKey key, final ExistingSubmission existing) {
-        if (store.isStale(existing)) {
+    /**
+     * A retry or replay of the same notification (the submission key is the notification id): never resent. A stale
+     * SENDING row is marked interrupted (R19; open point with the BA/GOB). Otherwise the hand-over the earlier run
+     * may not have reached is resumed from the recorded outcome, so GOB data already received is still published.
+     */
+    private void onExisting(final SubmissionKey key, final ExistingSubmission existing, final UUID masterDefendantId) {
+        // only one job runs a notification, so its own SENDING row found by a later attempt was interrupted, however recent
+        if (existing.status() == SubmissionStatus.SENDING) {
             store.markInterrupted(existing.id());
             log.warn("Submission {} caseUrn {} was left SENDING: marked FAILED (outcome at GOB unknown), not resent",
                     existing.id(), key.caseUrn());
         } else {
-            log.info("Hearing {} caseUrn {} already submitted for this share ({}); repeated delivery ignored (R17)",
+            log.info("Hearing {} caseUrn {} already submitted for this notification ({}); not sent again (R17)",
                     key.hearingId(), key.caseUrn(), existing.status());
+            switch (existing.status()) {
+                case SUCCEEDED -> store.findSucceeded(key.caseId(), key.defendantId()).stream()
+                        .filter(s -> s.id().equals(existing.id()))
+                        .filter(s -> NowsHandoverPayloadBuilder.nowsDataItemsOf(s.responsePayload()).isPresent())
+                        .findFirst()
+                        .ifPresent(s -> nowsHandover.handOver(s.id(), key, masterDefendantId,
+                                GobReplies.accountNumberOf(s.requestPayload()).orElse(null), false));
+                case SKIPPED_NOTHING_NEW -> gobDataReuseHandover.handOver(key, masterDefendantId);
+                default -> {
+                    // SENDING (not stale), FAILED, MAPPING_FAILED, SKIPPED_NO_RESULT_CODE (FR-010): nothing to hand over
+                }
+            }
         }
     }
 
@@ -116,11 +131,9 @@ public class HearingResultedProcessor {
             log.info("Hearing {} caseUrn {}: result codes not sent to GOB {}", key.hearingId(), key.caseUrn(), codes.droppedCodes());
         }
         if (codes.gobCodes().isEmpty()) {
-            // feature 002 FR-020: nothing to send, so a later share reuses the GOB data already received (none on a first share)
-            store.recordSkippedNoResultCode(key, codes.droppedCodes()).ifPresent(id -> {
-                log.info("Hearing {} caseUrn {} not submitted to GOB: no GOB-recognised result code", key.hearingId(), key.caseUrn());
-                gobDataReuseHandover.handOver(key, selected.defendant().masterDefendantId(), codes, id, null);
-            });
+            // feature 003 FR-010 (replaces feature 002 FR-020): nothing to send to GOB and nothing to hearing-nows
+            store.recordSkippedNoResultCode(key, codes.droppedCodes()).ifPresent(id ->
+                    log.info("Hearing {} caseUrn {} not submitted to GOB: no result with a code (FR-010)", key.hearingId(), key.caseUrn()));
         } else {
             processFiltered(event, selected, key, codes, false);
         }
@@ -130,7 +143,7 @@ public class HearingResultedProcessor {
                                  final ResolvedCodes codes, final boolean refiltered) {
         final OffenceFilterResult filtered = offenceResultFilter.filter(key.caseId(), key.hearingDay(), codes);
         if (filtered.nothingToSend()) {
-            nothingNew(selected, key, codes, filtered);
+            nothingNew(selected, key, filtered);
         } else {
             final ResolvedCodes toSend = filtered.toSend();
             switch (mapper.map(event, selected, toSend, nowsDataItemSelector.select(toSend.cpShortCodes()))) {
@@ -144,12 +157,11 @@ public class HearingResultedProcessor {
         }
     }
 
-    /** Feature 002 FR-020: GOB is not contacted; the most recent GOB data is handed over again, as for a reshare. */
-    private void nothingNew(final SelectionResult.Selected selected, final SubmissionKey key, final ResolvedCodes codes,
-                            final OffenceFilterResult filtered) {
+    /** Feature 002 FR-020, feature 003 FR-009: GOB is not contacted; the most recent GOB data is reused, as for a reshare. */
+    private void nothingNew(final SelectionResult.Selected selected, final SubmissionKey key, final OffenceFilterResult filtered) {
         store.recordSkippedNothingNew(key, "nothing new to send to GOB: " + filtered.summary()).ifPresent(id -> {
             log.info("Hearing {} caseUrn {} not submitted to GOB: nothing new ({})", key.hearingId(), key.caseUrn(), filtered.summary());
-            gobDataReuseHandover.handOver(key, selected.defendant().masterDefendantId(), codes, id, null);
+            gobDataReuseHandover.handOver(key, selected.defendant().masterDefendantId());
         });
     }
 
@@ -157,7 +169,7 @@ public class HearingResultedProcessor {
                         final ResolvedCodes codes, final OffenceFilterResult filtered, final HearingResultedRequest request,
                         final boolean refiltered) {
         switch (store.recordSending(key, PayloadJson.MAPPER.writeValueAsString(request), filtered.sentItems())) {
-            case SendingRecord.Recorded recorded -> send(selected, key, recorded.submissionId(), request, filtered.toSend());
+            case SendingRecord.Recorded recorded -> send(selected, key, recorded.submissionId(), request);
             case SendingRecord.AlreadyRecorded _ ->
                     log.info("Hearing {} caseUrn {} already recorded by a concurrent delivery; not sent again", key.hearingId(),
                             key.caseUrn());
@@ -173,7 +185,7 @@ public class HearingResultedProcessor {
     }
 
     private void send(final SelectionResult.Selected selected, final SubmissionKey key, final UUID submissionId,
-                      final HearingResultedRequest request, final ResolvedCodes sent) {
+                      final HearingResultedRequest request) {
         // codes and a count only: the request itself carries defendant PII (FR-017)
         log.info("Submission {} caseUrn {}: sending to the enforcement gateway (results {}, NOWS data items {})", submissionId,
                 request.getCaseUrn(), request.getResults().stream().map(result -> String.valueOf(result.getResultCode())).toList(),
@@ -190,7 +202,7 @@ public class HearingResultedProcessor {
                                 request.getCaseUrn());
                     }
                     log.info("Submission {} caseUrn {} accepted by GOB", submissionId, request.getCaseUrn());
-                    handOverNew(selected, key, submissionId, request, success.rawResponse(), sent);
+                    handOverNew(selected, key, submissionId, request);
                 }
             }
             case GatewayResult.Failure failure -> {
@@ -201,10 +213,9 @@ public class HearingResultedProcessor {
     }
 
     private void handOverNew(final SelectionResult.Selected selected, final SubmissionKey key, final UUID submissionId,
-                             final HearingResultedRequest request, final String rawReply, final ResolvedCodes sent) {
+                             final HearingResultedRequest request) {
         final String accountNumber = request.getDefendantDetails() == null ? null : request.getDefendantDetails().getProsecutorDefendantId();
-        nowsHandover.handOver(submissionId, key, selected.defendant().masterDefendantId(), accountNumber,
-                NowsHandoverPayloadBuilder.nowsDataItemsOf(rawReply).orElseThrow(), false, sent.gobResultDefinitionIds(), null);
+        nowsHandover.handOver(submissionId, key, selected.defendant().masterDefendantId(), accountNumber, false);
     }
 
     private static SkipReason missingShareAttribute(final HearingResultedEvent event) {
@@ -217,8 +228,8 @@ public class HearingResultedProcessor {
         return reason;
     }
 
-    private static SubmissionKey keyOf(final HearingResultedEvent event, final SelectionResult.Selected selected) {
-        return new SubmissionKey(ShareCorrelationId.forShare(event.hearing().id(), event.hearingDay()), event.hearing().id(),
+    private static SubmissionKey keyOf(final HearingResultedEvent event, final SelectionResult.Selected selected, final UUID notificationId) {
+        return new SubmissionKey(notificationId, event.hearing().id(),
                 event.hearingDay(), selected.prosecutionCase().id(), selected.defendant().id(), caseUrn(selected), event.sharedTime());
     }
 

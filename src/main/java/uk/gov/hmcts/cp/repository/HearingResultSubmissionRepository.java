@@ -19,6 +19,9 @@ public interface HearingResultSubmissionRepository extends JpaRepository<Hearing
     /** The submission of one share (feature 002 research R18/R19), served by uq_hrs_correlation_case_defendant. */
     Optional<HearingResultSubmissionEntity> findByCorrelationIdAndCaseIdAndDefendantId(UUID correlationId, UUID caseId, UUID defendantId);
 
+    /** The submissions a notification created (feature 003: correlation_id holds the notification id). */
+    List<HearingResultSubmissionEntity> findByCorrelationId(UUID correlationId);
+
     /** The submissions of a case and defendant in a status, most recent first (feature 002 research R16). */
     List<HearingResultSubmissionEntity> findByCaseIdAndDefendantIdAndStatusOrderByCreatedAtDesc(UUID caseId, UUID defendantId,
                                                                                                SubmissionStatus status);

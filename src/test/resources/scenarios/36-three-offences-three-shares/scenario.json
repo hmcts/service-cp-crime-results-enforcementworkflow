@@ -41,9 +41,13 @@
       "SUCCEEDED",
       "SUCCEEDED"
     ],
-    "handover": {
-      "posts": 3,
-      "status": "HANDED_OVER"
-    }
+    "published": {
+      "events": 3
+    },
+    "notificationStatuses": [
+      "PUBLISHED",
+      "PUBLISHED",
+      "PUBLISHED"
+    ]
   }
 }

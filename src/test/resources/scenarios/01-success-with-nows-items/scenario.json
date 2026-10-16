@@ -26,10 +26,12 @@
       "9f3d2e42-8d30-4d16-9dd6-6d4e26889d5c",
       "accountWarrantNumber"
     ],
-    "handover": {
-      "posts": 1,
-      "status": "HANDED_OVER",
+    "published": {
+      "events": 1,
       "gobDataReused": false
-    }
+    },
+    "notificationStatuses": [
+      "PUBLISHED"
+    ]
   }
 }

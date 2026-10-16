@@ -3,58 +3,56 @@ package uk.gov.hmcts.cp.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.JsonNode;
-import uk.gov.hmcts.cp.client.HandoverResult;
-import uk.gov.hmcts.cp.client.HearingNowsClient;
-import uk.gov.hmcts.cp.entity.NowsHandoverStatus;
+import uk.gov.hmcts.cp.entity.NotificationStatus;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
- * Hands GOB's data for one share to hearing-nows and records the outcome on a submission row (feature 002 FR-001 to
- * FR-004). A failure is recorded and logged with ids, caseUrn and status only; it never sends anything to GOB again
- * and never stops the processing of later events.
+ * Marks a notification's GOB data ready for the GOB data event (feature 003, FR-012; replaces feature 002's direct
+ * hand-over call). The key's correlation id is the notification id. Stage 2 builds the event from the source
+ * submission, so publishing (and replaying it) never contacts GOB. Without a master defendant or an account number
+ * nothing can be published: the notification ends {@link NotificationStatus#PUBLISH_REJECTED}. Logs carry ids only.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class NowsHandover {
 
-    private final NowsHandoverPayloadBuilder payloadBuilder;
-    private final HearingNowsClient client;
-    private final SubmissionStore store;
+    private final NotificationStore notificationStore;
 
     /**
-     * @param recordOnId    the submission row that records the outcome
-     * @param detailPrefix  prefix of the recorded detail (e.g. {@code reshare}), or null
+     * A reshare waits while a first-time share of the hearing is still on its way to GOB (feature 003 FR-009): that share
+     * may bring the GOB data the reshare's NOWS need, so the reshare's stage is retried rather than ending without it.
+     *
+     * @throws FirstShareInProgressException when a first-time share of the hearing is still in progress
      */
-    public void handOver(final UUID recordOnId, final SubmissionKey key, final UUID masterDefendantId, final String accountNumber,
-                         final JsonNode nowsDataItems, final boolean gobDataReused, final List<UUID> coveredResultDefinitionIds,
-                         final String detailPrefix) {
-        if (masterDefendantId == null || accountNumber == null) {
-            final String reason = masterDefendantId == null ? "no masterDefendantId" : "no account number";
-            store.recordHandover(recordOnId, NowsHandoverStatus.FAILED, prefixed(detailPrefix, reason));
-            log.warn("Submission {} caseUrn {}: GOB data not handed over to hearing NOWS ({})", recordOnId, key.caseUrn(), reason);
-        } else {
-            final String payload = payloadBuilder.build(key, masterDefendantId, accountNumber, nowsDataItems, gobDataReused,
-                    coveredResultDefinitionIds);
-            switch (client.handOver(payload)) {
-                case HandoverResult.HandedOver _ -> {
-                    store.recordHandover(recordOnId, NowsHandoverStatus.HANDED_OVER, detailPrefix);
-                    log.info("Submission {} caseUrn {}: GOB data handed over to hearing NOWS (correlationId {}, reused {})",
-                            recordOnId, key.caseUrn(), key.correlationId(), gobDataReused);
-                }
-                case HandoverResult.Failed failed -> {
-                    store.recordHandover(recordOnId, NowsHandoverStatus.FAILED, prefixed(detailPrefix, failed.detail()));
-                    log.warn("Submission {} caseUrn {}: hand-over to hearing NOWS failed: {} (not retried, GOB not contacted again)",
-                            recordOnId, key.caseUrn(), failed.detail());
-                }
-            }
+    public void awaitFirstShare(final SubmissionKey key) {
+        if (notificationStore.firstShareInProgress(key.hearingId(), key.correlationId())) {
+            throw new FirstShareInProgressException(key.correlationId(), key.hearingId());
         }
     }
 
-    private static String prefixed(final String prefix, final String detail) {
-        return prefix == null ? detail : prefix + ": " + detail;
+    /** Nothing to publish: no GOB data for the share (feature 003 FR-009); its NOWS stay held (FR-016). */
+    public void noGobData(final SubmissionKey key, final String reason) {
+        notificationStore.markFinal(key.correlationId(), NotificationStatus.NO_GOB_DATA, reason);
+        log.info("Notification {} caseUrn {}: no GOB data to publish ({}); NOWS stay held", key.correlationId(), key.caseUrn(), reason);
+    }
+
+    /**
+     * @param sourceSubmissionId the submission GOB accepted whose reply is published (new, or reused)
+     * @param gobDataReused      true when GOB was not contacted for this share (FR-009)
+     */
+    public void handOver(final UUID sourceSubmissionId, final SubmissionKey key, final UUID masterDefendantId, final String accountNumber,
+                         final boolean gobDataReused) {
+        final UUID notificationId = key.correlationId();
+        if (masterDefendantId == null || accountNumber == null) {
+            final String reason = masterDefendantId == null ? "NO_MASTER_DEFENDANT_ID" : "NO_ACCOUNT_NUMBER";
+            notificationStore.markFinal(notificationId, NotificationStatus.PUBLISH_REJECTED, reason);
+            log.warn("Notification {} caseUrn {}: GOB data not publishable ({})", notificationId, key.caseUrn(), reason);
+        } else {
+            notificationStore.markReadyToPublish(notificationId, sourceSubmissionId, masterDefendantId, gobDataReused);
+            log.info("Notification {} caseUrn {}: GOB data of submission {} ready to publish (reused {})", notificationId,
+                    key.caseUrn(), sourceSubmissionId, gobDataReused);
+        }
     }
 }

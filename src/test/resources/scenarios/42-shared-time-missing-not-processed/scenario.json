@@ -9,6 +9,9 @@
     "gatewayPosts": 0,
     "logMustContain": [
       "caseUrn E012345678 not submitted to GOB: SHARED_TIME_MISSING"
+    ],
+    "notificationStatuses": [
+      "SKIPPED_NOT_ENFORCEMENT"
     ]
   }
 }

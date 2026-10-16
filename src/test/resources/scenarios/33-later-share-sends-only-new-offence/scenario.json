@@ -36,25 +36,20 @@
       "SUCCEEDED",
       "SUCCEEDED"
     ],
-    "handover": {
-      "posts": 2,
-      "status": "HANDED_OVER",
-      "gobDataReusedPerPost": [
+    "published": {
+      "events": 2,
+      "gobDataReusedPerEvent": [
         false,
         false
       ],
-      "hearingDayPerPost": [
-        "2026-05-03",
-        "2026-05-10"
-      ],
-      "sharedTimePerPost": [
+      "sharedTimePerEvent": [
         "2026-05-03T14:30:00Z",
         "2026-05-10T14:30:00Z"
-      ],
-      "detailsPerRow": [
-        null,
-        null
       ]
-    }
+    },
+    "notificationStatuses": [
+      "PUBLISHED",
+      "PUBLISHED"
+    ]
   }
 }

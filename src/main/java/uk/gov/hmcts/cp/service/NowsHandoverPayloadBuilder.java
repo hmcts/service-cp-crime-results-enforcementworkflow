@@ -10,14 +10,15 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Builds the {@code hearingnows.add-enforcement-nows-data} payload (feature 002, data-model §2). GOB's
- * {@code nowsDataItems} are embedded as the JSON node of GOB's raw reply, unchanged (research R10): no field added,
- * removed, renamed or reformatted. The payload holds GOB data and the account number: never logged.
+ * Builds the GOB data event payload for hearing-nows (feature 003, research R12). GOB's {@code nowsDataItems} are
+ * embedded as the JSON node of GOB's raw reply, unchanged (feature 002 research R10): no field added, removed,
+ * renamed or reformatted. The payload holds GOB data and the account number: never logged.
  */
 @Component
 public class NowsHandoverPayloadBuilder {
@@ -29,23 +30,35 @@ public class NowsHandoverPayloadBuilder {
             .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN)
             .build();
 
-    public String build(final SubmissionKey key, final UUID masterDefendantId, final String accountNumber, final JsonNode nowsDataItems,
-                        final boolean gobDataReused, final List<UUID> coveredResultDefinitionIds) {
+    /**
+     * The GOB data event payload (feature 003, contracts/public.enforcementworkflow.enforcement-nows-data-ready.json),
+     * without the CPP envelope: the notification's NOWs of the selected defendant, the account number and GOB's
+     * {@code nowsDataItems} verbatim.
+     */
+    public ObjectNode build(final UUID hearingId, final List<NowRequest> nows, final String accountNumber, final JsonNode nowsDataItems,
+                            final boolean gobDataReused, final Instant sharedTime) {
         final ObjectNode payload = VERBATIM.createObjectNode();
-        payload.put("correlationId", key.correlationId().toString());
-        payload.put("hearingId", key.hearingId().toString());
-        payload.put("hearingDay", key.hearingDay().toString());
-        payload.put("masterDefendantId", masterDefendantId.toString());
-        payload.put("defendantId", key.defendantId().toString());
-        payload.put("prosecutionCaseId", key.caseId().toString());
-        payload.put("caseUrn", key.caseUrn());
+        payload.put("hearingId", hearingId.toString());
+        final ArrayNode items = payload.putArray("nows");
+        nows.forEach(now -> items.addObject()
+                .put("requestId", now.requestId().toString())
+                .put("masterDefendantId", now.masterDefendantId().toString()));
         payload.put("accountNumber", accountNumber);
-        payload.put("sharedTime", key.sharedTime().toString());
         payload.put("gobDataReused", gobDataReused);
-        final ArrayNode covered = payload.putArray("coveredResultDefinitionIds");
-        coveredResultDefinitionIds.forEach(id -> covered.add(id.toString()));
+        if (sharedTime != null) {
+            payload.put("sharedTime", sharedTime.toString());
+        }
         payload.set("nowsDataItems", nowsDataItems);
-        return VERBATIM.writeValueAsString(payload);
+        return payload;
+    }
+
+    /** Writes a payload keeping GOB's numbers as written. */
+    public static String write(final JsonNode json) {
+        return VERBATIM.writeValueAsString(json);
+    }
+
+    /** One enforcement NOW request of the notification. */
+    public record NowRequest(UUID requestId, UUID masterDefendantId) {
     }
 
     /**

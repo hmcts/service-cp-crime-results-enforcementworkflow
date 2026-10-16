@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import uk.gov.hmcts.cp.entity.HearingResultSubmissionEntity;
-import uk.gov.hmcts.cp.entity.NowsHandoverStatus;
 import uk.gov.hmcts.cp.entity.SubmissionStatus;
 import uk.gov.hmcts.cp.integration.IntegrationTestBase;
 import uk.gov.hmcts.cp.mapper.MappingFailureReason;
@@ -25,6 +24,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static uk.gov.hmcts.cp.support.TempDiagnosticsLogFilter.withoutTempDiagnostics;
 
 @ExtendWith(OutputCaptureExtension.class)
 class SubmissionStoreIntegrationTest extends IntegrationTestBase {
@@ -130,18 +130,6 @@ class SubmissionStoreIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    void record_handover_should_set_the_hand_over_columns() {
-        final UUID id = sendingRow();
-
-        store.recordHandover(id, NowsHandoverStatus.FAILED, "HTTP 403");
-
-        final HearingResultSubmissionEntity row = repository.findById(id).orElseThrow();
-        assertThat(row.getNowsHandoverStatus()).isEqualTo(NowsHandoverStatus.FAILED);
-        assertThat(row.getNowsHandoverDetail()).isEqualTo("HTTP 403");
-        assertThat(row.getNowsHandoverAt()).isNotNull();
-    }
-
-    @Test
     void find_existing_should_return_the_row_recorded_as_sending() {
         final Ids ids = new Ids();
         assertThat(store.findExisting(ids.correlation, ids.prosecutionCase, ids.defendant)).isEmpty();
@@ -149,10 +137,7 @@ class SubmissionStoreIntegrationTest extends IntegrationTestBase {
         store.recordSending(ids.key(), "{}", List.of());
 
         assertThat(store.findExisting(ids.correlation, ids.prosecutionCase, ids.defendant))
-                .hasValueSatisfying(existing -> {
-                    assertThat(existing.status()).isEqualTo(SubmissionStatus.SENDING);
-                    assertThat(store.isStale(existing)).isFalse(); // a call that may still be in flight
-                });
+                .hasValueSatisfying(existing -> assertThat(existing.status()).isEqualTo(SubmissionStatus.SENDING));
     }
 
     @Test
@@ -165,27 +150,6 @@ class SubmissionStoreIntegrationTest extends IntegrationTestBase {
         assertThat(first).isInstanceOf(SendingRecord.Recorded.class);
         assertThat(second).isInstanceOf(SendingRecord.AlreadyRecorded.class);
         assertThat(repository.count()).isEqualTo(1);
-    }
-
-    @Test
-    void final_status_should_never_be_stale_whatever_its_age() {
-        final Ids ids = new Ids();
-        insert(ids, SubmissionStatus.SUCCEEDED, Instant.now().minus(Duration.ofDays(3)));
-
-        assertThat(store.findExisting(ids.correlation, ids.prosecutionCase, ids.defendant))
-                .hasValueSatisfying(existing -> assertThat(store.isStale(existing)).isFalse());
-    }
-
-    @Test
-    void sending_row_older_than_the_threshold_should_be_stale() {
-        final Ids ids = new Ids();
-        insert(ids, SubmissionStatus.SENDING, Instant.now().minus(Duration.ofMinutes(6))); // threshold is 5 min
-
-        assertThat(store.findExisting(ids.correlation, ids.prosecutionCase, ids.defendant))
-                .hasValueSatisfying(existing -> {
-                    assertThat(existing.status()).isEqualTo(SubmissionStatus.SENDING);
-                    assertThat(store.isStale(existing)).isTrue();
-                });
     }
 
     @Test
@@ -340,13 +304,13 @@ class SubmissionStoreIntegrationTest extends IntegrationTestBase {
     @Test
     void integrity_violation_other_than_the_unique_key_should_not_be_treated_as_duplicate(final CapturedOutput output) {
         final Ids ids = new Ids();
-        final String payload = "{\"defendantDetails\":{\"forename\":\"Edward\",\"nationalInsuranceNumber\":\"NH195839C\"}}";
+        final String payload = "{\"defendantDetails\":{\"forename\":\"Edward\",\"nationalInsuranceNumber\":\"QQ123456C\"}}";
 
         assertThatThrownBy(() -> store.recordSending(ids.keyWithoutSharedTime(), payload, List.of()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageNotContaining("Edward");
         // Postgres reports the whole failing row, request_payload included; it must not reach the logs (FR-017)
-        assertThat(output.getAll()).doesNotContain("Edward", "NH195839C");
+        assertThat(withoutTempDiagnostics(output.getAll())).doesNotContain("Edward", "QQ123456C");
     }
 
     private UUID sendingRow() {

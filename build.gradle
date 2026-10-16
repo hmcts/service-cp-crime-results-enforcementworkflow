@@ -33,10 +33,11 @@ configurations {
 // Sadly, dependabot does not track dependencies in the apply-from files
 dependencies {
   // Api spec: enforcement gateway contract (generated HearingResultedRequest/Response models).
-  // Draft published from api-cp-crime-results-enforcementgateway team/CCT-1222 (merge 1d55b54, PR #33). Replace with a
-  // fixed X.Y.Z release before a release build: validateApiSpecVersions rejects draft versions.
-  implementation('uk.gov.hmcts.cp:api-cp-crime-results-enforcementgateway:0.0.0-1d55b54')
-  apiSpec('uk.gov.hmcts.cp:api-cp-crime-results-enforcementgateway:0.0.0-1d55b54')
+  // 0.2.0 adds POST /enforcement-notifications (tag enforcement-notification, implemented by this service, CIMD-4530).
+  // LOCAL draft (publishToMavenLocal -DAPI_SPEC_VERSION=0.2.0-local) until the contract PR publishes a draft; replace
+  // with a fixed X.Y.Z release before a release build: validateApiSpecVersions rejects draft versions (task T078).
+  implementation('uk.gov.hmcts.cp:api-cp-crime-results-enforcementgateway:0.2.0-local')
+  apiSpec('uk.gov.hmcts.cp:api-cp-crime-results-enforcementgateway:0.2.0-local')
   // Generated models carry @Schema annotations; needed on the compile classpath (-Werror), as in service-cp-crime-results-pcr
   implementation 'io.swagger.core.v3:swagger-annotations:2.2.55'
 
@@ -80,8 +81,17 @@ dependencies {
   // Embedded Artemis broker: JMS end-to-end integration tests with the real listeners (research.md R25)
   testImplementation 'org.apache.artemis:artemis-jakarta-server'
 
-  // --- Messaging: durable subscription to the CP 'public.event' Artemis topic (connectivity logging) ---
+  // --- Messaging: CP 'public.event' Artemis topic (diagnostic subscription; GOB data event publishing, CIMD-4530) ---
   implementation 'org.springframework.boot:spring-boot-starter-artemis'
+
+  // --- Queued work, retries and replays (cp-task-manager; constitution 1.2.0, feature 003 research R10) ---
+  implementation 'uk.gov.hmcts.cp:task-manager-service:1.0.11'
+
+  // --- Results cache (Azure Cache for Redis), Entra ID auth with managed identity; no access keys (research R8) ---
+  implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+  implementation 'com.azure:azure-identity:1.18.1'
+  testImplementation 'org.testcontainers:testcontainers'
+  testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 }
 
 // Guard against legacy javax.jms on the classpath alongside Spring Boot 4's jakarta.jms.
