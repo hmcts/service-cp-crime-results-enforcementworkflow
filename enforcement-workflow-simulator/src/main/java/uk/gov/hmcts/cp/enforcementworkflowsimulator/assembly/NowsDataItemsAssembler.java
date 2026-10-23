@@ -61,7 +61,7 @@ public class NowsDataItemsAssembler {
         requestedNames.forEach(name -> requestedRoots.addAll(catalogue.propertiesFor(name)));
 
         final Set<String> requiredLabels = new LinkedHashSet<>();
-        resultCodes.forEach(code -> requiredLabels.addAll(catalogue.fieldsFor(code)));
+        resultCodes.forEach(code -> requiredLabels.addAll(catalogue.fieldsForPostedCode(code)));
 
         final Map<String, Object> tree = new LinkedHashMap<>();
         requiredLabels.stream()

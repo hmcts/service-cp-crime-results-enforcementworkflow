@@ -2,6 +2,8 @@ package uk.gov.hmcts.cp.enforcementworkflowsimulator.api;
 
 import java.util.stream.Stream;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import uk.gov.hmcts.cp.enforcementworkflowsimulator.catalogue.CatalogueLoader;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -22,13 +25,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static uk.gov.hmcts.cp.enforcementworkflowsimulator.api.OpenApiConformance.conformsToSpec;
 
 /**
- * Every resultCode in the bundled v0.4.0 enum must produce a schema-valid response (AC1, AC3,
- * AC4), plus error-path coverage Task 7 introduced but never exercised across the surface.
+ * Every resultCode in Libra's published v0.6.0 enum must produce a schema-valid response (AC1,
+ * AC3, AC4), plus error-path coverage Task 7 introduced but never exercised across the surface.
  *
- * <p>The 42 codes are read from the bundled contract via {@link CatalogueLoader#schemaResultCodes()}
- * — the same parsing path {@link CatalogueLoader#load()} uses for its own startup validation —
- * rather than hand-copied, so a future contract bump needs no edit here. This codebase has been
- * bitten twice already by a hand-typed snapshot of this enum drifting from the bundled contract.
+ * <p>The 42 codes are read via {@link CatalogueLoader#publishedResultCodes()} — the same parsing
+ * path {@link CatalogueLoader#load()} uses for its own startup validation — rather than
+ * hand-copied. Since the LOCAL AMENDMENT (CIMD-4530, 2026-10-22) the bundled contract has no
+ * resultCode enum (every CP result code is sent; only maxLength: 10 remains), so that frozen list
+ * is the "codes GOB used before" set; any other contract-valid code is accepted too and
+ * contributes no extra NOWS data fields.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -58,16 +63,36 @@ class AllResultCodesConformanceIT {
     }
 
     /**
-     * The bundled contract's full {@code resultCode} enum (42 values in v0.4.0), derived rather
-     * than hand-typed — see the class Javadoc.
+     * The 42 codes GOB used before: Libra's published v0.6.0 {@code resultCode} enum, frozen in
+     * the catalogue loader since the bundled contract lost its enum, derived rather than
+     * hand-typed — see the class Javadoc.
      */
-    static Stream<String> schemaResultCodes() {
-        return new CatalogueLoader().schemaResultCodes().stream().sorted();
+    static Stream<String> codesGobUsedBefore() {
+        return new CatalogueLoader().publishedResultCodes().stream().sorted();
+    }
+
+    /** Every code the catalogue knows that fits the contract's maxLength (10), not just the 42 above. */
+    static Stream<String> allContractValidCatalogueCodes() {
+        final CatalogueLoader loader = new CatalogueLoader();
+        final int maxLength = loader.schemaResultCodeMaxLength();
+        return loader.load().allCodes().stream().filter(code -> code.length() <= maxLength).sorted();
+    }
+
+    @ParameterizedTest(name = "catalogue resultCode {0} returns a schema-valid response")
+    @MethodSource("allContractValidCatalogueCodes")
+    void every_catalogue_result_code_returns_a_schema_valid_response(final String resultCode) throws Exception {
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
+                        .contentType(APPLICATION_JSON)
+                        .header("X-Correlation-ID", "conformance-all-" + resultCode)
+                        .content(requestFor(resultCode)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.caseUrn").value("E012345678"))
+                .andExpect(conformsToSpec());
     }
 
     @ParameterizedTest(name = "resultCode {0} returns a schema-valid response")
-    @MethodSource("schemaResultCodes")
-    void every_enum_result_code_returns_a_schema_valid_response(final String resultCode) throws Exception {
+    @MethodSource("codesGobUsedBefore")
+    void every_code_gob_used_before_returns_a_schema_valid_response(final String resultCode) throws Exception {
         mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
                         .header("X-Correlation-ID", "conformance-" + resultCode)
@@ -79,7 +104,7 @@ class AllResultCodesConformanceIT {
     }
 
     @ParameterizedTest(name = "resultCode {0} returns every requested entity")
-    @MethodSource("schemaResultCodes")
+    @MethodSource("codesGobUsedBefore")
     void every_requested_entity_is_present_whatever_the_code(final String resultCode) throws Exception {
         mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
@@ -154,22 +179,52 @@ class AllResultCodesConformanceIT {
                 .andExpect(jsonPath("$.errorDescription").value("Unknown NowsDataItemName: Not A Real Entity"));
     }
 
-    // Task 8, ruling 3: restored now that resultCode is validated against the bundled contract's
-    // enum (HearingController.validateResultCodes()) the same way validateRequestedNames() already
-    // handled NowsDataItemName — an out-of-enum resultCode used to surface as a 500
-    // (IllegalArgumentException falling through to Catalogue.resolve()), not a 400. This is the
-    // direct "out-of-enum value" example the original brief called for.
+    // CIMD-4530 (2026-10-22): every CP result code is sent, so a contract-valid code with no
+    // catalogue row is accepted (it used to be a 400 "Unknown resultCode"). It must neither 500
+    // (Catalogue.fieldsFor would throw for it) nor contribute fields: its response must be exactly
+    // the one a known fields: [] code (NOENF) produces for the same case.
     @Test
-    void rejects_a_result_code_outside_the_contracts_enum() throws Exception {
-        // Request-invalid: "NOT-A-REAL-CODE" is outside the resultCode enum — no conformsToSpec(),
-        // the request itself violates the schema.
+    void accepts_a_contract_valid_result_code_with_no_catalogue_row_and_adds_no_fields() throws Exception {
+        final String unknownCodeBody = mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
+                        .contentType(APPLICATION_JSON)
+                        .content(requestFor("ZZNEWCODE1")))
+                .andExpect(status().isOk())
+                .andExpect(conformsToSpec())
+                .andExpect(jsonPath("$.caseUrn").value("E012345678"))
+                .andReturn().getResponse().getContentAsString();
+        final String noFieldsCodeBody = mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
+                        .contentType(APPLICATION_JSON)
+                        .content(requestFor("NOENF")))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(nowsDataItemsOf(unknownCodeBody)).isEqualTo(nowsDataItemsOf(noFieldsCodeBody));
+    }
+
+    @Test
+    void rejects_a_result_code_longer_than_the_contracts_max_length() throws Exception {
+        // Request-invalid: 11 characters against maxLength: 10 — no conformsToSpec(), the request
+        // itself violates the schema.
         mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
                         .contentType(APPLICATION_JSON)
-                        .content(requestFor("SC").replace("\"resultCode\": \"SC\"",
-                                "\"resultCode\": \"NOT-A-REAL-CODE\"")))
+                        .content(requestFor("ELEVENCHARS")))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errorCode").isNotEmpty())
-                .andExpect(jsonPath("$.errorDescription").value("Unknown resultCode: NOT-A-REAL-CODE"));
+                .andExpect(jsonPath("$.errorCode").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.errorDescription").value("The request body failed validation."));
+    }
+
+    @Test
+    void rejects_a_blank_result_code() throws Exception {
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization)
+                        .contentType(APPLICATION_JSON)
+                        .content(requestFor("  ")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.errorDescription").value("The request body failed validation."));
+    }
+
+    private static JsonNode nowsDataItemsOf(final String responseBody) throws Exception {
+        return new ObjectMapper().readTree(responseBody).get("nowsDataItems");
     }
 
     @Test

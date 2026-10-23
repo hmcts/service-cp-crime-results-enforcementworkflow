@@ -19,12 +19,22 @@ import org.springframework.stereotype.Component;
  * Loads the three catalogue resources and validates them against each other, and against the
  * bundled OpenAPI contract. Any inconsistency is a startup failure — the catalogue must never
  * silently return a wrong or empty answer.
+ *
+ * <p>Since the LOCAL AMENDMENT (CIMD-4530, 2026-10-22) the bundled contract no longer has a
+ * {@code resultCode} enum — every CP result code is sent, constrained only by {@code maxLength}.
+ * The catalogue is therefore checked against two things instead: every catalogue code must fit
+ * the contract's {@code maxLength}, and every code in Libra's frozen, as-published v0.6.0 enum
+ * ({@link #PUBLISHED_RESULT_CODES_PATH}, the codes GOB curated before the amendment) must have a
+ * catalogue row.
  */
 @Component
 public class CatalogueLoader {
 
+    private static final String RESULT_CODE_PREFIX = "Result code '";
     private static final String DEFAULT_CATALOGUE_BASE = "enforcement-workflow-simulator/catalogue/";
     private static final String OPENAPI_SPEC_PATH = "openapi/libra-gateway-hearing-events-v0.6.0.yml";
+    private static final String PUBLISHED_RESULT_CODES_PATH =
+            "openapi/libra-gateway-hearing-events-v0.6.0-published-result-codes.yaml";
     private static final String UNCHECKED = "unchecked";
 
     private final String catalogueBase;
@@ -75,20 +85,30 @@ public class CatalogueLoader {
 
         final Map<String, Object> openApiSpec = readOpenApiSpec();
         final Set<String> schemaProperties = schemaNowsDataItemProperties(openApiSpec);
-        final Set<String> schemaResultCodes = schemaResultCodeEnum(openApiSpec);
+        final int resultCodeMaxLength = schemaResultCodeMaxLength(openApiSpec);
 
-        validate(catalogue, schemaProperties, schemaResultCodes);
+        validate(catalogue, schemaProperties, resultCodeMaxLength, publishedResultCodes());
         return catalogue;
     }
 
     /**
-     * The bundled OpenAPI contract's {@code resultCode} enum values. Exposed so callers (e.g.
-     * {@code CatalogueCoverageTest}) can assert the catalogue against the schema without
-     * hand-copying a second snapshot of the enum — this is the same parsing path {@link #load()}
-     * uses for startup validation.
+     * The {@code resultCode} enum exactly as Libra published it in v0.6.0 — frozen at the LOCAL
+     * AMENDMENT (CIMD-4530, 2026-10-22) that removed it from the bundled contract. It no longer
+     * decides what the simulator accepts; it is the "codes GOB used before" list the catalogue
+     * checks ({@link #load()}, {@code CatalogueCoverageTest}, {@code AllResultCodesConformanceIT})
+     * are asserted against, read from one place rather than hand-copied.
      */
-    public Set<String> schemaResultCodes() {
-        return schemaResultCodeEnum(readOpenApiSpec());
+    public Set<String> publishedResultCodes() {
+        final List<String> codes = readResource(PUBLISHED_RESULT_CODES_PATH, new TypeReference<>() { });
+        if (codes == null || codes.isEmpty()) {
+            throw new IllegalStateException("Published resultCode list is empty: " + PUBLISHED_RESULT_CODES_PATH);
+        }
+        return Set.copyOf(codes);
+    }
+
+    /** The bundled contract's {@code HearingResult.resultCode} {@code maxLength}. */
+    public int schemaResultCodeMaxLength() {
+        return schemaResultCodeMaxLength(readOpenApiSpec());
     }
 
     private FieldPath toFieldPath(final String label, final Map<String, Object> row) {
@@ -132,17 +152,20 @@ public class CatalogueLoader {
         }
     }
 
-    // See the rationale on read(...) above: getClass().getClassLoader() is correct for this
-    // Spring Boot executable jar's classloading model.
-    @SuppressWarnings("PMD.UseProperClassLoader")
     private Map<String, Object> readOpenApiSpec() {
-        try (InputStream in = getClass().getClassLoader().getResourceAsStream(OPENAPI_SPEC_PATH)) {
+        return readResource(OPENAPI_SPEC_PATH, new TypeReference<>() { });
+    }
+
+    // See the rationale on read(...) above.
+    @SuppressWarnings("PMD.UseProperClassLoader")
+    private <T> T readResource(final String path, final TypeReference<T> type) {
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream(path)) {
             if (in == null) {
-                throw new IllegalStateException("OpenAPI spec resource not found: " + OPENAPI_SPEC_PATH);
+                throw new IllegalStateException("Contract resource not found: " + path);
             }
-            return yaml.readValue(in, new TypeReference<>() { });
+            return yaml.readValue(in, type);
         } catch (final IOException e) {
-            throw new IllegalStateException("Failed to read OpenAPI spec: " + OPENAPI_SPEC_PATH, e);
+            throw new IllegalStateException("Failed to read contract resource: " + path, e);
         }
     }
 
@@ -158,19 +181,19 @@ public class CatalogueLoader {
         return Set.copyOf(properties.keySet());
     }
 
-    /** The enum values of {@code components.schemas.HearingResult.properties.resultCode}. */
+    /** The {@code maxLength} of {@code components.schemas.HearingResult.properties.resultCode}. */
     @SuppressWarnings(UNCHECKED)
-    private Set<String> schemaResultCodeEnum(final Map<String, Object> spec) {
+    private int schemaResultCodeMaxLength(final Map<String, Object> spec) {
         final Map<String, Object> hearingResult = schema(spec, "HearingResult");
         final Map<String, Object> properties = (Map<String, Object>) hearingResult.get("properties");
         final Map<String, Object> resultCode =
                 properties == null ? null : (Map<String, Object>) properties.get("resultCode");
-        final List<String> enumValues = resultCode == null ? null : (List<String>) resultCode.get("enum");
-        if (enumValues == null) {
+        final Object maxLength = resultCode == null ? null : resultCode.get("maxLength");
+        if (!(maxLength instanceof Number number)) {
             throw new IllegalStateException(
-                    "OpenAPI spec: components.schemas.HearingResult.properties.resultCode has no enum");
+                    "OpenAPI spec: components.schemas.HearingResult.properties.resultCode has no maxLength");
         }
-        return Set.copyOf(enumValues);
+        return number.intValue();
     }
 
     @SuppressWarnings(UNCHECKED)
@@ -185,8 +208,10 @@ public class CatalogueLoader {
     }
 
     /** Spec §6.5 — every failure mode here aborts startup. */
-    private void validate(
-            final Catalogue catalogue, final Set<String> schemaProperties, final Set<String> schemaResultCodes) {
+    private void validate(final Catalogue catalogue,
+                          final Set<String> schemaProperties,
+                          final int resultCodeMaxLength,
+                          final Set<String> publishedResultCodes) {
         final List<String> errors = new ArrayList<>();
 
         catalogue.entityNames().forEach((name, properties) -> {
@@ -213,26 +238,30 @@ public class CatalogueLoader {
         });
 
         catalogue.resultCodes().forEach((code, entry) -> {
+            if (code.isBlank() || code.length() > resultCodeMaxLength) {
+                errors.add(RESULT_CODE_PREFIX + code + "' is not a contract-valid resultCode (1.."
+                        + resultCodeMaxLength + " characters) and could never be posted");
+            }
             if (entry.alias() != null && !catalogue.resultCodes().containsKey(entry.alias())) {
-                errors.add("Result code '" + code + "' aliases unknown code '" + entry.alias() + "'");
+                errors.add(RESULT_CODE_PREFIX + code + "' aliases unknown code '" + entry.alias() + "'");
             }
             entry.fields().stream()
                     .filter(label -> !catalogue.fieldPaths().containsKey(label))
                     .forEach(label -> errors.add(
-                            "Result code '" + code + "' references unknown field label '" + label + "'"));
+                            RESULT_CODE_PREFIX + code + "' references unknown field label '" + label + "'"));
         });
 
         catalogue.allCodes().forEach(code -> {
             try {
                 catalogue.fieldsFor(code);
             } catch (final IllegalStateException | IllegalArgumentException e) {
-                errors.add("Result code '" + code + "' does not resolve: " + e.getMessage());
+                errors.add(RESULT_CODE_PREFIX + code + "' does not resolve: " + e.getMessage());
             }
         });
 
-        schemaResultCodes.stream()
+        publishedResultCodes.stream()
                 .filter(code -> !catalogue.allCodes().contains(code))
-                .forEach(code -> errors.add("Schema resultCode enum value '" + code
+                .forEach(code -> errors.add("Published v0.6.0 resultCode enum value '" + code
                         + "' is not known to the catalogue (must be mapped, aliased, or an explicit fields: [] "
                         + "gap row in result-codes.yaml)"));
 

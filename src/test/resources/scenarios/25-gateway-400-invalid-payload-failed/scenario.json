@@ -17,6 +17,9 @@
     "gatewayPosts": 1,
     "status": "FAILED",
     "httpStatus": 400,
-    "errorDetail": "error=INVALID_PAYLOAD; libraStatus=; errorCode="
+    "errorDetail": "error=INVALID_PAYLOAD; libraStatus=; errorCode=",
+    "notificationStatuses": [
+      "GOB_FAILED"
+    ]
   }
 }

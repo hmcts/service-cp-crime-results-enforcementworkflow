@@ -14,12 +14,15 @@ import java.util.Objects;
  * Chooses the enforcement case and defendant a hearing-resulted event is submitted for, or says why
  * nothing is submitted. The checks run in this order:
  * <ol>
- *   <li>a reshare is never sent to GOB (R2);</li>
+ *   <li>a missing reshare flag is never read as a first share (a safeguard: since feature 003 the flag always comes
+ *       from the notification, research R22);</li>
  *   <li>Enforcement means the case's OU code equals {@code cp.enforcement.authority-code} (default
  *       GAPGD00), the same predicate as the enforcement gateway (R1);</li>
  *   <li>shapes the BA confirmed are never sent are ignored as a safeguard (R3): more than one
  *       enforcement case, more than one defendant, or an application linked to the case.</li>
  * </ol>
+ * A reshare of an in-scope Enforcement case is selected as {@link SelectionResult.Reshare}: it is never sent to GOB
+ * (R2, feature 003 FR-008), and its NOWS reuse the GOB data already received, or stay held without it (FR-009).
  * Unexpected shapes are logged at WARN, and the rest at INFO or DEBUG, with the hearing id and caseUrn only.
  */
 @Slf4j
@@ -43,16 +46,20 @@ public class EnforcementCaseSelector {
         final SelectionResult result;
         if (event.isReshare() == null) {
             result = skipped(SkipReason.RESHARE_FLAG_MISSING);
-        } else if (event.isReshare()) {
-            result = skipped(SkipReason.RESHARE);
         } else if (enforcementCases.isEmpty()) {
             result = skipped(SkipReason.NO_ENFORCEMENT_CASE);
         } else if (enforcementCases.size() > IN_SCOPE_COUNT) {
             result = unexpected(event, enforcementCases.getFirst(), SkipReason.MULTIPLE_ENFORCEMENT_CASES);
         } else {
-            result = selectDefendant(event, enforcementCases.getFirst());
+            result = asReshareIfReshared(event, selectDefendant(event, enforcementCases.getFirst()));
         }
         return result;
+    }
+
+    private static SelectionResult asReshareIfReshared(final HearingResultedEvent event, final SelectionResult selection) {
+        return Boolean.TRUE.equals(event.isReshare()) && selection instanceof SelectionResult.Selected selected
+                ? new SelectionResult.Reshare(selected.prosecutionCase(), selected.defendant())
+                : selection;
     }
 
     private SelectionResult selectDefendant(final HearingResultedEvent event, final ProsecutionCase prosecutionCase) {

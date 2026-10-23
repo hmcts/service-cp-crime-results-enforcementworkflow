@@ -10,7 +10,9 @@ public enum SubmissionStatus {
     SUCCEEDED,
     FAILED,
     MAPPING_FAILED,
-    SKIPPED_NO_RESULT_CODE;
+    SKIPPED_NO_RESULT_CODE,
+    /** Nothing left to send: every offence already sent, or the rest adjourned (feature 002 FR-018, FR-020). */
+    SKIPPED_NOTHING_NEW;
 
     public boolean isFinal() {
         return this != SENDING;

@@ -21,6 +21,9 @@
     "gatewayPosts": 1,
     "status": "FAILED",
     "httpStatus": 502,
-    "errorDetail": "error=LIBRA_CALL_FAILED; libraStatus=; errorCode="
+    "errorDetail": "error=LIBRA_CALL_FAILED; libraStatus=; errorCode=",
+    "notificationStatuses": [
+      "GOB_FAILED"
+    ]
   }
 }

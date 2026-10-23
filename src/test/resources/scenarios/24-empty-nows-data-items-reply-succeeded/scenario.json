@@ -19,6 +19,13 @@
     "httpStatus": 200,
     "responsePayloadContains": [
       "\"nowsDataItems\": {}"
+    ],
+    "published": {
+      "events": 1,
+      "gobDataReused": false
+    },
+    "notificationStatuses": [
+      "PUBLISHED"
     ]
   }
 }

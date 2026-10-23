@@ -1,0 +1,19 @@
+# Contract: results-processing app (Function App) changes
+
+Repo: `cpp-context-azure-legalaidagency/azure-functions/durable-functions`. Research R4–R6, R15.
+
+| Area | Change |
+|---|---|
+| Enforcement case rule | A case is an Enforcement case when its prosecuting authority OU code equals env `ENFORCEMENT_AUTHORITY_CODE` (default `GAPGD00`); same rule as W (001 FR-002). |
+| Feature flag | `EnforcementNows` (App Configuration via `FeatureFlagClient`, fail-safe: unreadable → off). Read once per share by the two NOWS triggers (`HearingResultedNowsEventGridTrigger`, `HearingResultedNowsQueueTrigger`) and fixed in the orchestration input as `enforcementNowsEnabled` (replay-safe; absent or not `true` → off). Off → behaviour exactly as today. Must be switched together with H's `EnforcementNows` toggle. |
+| `SetComplianceEnforcement` | Builds the compliance entry of an Enforcement case's defendant exactly as today (same `complianceCorrelationId`, imposition results, ...) and marks it `enforcementCase: true` (flag on only; flag off: no mark, output as today). NCES (`SetNcesHearingResults`) and `SetNowVariants` keep getting the full list, so the NOW vocabulary (e.g. major creditors) and the subscription rules decide distribution as today (FR-021). The orchestrator drops marked entries only from the GOB update (`OutboundComplianceEnforcement` / `ProcessOutboundComplianceEnforcement`, pure filter of the recorded activity output; not called when nothing is left), so the app sends no staging-enforcement imposition for that defendant (FR-017). |
+| `NowDocumentRequestMapper` | For a NOW of an Enforcement case's defendant: `requestId = uuidv4()` (one per NOW), for **every** such NOW, financial or not (FR-001). Non-enforcement NOWs unchanged. `financialOrderDetails` stays as built today (only for financial results). |
+| `OutboundNowsVariants` output | Flag on: `{nowDocumentRequests, enforcementNows}`, `enforcementNows` being the `{requestId, masterDefendantId}` list of the enforcement NOWs generated in this share (on a reshare only the regenerated, amended ones). Flag off: the NOW request array exactly as today. The orchestrator accepts both shapes and passes only the NOW request array to `ProcessOutboundNowVariants`. |
+| New activity `NotifyEnforcementWorkflow` | After `ProcessOutboundNowVariants` succeeded and the list is non-empty: POST `ENFORCEMENT_WORKFLOW_API_BASE_URI` + `/enforcement-notifications` (contract: [workflow-enforcement-notification-api.md](workflow-enforcement-notification-api.md)) with header `CJSCPPUID` = env `ENFORCEMENT_WORKFLOW_CJSCPPUID`. Body `{hearingId, hearingDate, isReshare, nows:[{requestId, masterDefendantId}]}`; `hearingDate` = the orchestration's hearing day as `yyyy-MM-dd` (a date-time is converted to the Europe/London calendar day); `nows` is limited to 50 by the contract, no chunking yet (open point OP-11); `isReshare` (required boolean, gateway 0.2.0) = the orchestrator's `hearingResultedObj.isReshare === true` (output of `HearingResultedCacheQuery`, already recorded: replay-safe), because amend & reshare results are never sent to GOB by W. Uses `postWrapperWithDefault`; rethrows on failure. |
+| Orchestrator | Calls `NotifyEnforcementWorkflow` with `callActivityWithRetry`; if it finally fails, the orchestrator rethrows (after the remaining activities) so the instance ends `Failed` and can be restarted (FR-002a). Other activities keep today's handling. |
+| Logging | ids and statuses only. |
+| Tests | Jest unit tests for each changed module; request built for W validated against the OpenAPI draft. |
+| Config (cpp-aks-deploy / function app settings) | `ENFORCEMENT_WORKFLOW_API_BASE_URI`, `ENFORCEMENT_WORKFLOW_CJSCPPUID`, `ENFORCEMENT_AUTHORITY_CODE`, flag `EnforcementNows`. |
+
+Ordering note: H already holds the NOWs (F4) before W is notified, so W's event normally finds them; when it does not,
+H keeps the data (FR-013).
