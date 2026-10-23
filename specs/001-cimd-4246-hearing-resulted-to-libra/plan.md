@@ -3,10 +3,10 @@
 **Branch**: `001-cimd-4246-hearing-resulted-to-libra` | **Date**: 2026-09-25 | **Spec**: [spec.md](spec.md)
 **Spec / inputs**:
 - [spec.md](spec.md): user stories US1-US6. Iteration 1 = US1-US4, iteration 2 = US5, iteration 3 = US6.
-- `specs/001-cimd-4246-hearing-resulted-to-libra/docs/CIMD-4246-gap-analysis.md` (decisions for gaps #1-#16, the authoritative source for the technical decisions)
-- `specs/001-cimd-4246-hearing-resulted-to-libra/docs/CIMD-4246.pdf`, `CIMD-4247.pdf` … `CIMD-4256.pdf` (stories)
-- `specs/001-cimd-4246-hearing-resulted-to-libra/docs/CCT-1222-Details-20260925.pdf` (Confluence reference)
-- `specs/001-cimd-4246-hearing-resulted-to-libra/docs/libra-gateway-hearing-events-openapi-v0.4.0.yml` (Libra contract, with the local gap #2 amendment)
+- `specs/docs/CIMD-4246-gap-analysis.md` (decisions for gaps #1-#16, the authoritative source for the technical decisions)
+- `specs/docs/CIMD-4246.pdf`, `CIMD-4247.pdf` … `CIMD-4256.pdf` (stories)
+- `specs/docs/CCT-1222-Details-20260925.pdf` (Confluence reference)
+- `specs/docs/libra-gateway-hearing-events-openapi-v0.4.0.yml` (Libra contract, with the local gap #2 amendment)
 
 **Artifacts**:
 - [research.md](research.md): Phase 0 decisions R1-R21 and open items

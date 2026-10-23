@@ -2,6 +2,9 @@
   "description": "Out of scope: a hearing with two enforcement cases is ignored (US2)",
   "event": "events/hearing-resulted-two-enforcement-cases.json",
   "expected": {
-    "gatewayPosts": 0
+    "gatewayPosts": 0,
+    "notificationStatuses": [
+      "SKIPPED_NOT_ENFORCEMENT"
+    ]
   }
 }

@@ -15,6 +15,7 @@ import uk.gov.hmcts.cp.config.PayloadJson;
 import uk.gov.hmcts.cp.openapi.api.EnforcementHearingApi;
 import uk.gov.hmcts.cp.openapi.model.HearingResultedRequest;
 import uk.gov.hmcts.cp.openapi.model.HearingResultedResponse;
+import uk.gov.hmcts.cp.diagnostics.TempPayloadLog;
 
 import java.net.ConnectException;
 import java.net.UnknownHostException;
@@ -60,6 +61,9 @@ public class EnforcementGatewayClient {
     @SuppressWarnings("PMD.AvoidCatchingGenericException") // the contract of this client is "never throws"
     public GatewayResult submit(final HearingResultedRequest request) {
         GatewayResult result;
+        // TEMP DIAGNOSTICS: the full request sent to GOB through the gateway
+        TempPayloadLog.info("Enforcement gateway request for caseUrn {}: POST {}, payload={}", request.getCaseUrn(), url,
+                TempPayloadLog.json(request));
         try {
             final ResponseEntity<String> response = restClient.post()
                     .uri(EnforcementHearingApi.PATH_POST_HEARING_RESULTED)
@@ -69,6 +73,9 @@ public class EnforcementGatewayClient {
                     .retrieve()
                     .toEntity(String.class);
             final int status = response.getStatusCode().value();
+            // TEMP DIAGNOSTICS: the full answer (GOB's reply)
+            TempPayloadLog.info("Enforcement gateway response for caseUrn {}: HTTP {}, body={}", request.getCaseUrn(), status,
+                    response.getBody());
             // only a 2xx is a success; a 3xx (not followed) means the gateway may never have seen it
             if (response.getStatusCode().is2xxSuccessful()) {
                 result = new GatewayResult.Success(parse(response.getBody()), response.getBody(), status);
@@ -80,6 +87,9 @@ public class EnforcementGatewayClient {
             }
         } catch (RestClientResponseException e) {
             final String summary = summarise(e.getResponseBodyAsString());
+            // TEMP DIAGNOSTICS: the gateway's full error body
+            TempPayloadLog.error("Enforcement gateway rejected caseUrn {}: HTTP {} {}, body={}", request.getCaseUrn(),
+                    e.getStatusCode().value(), e.getStatusText(), e.getResponseBodyAsString(), e);
             result = new GatewayResult.Failure(e.getStatusCode().value(), summary);
             // TEMP DIAGNOSTICS: the gateway's error was not logged here (only recorded as codes) - log the status, url,
             // the gateway's message and Libra's errorDescription, plus a stack trace without the response body

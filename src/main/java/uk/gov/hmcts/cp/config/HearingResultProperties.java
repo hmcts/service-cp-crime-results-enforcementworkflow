@@ -8,6 +8,7 @@ import org.springframework.validation.annotation.Validated;
 import uk.gov.hmcts.cp.openapi.model.NowsDataItemName;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Arrays;
@@ -29,6 +30,12 @@ public class HearingResultProperties {
 
     /** CP shortCode → GOB NowsDataItemName values (research.md R7). Rows come from the updated Confluence page. */
     private Map<String, List<String>> nowsDataItemsByShortCode = new LinkedHashMap<>();
+
+    /**
+     * CP shortCodes that mark an adjournment (feature 002 research R19, OQ-13): an offence with such a result, or with a
+     * next hearing, ordered on the share's hearing day is adjourned and not sent to GOB; only its final result is sent.
+     */
+    private List<String> adjournmentResultCodes = new ArrayList<>(List.of("NEXH", "ADJNN"));
 
     /** A SENDING row older than this is stale and is marked FAILED (INTERRUPTED), never resent (research.md R19). */
     private Duration staleSendingThreshold = Duration.ofMinutes(5);

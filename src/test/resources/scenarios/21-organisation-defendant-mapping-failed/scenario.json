@@ -8,6 +8,9 @@
   "expected": {
     "gatewayPosts": 0,
     "status": "MAPPING_FAILED",
-    "errorDetailStartsWith": "ORGANISATION_DEFENDANT_NOT_SUPPORTED_YET"
+    "errorDetailStartsWith": "ORGANISATION_DEFENDANT_NOT_SUPPORTED_YET",
+    "notificationStatuses": [
+      "GOB_FAILED"
+    ]
   }
 }

@@ -82,12 +82,21 @@ class CatalogueLoaderValidationTest {
     }
 
     @Test
-    void rejects_a_catalogue_missing_a_schema_enum_result_code() {
+    void rejects_a_catalogue_missing_a_published_v060_enum_result_code() {
         assertThatThrownBy(() -> new CatalogueLoader(FIXTURES_BASE + "schema-enum-code-missing-from-catalogue/").load())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("""
                         Invalid enforcement workflow simulator catalogue:
-                          Schema resultCode enum value 'FSN' is not known to the catalogue (must be mapped, aliased, or an explicit fields: [] gap row in result-codes.yaml)""");
+                          Published v0.6.0 resultCode enum value 'FSN' is not known to the catalogue (must be mapped, aliased, or an explicit fields: [] gap row in result-codes.yaml)""");
+    }
+
+    @Test
+    void rejects_a_result_code_row_longer_than_the_contracts_max_length() {
+        assertThatThrownBy(() -> new CatalogueLoader(FIXTURES_BASE + "result-code-longer-than-max-length/").load())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("""
+                        Invalid enforcement workflow simulator catalogue:
+                          Result code 'ELEVENCHARS' is not a contract-valid resultCode (1..10 characters) and could never be posted""");
     }
 
     @Test

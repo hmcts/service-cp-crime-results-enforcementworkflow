@@ -9,6 +9,9 @@
   "expected": {
     "gatewayPosts": 0,
     "status": "FAILED",
-    "errorDetailStartsWith": "NOT_SENT – reference data unavailable"
+    "errorDetailStartsWith": "NOT_SENT – reference data unavailable",
+    "notificationStatuses": [
+      "GOB_FAILED"
+    ]
   }
 }

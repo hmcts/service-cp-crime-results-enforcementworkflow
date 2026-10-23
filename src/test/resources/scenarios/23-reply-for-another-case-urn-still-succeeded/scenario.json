@@ -25,6 +25,13 @@
     ],
     "logMustContain": [
       "GOB response caseUrn does not match the caseUrn sent (E012345678)"
+    ],
+    "published": {
+      "events": 1,
+      "gobDataReused": false
+    },
+    "notificationStatuses": [
+      "PUBLISHED"
     ]
   }
 }

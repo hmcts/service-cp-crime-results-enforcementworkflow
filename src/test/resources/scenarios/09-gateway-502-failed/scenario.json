@@ -21,6 +21,9 @@
     "gatewayPosts": 1,
     "status": "FAILED",
     "httpStatus": 502,
-    "errorDetail": "error=LIBRA_CALL_FAILED; libraStatus=404; errorCode=E404"
+    "errorDetail": "error=LIBRA_CALL_FAILED; libraStatus=404; errorCode=E404",
+    "notificationStatuses": [
+      "GOB_FAILED"
+    ]
   }
 }

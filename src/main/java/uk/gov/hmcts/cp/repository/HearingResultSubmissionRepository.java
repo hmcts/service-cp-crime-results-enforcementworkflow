@@ -16,7 +16,15 @@ import java.util.UUID;
 @Repository
 public interface HearingResultSubmissionRepository extends JpaRepository<HearingResultSubmissionEntity, UUID> {
 
-    Optional<HearingResultSubmissionEntity> findByHearingIdAndCaseIdAndDefendantId(UUID hearingId, UUID caseId, UUID defendantId);
+    /** The submission of one share (feature 002 research R18/R19), served by uq_hrs_correlation_case_defendant. */
+    Optional<HearingResultSubmissionEntity> findByCorrelationIdAndCaseIdAndDefendantId(UUID correlationId, UUID caseId, UUID defendantId);
+
+    /** The submissions a notification created (feature 003: correlation_id holds the notification id). */
+    List<HearingResultSubmissionEntity> findByCorrelationId(UUID correlationId);
+
+    /** The submissions of a case and defendant in a status, most recent first (feature 002 research R16). */
+    List<HearingResultSubmissionEntity> findByCaseIdAndDefendantIdAndStatusOrderByCreatedAtDesc(UUID caseId, UUID defendantId,
+                                                                                               SubmissionStatus status);
 
     /** Stale-SENDING sweep (research.md R19), served by idx_hrs_status_updated_at. */
     @Query("select s.id from HearingResultSubmissionEntity s where s.status = :status and s.updatedAt < :cutoff order by s.updatedAt")

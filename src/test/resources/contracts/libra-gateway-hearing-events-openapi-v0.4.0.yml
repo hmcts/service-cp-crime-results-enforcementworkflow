@@ -1,4 +1,6 @@
 # Generated from HLD v0.4 section 6.3.5.3, Enforcement (Hearing Req) API Data Attributes v1.4, and GoB to CP NOWs Logical Entities v1.3.
+# CP draft amendment (CIMD-4530, 2026-10-22): HearingResult.resultCode is no longer an enum (agreed with the GOB/Libra
+# team); to be replaced by Libra's published version.
 # Hearing event paths intentionally omit an external path identifier; the request payload supplies the case/account context.
 openapi: "3.0.3"
 info:
@@ -620,51 +622,10 @@ components:
       properties:
         resultCode:
           type: "string"
-          enum:
-            - "ABDC"
-            - "ACF"
-            - "ACNOTE"
-            - "ACON"
-            - "ADJNN"
-            - "AEC"
-            - "AEO"
-            - "AEOC"
-            - "BPOC"
-            - "BWTD"
-            - "BWTU"
-            - "BPOCRFSD"
-            - "CLAMPO"
-            - "COLLO"
-            - "CSC"
-            - "CW"
-            - "CWN"
-            - "DW"
-            - "FIDIC"
-            - "FIDICT"
-            - "FIDIP"
-            - "FSN"
-            - "FTTP"
-            - "MP"
-            - "MPSO"
-            - "NBWT"
-            - "NOENF"
-            - "ORD"
-            - "PTNV"
-            - "REGF"
-            - "REM"
-            - "REMCC"
-            - "REMF"
-            - "RT"
-            - "S136"
-            - "SC"
-            - "SUMM"
-            - "TEXT"
-            - "ENF TEXT"
-            - "TFOOUT"
-            - "WDN"
-            - "WDRN"
+          # LOCAL AMENDMENT (CIMD-4530, 2026-10-22): enum removed; every CP result code is sent, as agreed with the
+          # GOB/Libra team. Replace this copy with Libra's next published version.
           maxLength: 10
-          description: "A coded value representing the outcome of an enforcement hearing, supplied by Common Platform. Business rules: Selected and applied in CP at hearing conclusion and sent to GoB via the HearingResulted API; mapped to GoB enforcement outcomes via reference data. GoB only uses these results: ABDC, AEO, AEOC, BWTD, BWTU, CLAMPO, COLLO, CW, CWN, DW, FSN, MPSO, NBWT, NOENF, REGF, REM, S136, SC, SUMM, TFOOUT, WDN. TFOOUT (GOB) = TFOUT (CP) DW (GOB) = WC (CP) WDN (GOB) = WWDN (CP) Source: HearingResultedRequest row 58 (from extracted workbook JSON)"
+          description: "A coded value representing the outcome of an enforcement hearing, supplied by Common Platform. Business rules: Selected and applied in CP at hearing conclusion and sent to GoB via the HearingResulted API; mapped to GoB enforcement outcomes via reference data. Codes GoB used before 2026-10-22: ABDC, AEO, AEOC, BWTD, BWTU, CLAMPO, COLLO, CW, CWN, DW, FSN, MPSO, NBWT, NOENF, REGF, REM, S136, SC, SUMM, TFOOUT, WDN; any CP result code is sent (CIMD-4530). TFOOUT (GOB) = TFOUT (CP) DW (GOB) = WC (CP) WDN (GOB) = WWDN (CP) Source: HearingResultedRequest row 58 (from extracted workbook JSON)"
           x-source-row: 58
           x-source-data-attribute: "resultCode"
         enforcerCode:
