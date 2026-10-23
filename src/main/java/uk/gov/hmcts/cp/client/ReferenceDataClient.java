@@ -8,6 +8,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import uk.gov.hmcts.cp.diagnostics.TempPayloadLog;
 
 import java.time.LocalDate;
 import java.util.Map;
@@ -72,6 +73,9 @@ public class ReferenceDataClient {
                     .retrieve()
                     .body(ResultDefinition.class);
             shortCode = Optional.ofNullable(definition).map(ResultDefinition::shortCode);
+            // TEMP DIAGNOSTICS: request and answer
+            TempPayloadLog.info("Reference data GET {} (CJSCPPUID={}): shortCode={}", urlOf(resultDefinitionId, on), cjscppuid,
+                    shortCode.orElse(null));
         } catch (HttpClientErrorException.NotFound e) {
             // TEMP DIAGNOSTICS: url added
             log.warn("No reference-data result definition {} on {} (url={})", resultDefinitionId, on, urlOf(resultDefinitionId, on));

@@ -1,5 +1,5 @@
 {
-  "description": "The same first share delivered twice (e.g. after a restart): sent once, one row (US2 scenario 2, FR-005)",
+  "description": "Feature 003 FR-011 (US2 AS5): the same first-share notification delivered twice is one notification: sent to GOB once, one row, one GOB data event",
   "events": [
     "events/hearing-resulted-enforcement.json",
     "events/hearing-resulted-enforcement.json"
@@ -22,6 +22,14 @@
   "expected": {
     "gatewayPosts": 1,
     "status": "SUCCEEDED",
-    "httpStatus": 200
+    "httpStatus": 200,
+    "published": {
+      "events": 1,
+      "gobDataReused": false
+    },
+    "notificationStatuses": [
+      "PUBLISHED",
+      "PUBLISHED"
+    ]
   }
 }

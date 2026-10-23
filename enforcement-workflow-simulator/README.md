@@ -76,18 +76,32 @@ CIMD-4372 business mapping table as data:
   ADR-002).
 - `field-paths.yaml` — field label → JSON path into the response tree, with type and default
   value.
-- `result-codes.yaml` — for each of the 42 `resultCode` enum values, which field labels a posted
-  result code requires.
+- `result-codes.yaml` — for each of the 42 `resultCode` values Libra published in the v0.6.0 enum
+  (plus a few alias/historic rows), which field labels a posted result code requires.
+
+**Result codes are free strings (CIMD-4530, 2026-10-22).** As agreed with the GOB/Libra team, CP
+sends every result code, not just GOB's old curated list, so the bundled contract carries a LOCAL
+AMENDMENT: the `HearingResult.resultCode` enum is removed and only `maxLength: 10` remains. The
+simulator behaves the same way: any `resultCode` of 1–10 characters is accepted; a blank or
+longer one is a 400 (bean validation, `The request body failed validation.`). A code with no
+`result-codes.yaml` row is **not** rejected — it simply contributes no extra NOWS data fields
+(the response is what a `fields: []` code such as `NOENF` would produce). The published v0.6.0
+enum is kept, frozen, in
+`src/main/resources/openapi/libra-gateway-hearing-events-v0.6.0-published-result-codes.yaml` as
+the "codes GOB used before" list the catalogue checks below run against; it no longer gates what
+is accepted.
 
 `CatalogueLoader` loads and validates these against each other and against the bundled OpenAPI
 contract **at startup**: an entity name pointing at a property the schema doesn't declare, a field
-path rooted at an unknown property, an unmapped label with no reason, a result code in the schema
-enum missing from the catalogue — any of these aborts the application context. The catalogue must
+path rooted at an unknown property, an unmapped label with no reason, a code from the frozen
+published v0.6.0 list missing from the catalogue, a catalogue code longer than the contract's
+`resultCode` `maxLength` — any of these aborts the application context. The catalogue must
 never silently return a wrong or empty answer.
 
 `NowsDataItemsAssembler` then, per request:
 
-1. Unions the field labels required by every posted `resultCode`.
+1. Unions the field labels required by every posted `resultCode` (a code with no catalogue row
+   contributes none).
 2. Filters that union to the entities (`NowsDataItemName` values) CP actually requested.
 3. Resolves each field's value from a per-case seed (`SeedStore`/`ValueResolver`) or its catalogue
    default.
@@ -254,9 +268,11 @@ When the CIMD-4372 mapping table changes, or the contract moves to a new version
    without checking `CatalogueLoader`'s parsing of it first.
 2. If a field label has no corresponding schema property, mark it `unmapped: true` with a
    `reason:` string — `CatalogueLoader` fails startup if either is missing.
-3. If a result code isn't in the schema's `resultCode` enum yet, mark its row `postable: false` so
-   `CatalogueCoverageTest` (which asserts every `postable: false` row is genuinely absent from the
-   enum) doesn't fail.
+3. A new CP result code needs no contract change (any 1–10 character code is accepted); add a
+   `result-codes.yaml` row only to give it fields. If the code isn't in the frozen published
+   v0.6.0 list, mark its row `postable: false` so `CatalogueCoverageTest` (which asserts
+   "in the published list" ⇔ "postable") doesn't fail. Don't edit the frozen list to track new
+   codes.
 4. If the contract version changes, replace the file under `src/main/resources/openapi/` and
    update the two hard-coded path constants that point at it: `CatalogueLoader.OPENAPI_SPEC_PATH`
    and `OpenApiConformance.SPEC_PATH`. Diff the two contract versions first — the v0.3.0 → v0.4.0
@@ -309,11 +325,11 @@ Cold builds against this module are slow (15–30 minutes has been observed) —
 These are current, known limitations — not things to silently work around:
 
 - **15 result codes have no field mappings.** `ACNOTE`, `ACON`, `ADJNN`, `BPOC`, `BPOCRFSD`, `CSC`,
-  `ENFTEXT` (spelt `"ENF TEXT"` before v0.6.0), `FIDIP`, `MP`, `ORD`, `REMCC`, `REMF`, `RT`, `TEXT`, `WDRN` are in the v0.4.0
+  `ENFTEXT` (spelt `"ENF TEXT"` before v0.6.0), `FIDIP`, `MP`, `ORD`, `REMCC`, `REMF`, `RT`, `TEXT`, `WDRN` were in the published
   `resultCode` enum but the CIMD-4372 source table defines no required fields for them — they are
   explicit `fields: []` rows in `result-codes.yaml`, not an oversight. Posting them returns only
   default-filled entities. **Mappings are pending from the vendor.** (Two further codes, `NOENF`
-  and `WDN`, are also `fields: []`, but for a different reason: they are in the enum with no
+  and `WDN`, are also `fields: []`, but for a different reason: they were in the enum with no
   CIMD-4372 table row at all, rather than being new-in-v0.4.0 codes awaiting mapping.)
 - **Six field labels have no property anywhere in the bundled contract**: `Date of Offence`,
   `Start time of offence`, `End time of offence`, `Reserve Terms`, `Reason for decision`, and
@@ -370,6 +386,11 @@ Bundled: `libra-gateway-hearing-events-v0.6.0.yml`. The v0.3.0 → v0.4.0 upgrad
   requests no NOWS entities.
 - `PaymentTerms.paymentTerms` is renamed `instalmentFrequency`.
 - `resultCode` value `"ENF TEXT"` is respelt `ENFTEXT`.
+
+LOCAL AMENDMENT (CIMD-4530, 2026-10-22) to the bundled copy: the `HearingResult.resultCode` enum is
+removed (every CP result code is sent, as agreed with the GOB/Libra team; `maxLength: 10` kept).
+The published enum is preserved in `libra-gateway-hearing-events-v0.6.0-published-result-codes.yaml`.
+Replace both with Libra's next published version.
 
 `NowsDataItems` and its nested schemas are byte-identical to v0.3.0. The core divergence this
 simulator works around — the CIMD-4372 ticket's nested response shapes versus the contract's

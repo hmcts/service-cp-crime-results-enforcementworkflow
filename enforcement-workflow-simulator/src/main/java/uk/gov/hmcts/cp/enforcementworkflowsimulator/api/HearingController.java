@@ -5,7 +5,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +23,6 @@ import uk.gov.hmcts.cp.enforcementworkflowsimulator.api.model.NowsDataItems;
 import uk.gov.hmcts.cp.enforcementworkflowsimulator.assembly.DefendantDetailsOverlay;
 import uk.gov.hmcts.cp.enforcementworkflowsimulator.assembly.NowsDataItemsAssembler;
 import uk.gov.hmcts.cp.enforcementworkflowsimulator.catalogue.Catalogue;
-import uk.gov.hmcts.cp.enforcementworkflowsimulator.catalogue.CatalogueLoader;
 import uk.gov.hmcts.cp.enforcementworkflowsimulator.idempotency.IdempotencyCache;
 
 @Slf4j
@@ -36,23 +34,14 @@ public class HearingController {
     private final IdempotencyCache idempotencyCache;
     private final Catalogue catalogue;
 
-    /**
-     * The bundled contract's {@code resultCode} enum, read once at construction via {@link
-     * CatalogueLoader#schemaResultCodes()} — the same parsing path startup validation and {@code
-     * CatalogueCoverageTest} use — rather than hand-copied (Task 8, ruling 3).
-     */
-    private final Set<String> schemaResultCodes;
-
     public HearingController(final NowsDataItemsAssembler assembler,
                               final DefendantDetailsOverlay defendantDetailsOverlay,
                               final IdempotencyCache idempotencyCache,
-                              final Catalogue catalogue,
-                              final CatalogueLoader catalogueLoader) {
+                              final Catalogue catalogue) {
         this.assembler = assembler;
         this.defendantDetailsOverlay = defendantDetailsOverlay;
         this.idempotencyCache = idempotencyCache;
         this.catalogue = catalogue;
-        this.schemaResultCodes = catalogueLoader.schemaResultCodes();
     }
 
     @PostMapping(path = "/hearing", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -70,8 +59,11 @@ public class HearingController {
             @RequestHeader(value = "X-Correlation-ID", required = false) final String correlationId,
             @RequestHeader(value = "X-Idempotency-Key", required = false) final String idempotencyKey) {
 
+        // resultCode is deliberately NOT checked against a list here: since CIMD-4530
+        // (2026-10-22) every CP result code is sent. Its only contract constraint (1..10 chars) is
+        // bean validation on HearingResultedRequest.HearingResult; a code with no catalogue row
+        // contributes no extra NOWS data fields (Catalogue.fieldsForPostedCode).
         validateRequestedNames(request);
-        validateResultCodes(request);
 
         final Optional<HearingResultedResponse> cached = idempotencyCache.get(idempotencyKey, request);
         final HearingResultedResponse response = cached.orElseGet(() -> buildResponse(request, correlationId));
@@ -100,19 +92,6 @@ public class HearingController {
         for (final String name : request.requestedNowsDataItemNames()) {
             if (!catalogue.isKnownNowsDataItemName(name)) {
                 throw new UnknownNowsDataItemNameException(name);
-            }
-        }
-    }
-
-    /**
-     * Rejects a resultCode the bundled contract's enum does not declare with 400, rather than
-     * letting it reach {@link Catalogue#fieldsFor} and surface as a 500 (Task 8, ruling 3 — the
-     * same defect class {@link #validateRequestedNames} fixed for {@code NowsDataItemName}).
-     */
-    private void validateResultCodes(final HearingResultedRequest request) {
-        for (final HearingResultedRequest.HearingResult result : request.results()) {
-            if (!schemaResultCodes.contains(result.resultCode())) {
-                throw new UnknownResultCodeException(result.resultCode());
             }
         }
     }

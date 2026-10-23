@@ -24,6 +24,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static uk.gov.hmcts.cp.support.TempDiagnosticsLogFilter.withoutTempDiagnostics;
 
 @ExtendWith(OutputCaptureExtension.class)
 class ReferenceDataClientTest {
@@ -98,7 +99,7 @@ class ReferenceDataClientTest {
         server.expect(requestTo(URL)).andRespond(withStatus(SERVICE_UNAVAILABLE).body("defendant Edward Harrison"));
 
         assertThatThrownBy(() -> client.findShortCode(DEFINITION_ID, ON)).isInstanceOf(ReferenceDataUnavailableException.class);
-        assertThat(output.getAll())
+        assertThat(withoutTempDiagnostics(output.getAll()))
                 .contains("HTTP 503 Service Unavailable (url=" + URL)
                 .contains("at uk.gov.hmcts.cp.client.ReferenceDataClient")
                 .doesNotContain("Edward");
@@ -110,7 +111,7 @@ class ReferenceDataClientTest {
         server.expect(requestTo(URL)).andRespond(withException(new java.net.SocketTimeoutException("Read timed out")));
 
         assertThatThrownBy(() -> client.findShortCode(DEFINITION_ID, ON)).isInstanceOf(ReferenceDataUnavailableException.class);
-        assertThat(output.getAll())
+        assertThat(withoutTempDiagnostics(output.getAll()))
                 .contains("url=" + URL)
                 .contains("ResourceAccessException")
                 .contains("rootCause=java.net.SocketTimeoutException: Read timed out")
