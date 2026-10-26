@@ -34,7 +34,7 @@ FA: Node.js, Azure Durable Functions (JavaScript), Jest.
 **Primary Dependencies**: W: Spring Web (first REST controller), Spring Data JPA, Flyway, Jackson 3, Spring JMS/Artemis
 (now also producing), Spring Data Redis + `azure-identity` (Entra auth), `RestClient`, **`uk.gov.hmcts.cp` cp-task-manager
 1.0.11** (feed `hmcts-lib`), the generated API of `api-cp-crime-results-enforcementgateway` (now also defining the notification endpoint, R3). H: framework event processor, JSON
-schema, jobstore, Liquibase, `FeatureControlGuard`. FA: `durable-functions`, axios wrapper, `FeatureFlagClient`.
+schema, jobstore, Liquibase. FA: `durable-functions`, axios wrapper.
 **Storage**: W PostgreSQL: new `enforcement_notification`, `enforcement_notification_now`, `jobs` (Flyway
 `V1.006`–`V1.009`); `hearing_result_submission`, `gob_sent_offence` unchanged (notification id in `correlation_id`,
 data-model.md). H viewstore: changeset
@@ -123,8 +123,8 @@ hearingnows-persistence/hearingnows-liquibase/.../006-key-enforcement-nows-data-
 hearingnows-integration-test/.../EnforcementNowsIT.java
 
 # FA: cpp-context-azure-legalaidagency/azure-functions/durable-functions
-HearingResultedNowsHandler/index.js, SetComplianceEnforcement/, OutboundNowsVariants/SetNowDocumentRequest/Mapper/,
-NotifyEnforcementWorkflow/ (new activity) + tests
+HearingResultedNowsHandler/index.js (routing only), CommonUtility/EnforcementCase.js, new activities
+EnforcementCaseNowsVariants/, ProcessEnforcementCaseNowsVariants/, NotifyEnforcementWorkflow/ + tests (R25: no existing component changed)
 
 # Contract repo (existing): api-cp-crime-results-enforcementgateway — src/main/resources/openapi/openapi-spec.yml (new path + tag)
 ```
@@ -160,7 +160,7 @@ views (US4).
    headroom (OP-15), `RESULTS_CACHE_ENABLED=false` until D3; remove `HEARING_NOWS_*`; FA
    `ENFORCEMENT_WORKFLOW_API_BASE_URI`, `ENFORCEMENT_WORKFLOW_CJSCPPUID`, `ENFORCEMENT_AUTHORITY_CODE`; H retention
    setting; internal-only ingress (T076).
-4. Flags: FA and H `EnforcementNows` switched together; joint release (D6, R15).
+4. No feature flags (R25): W, H and FA released together (D6, R15); deploy FA outside resulting peaks (in-flight Enforcement case orchestrations may need a restart).
 5. ADR 002 Accepted before production switch-on (D4, T077).
 6. T090: TEMP diagnostics removed in W, H and the gateway (`LibraClient`, `ProsecutionCaseClient`); PII log tests
    re-run unfiltered; never deployed to environments with live data.

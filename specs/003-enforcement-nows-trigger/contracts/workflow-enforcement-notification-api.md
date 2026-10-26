@@ -9,7 +9,7 @@ OpenAPI draft: [enforcement-notification-openapi.yml](enforcement-notification-o
 | Caller | results-processing app (`NotifyEnforcementWorkflow` activity), internal network only |
 | Identity | header `CJSCPPUID` = a system user in `cp.notification.allowed-system-users`; FA env `ENFORCEMENT_WORKFLOW_CJSCPPUID` |
 | FA base URL env | `ENFORCEMENT_WORKFLOW_API_BASE_URI` (host only; FA appends the path) |
-| When | once per share, after `ProcessOutboundNowVariants` succeeded, only when the share has NOWs for an Enforcement case's defendant and FA flag `EnforcementNows` is on |
+| When | once per share, after `ProcessEnforcementCaseNowsVariants` succeeded (research R25), only when the share has NOWs for an Enforcement case's defendant and FA flag `EnforcementNows` is on |
 
 **Body**
 

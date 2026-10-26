@@ -55,7 +55,7 @@ cd azure-functions/durable-functions && npm ci && npm test
 
 ## End to end (dev environment, after the joint release)
 
-1. Switch on `EnforcementNows` in FA and H together.
+1. Deploy W, H and FA together (no feature flags, research R25).
 2. Share results for a synthetic Enforcement case with a NOW-producing result: the NOW is held (`WAITING_FOR_GOB`),
    W's notification reaches `PUBLISHED`, the NOW reaches `ENFORCEMENT_DATA_ADDED` and is generated.
 3. Amend & reshare: no second GOB submission; the reshare's NOWs are generated with the first GOB data

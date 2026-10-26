@@ -86,7 +86,7 @@ Contract consumed: [`api-cp-crime-results-enforcementgateway`](https://github.co
 | `RESULTS_URL` / `RESULTS_CJSCPPUID` | `http://localhost:8080` / placeholder UUID | CP host serving the Results internal hearing-details query, and its System Users CJSCPPUID (**to be confirmed**) |
 | `RESULTS_CACHE_ENABLED` / `RESULTS_CACHE_USERNAME` / `AZURE_CLIENT_ID` | `false` / empty / empty | Results Redis cache with Entra ID (managed identity token, no access key); `REDIS_HOST` / `REDIS_PORT` / `REDIS_SSL_ENABLED` |
 | `CP_MESSAGING_PUBLIC_EVENT_TOPIC` | `public.event` | topic for the GOB data event; locally `jms.topic.public.event` |
-| `CP_MESSAGING_SYSTEM_USER` | placeholder UUID | `_metadata.context.user` of the GOB data event (**to be confirmed**, research OP-16). Switch hearing-nows' `EnforcementNows` toggle on together with the Function App's flag |
+| `CP_MESSAGING_SYSTEM_USER` | placeholder UUID | `_metadata.context.user` of the GOB data event (**to be confirmed**, research OP-16). Released together with hearing-nows and the Function App; no feature flags (research R25) |
 | `DATASOURCE_MAX_POOL` / `DATASOURCE_CONNECTION_TIMEOUT_MS` / `JOB_EXECUTOR_POLL_INTERVAL` | `12` / `5000` / `5000` | a running task holds two connections: pool ≥ 2 × executor threads (4) + headroom (research OP-15); a pod claims at most 4 jobs at a time (OP-14) |
 | `ADJOURNMENT_RESULT_CODES` | `NEXH,ADJNN` | CP shortCodes that mark an offence as adjourned (not sent to GOB in that share; OQ-13) |
 | `SPRING_PROFILES_ACTIVE` | none | `docker` adds the diagnostic `public.event` logger (`PublicEventLoggingListener`); publishing the GOB data event does not depend on it |

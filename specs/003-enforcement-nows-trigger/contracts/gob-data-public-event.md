@@ -21,14 +21,13 @@ Schema: [public.enforcementworkflow.enforcement-nows-data-ready.json](public.enf
 
 **H behaviour per `{requestId, masterDefendantId}`** (FR-013, R13)
 
-1. Feature `EnforcementNows` off → log (ids) and drop.
-2. NOWs with `request_id` in `WAITING_FOR_GOB` and the same master defendant → write `nowsDataItems` into
+1. NOWs with `request_id` in `WAITING_FOR_GOB` and the same master defendant → write `nowsDataItems` into
    `financialOrderDetails.enfNowsDataItems` and the account number (feature 002 merger) → `ENFORCEMENT_DATA_ADDED`
    (conditional update; a NOW is completed once) → `PROCESS_NOW_DOCUMENT_REQUEST_TASK`.
-3. No such NOW → keep in `enforcement_nows_data` (status `KEPT`, `release_at` = now + retention); a NOW arriving later
+2. No such NOW → keep in `enforcement_nows_data` (status `KEPT`, `release_at` = now + retention); a NOW arriving later
    with that request id is completed at once; at `release_at` the data is released (`UNCLAIMED` if never claimed).
-4. Repeated event (same request id already kept or claimed) → no effect.
-5. Master defendant mismatch, totals missing for a financial template, or similar deterministic problems → log (ids
+3. Repeated event (same request id already kept or claimed) → no effect.
+4. Master defendant mismatch, totals missing for a financial template, or similar deterministic problems → log (ids
    only) and drop that item; never throw (no redelivery loop). Transient failures (database) throw → redelivery.
 
 **Producer failure**: send failure → task retry (3, back-off) → `STORED_FAILURE` (`PUBLISH`) → automatic replay

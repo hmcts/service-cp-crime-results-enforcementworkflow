@@ -292,8 +292,9 @@ findable by hearing and request id.
   service MUST keep GOB's data for that request id for a configurable retention period and complete a NOW with that
   request id at once if it arrives within it; after the period the data MUST be released and recorded as unclaimed (as
   feature 002 FR-011). Such an event MUST NOT fail other events.
-- **FR-014**: The NOWS service MUST accept this event only from the enforcement workflow's agreed event name and MUST
-  ignore it, with a record, when the enforcement NOWS feature is switched off.
+- **FR-014**: The NOWS service MUST accept this event only from the enforcement workflow's agreed event name. There is
+  no feature switch (research R25): the results-processing app always holds enforcement NOWS for this data, so dropping
+  it would leave them held.
 
 **Failures and replay**
 
@@ -404,9 +405,9 @@ findable by hearing and request id.
 - **Result codes**: only a small, fixed set of result codes applies to an enforcement case (architect rule 4); all
   results are nevertheless sent to GOB (FR-010). The GOB contract's result-code list becomes open (agreed with the
   GOB/Libra team, 2026-10-22); the renames and the data-item mapping stay as in features 001 and 002.
-- **Feature switch**: settled in planning (research R15): flag `EnforcementNows` in the results-processing app and
-  the NOWS service, switched on and off together; off means no request ids, no hold and no notification for
-  enforcement NOWS, so nothing is sent to GOB (the behaviour before CCT-1222).
+- **Feature switch**: settled in planning (research R15, R25): none. The three services are released together; the
+  results-processing app builds the enforcement NOWS in its own separate steps, leaving its existing NOW and GOB steps
+  unchanged, and the NOWS service's new event handling has no toggle (a toggle there could only lose GOB data).
 - **Retry mechanism**: the platform's task-manager library (`hmcts/cp-task-manager`) is the architect's preferred
   mechanism; its suitability is assessed in planning.
 

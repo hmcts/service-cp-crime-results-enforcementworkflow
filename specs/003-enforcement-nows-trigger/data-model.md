@@ -96,4 +96,4 @@ UUIDs, `requestId` unique within the body.
 ## FA (results-processing app)
 
 No storage. Orchestration input/state carries the enforcement NOWs' `{requestId, masterDefendantId}` list between
-`OutboundNowsVariants`, `ProcessOutboundNowVariants` and `NotifyEnforcementWorkflow`.
+`EnforcementCaseNowsVariants`, `ProcessEnforcementCaseNowsVariants` and `NotifyEnforcementWorkflow` (research R25).
