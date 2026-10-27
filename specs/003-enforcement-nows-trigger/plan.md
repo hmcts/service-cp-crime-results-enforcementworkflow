@@ -158,7 +158,8 @@ views (US4).
 3. Deployment values (D5, T075): W `RESULTS_URL`, `RESULTS_CJSCPPUID`, `NOTIFICATION_ALLOWED_SYSTEM_USERS`,
    `CP_MESSAGING_PUBLIC_EVENT_TOPIC`, `CP_MESSAGING_SYSTEM_USER` (OP-16), `DATASOURCE_MAX_POOL` ≥ 2 × executor +
    headroom (OP-15), `RESULTS_CACHE_ENABLED=false` until D3; remove `HEARING_NOWS_*`; FA
-   `ENFORCEMENT_WORKFLOW_API_BASE_URI`, `ENFORCEMENT_WORKFLOW_CJSCPPUID`, `ENFORCEMENT_AUTHORITY_CODE`; H retention
+   `ENFORCEMENT_WORKFLOW_API_BASE_URI`, `ENFORCEMENT_AUTHORITY_CODE` (W's `NOTIFICATION_ALLOWED_SYSTEM_USERS` = the FA's
+   existing `CJSCPPUID` system user, R2); H retention
    setting; internal-only ingress (T076).
 4. No feature flags (R25): W, H and FA released together (D6, R15); deploy FA outside resulting peaks (in-flight Enforcement case orchestrations may need a restart).
 5. ADR 002 Accepted before production switch-on (D4, T077).

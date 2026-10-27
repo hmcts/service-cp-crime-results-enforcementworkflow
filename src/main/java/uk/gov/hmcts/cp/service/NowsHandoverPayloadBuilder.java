@@ -33,7 +33,7 @@ public class NowsHandoverPayloadBuilder {
     /**
      * The GOB data event payload (feature 003, contracts/public.enforcementworkflow.enforcement-nows-data-ready.json),
      * without the CPP envelope: the notification's NOWs of the selected defendant, the account number and GOB's
-     * {@code nowsDataItems} verbatim.
+     * {@code nowsDataItems} verbatim.HearingResultedNowsHandler
      */
     public ObjectNode build(final UUID hearingId, final List<NowRequest> nows, final String accountNumber, final JsonNode nowsDataItems,
                             final boolean gobDataReused, final Instant sharedTime) {

@@ -81,7 +81,7 @@ Contract consumed: [`api-cp-crime-results-enforcementgateway`](https://github.co
 | `REFERENCEDATA_CJSCPPUID` | placeholder UUID | CJSCPPUID system user for reference data (**to be confirmed**) |
 | `ENFORCEMENT_GATEWAY_URL` | `http://localhost:8082` | `service-cp-crime-results-enforcementgateway` base |
 | `ENFORCEMENT_AUTHORITY_CODE` | `GAPGD00` | OU code that identifies an Enforcement case |
-| `NOTIFICATION_ALLOWED_SYSTEM_USERS` | empty (endpoint closed) | comma-separated CJSCPPUID system users allowed to call `POST /enforcement-notifications` (the Function App's) |
+| `NOTIFICATION_ALLOWED_SYSTEM_USERS` | empty (endpoint closed) | comma-separated CJSCPPUID system users allowed to call `POST /enforcement-notifications`: the Function App's existing `CJSCPPUID` system user |
 | `NOTIFICATION_RETRY_DURATIONS` / `NOTIFICATION_REPLAY_SCHEDULE` | `10s,60s,300s` / `15m,1h,4h,12h,24h` | back-offs of a notification stage, then the replay schedule of a stored failure |
 | `RESULTS_URL` / `RESULTS_CJSCPPUID` | `http://localhost:8080` / placeholder UUID | CP host serving the Results internal hearing-details query, and its System Users CJSCPPUID (**to be confirmed**) |
 | `RESULTS_CACHE_ENABLED` / `RESULTS_CACHE_USERNAME` / `AZURE_CLIENT_ID` | `false` / empty / empty | Results Redis cache with Entra ID (managed identity token, no access key); `REDIS_HOST` / `REDIS_PORT` / `REDIS_SSL_ENABLED` |
