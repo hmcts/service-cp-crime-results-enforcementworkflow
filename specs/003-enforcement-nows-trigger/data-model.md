@@ -89,11 +89,13 @@ UUIDs, `requestId` unique within the body.
 - Add `request_id` UUID with a unique index; make `correlation_id`, `hearing_day`, `shared_time`,
   `covered_result_definition_ids` NULLable; drop the `(correlation_id, master_defendant_id)` unique constraint.
 - One row per request id: `request_id`, `master_defendant_id`, `hearing_id`, `account_number`, `nows_data_items`,
-  `gob_data_reused`, `status` (`KEPT` → `CLAIMED` → `RELEASED`, or `KEPT` → `UNCLAIMED` at `release_at`), `user_id`,
-  `received_at`, `claimed_at`, `release_at` (received + configurable retention, FR-013).
+  `gob_data_reused`, `status` (`KEPT` until a NOW claims it, without a time limit → `CLAIMED` → `RELEASED` at
+  `release_at`; `UNCLAIMED` only on feature 002 rows released by changeset 006), `user_id`, `received_at`, `claimed_at`,
+  `release_at` (first claim + configurable retention; empty while `KEPT`, FR-013, R30).
+- `release_at` is NULLable (set by the first claim, R30); changed in place in changeset 004, which is not released yet (no changeset 007).
 - A repeated event for the same request id is a no-op (unique index).
 
 ## FA (results-processing app)
 
-No storage. Orchestration input/state carries the enforcement NOWs' `{requestId, masterDefendantId}` list between
-`EnforcementCaseNowsVariants`, `ProcessEnforcementCaseNowsVariants` and `NotifyEnforcementWorkflow` (research R25).
+No storage. Orchestration input/state carries the enforcement NOWs' `{requestId, masterDefendantId}` list from the
+request ids the orchestrator sets on the `OutboundNowsVariants` output to `NotifyEnforcementWorkflow` (research R28).

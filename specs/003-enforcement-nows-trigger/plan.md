@@ -123,8 +123,8 @@ hearingnows-persistence/hearingnows-liquibase/.../006-key-enforcement-nows-data-
 hearingnows-integration-test/.../EnforcementNowsIT.java
 
 # FA: cpp-context-azure-legalaidagency/azure-functions/durable-functions
-HearingResultedNowsHandler/index.js (routing only), CommonUtility/EnforcementCase.js, new activities
-EnforcementCaseNowsVariants/, ProcessEnforcementCaseNowsVariants/, NotifyEnforcementWorkflow/ + tests (R25: no existing component changed)
+HearingResultedNowsHandler/index.js (request ids, notification; compliance flow unchanged, R29), CommonUtility/EnforcementCase.js, new activity
+NotifyEnforcementWorkflow/ + tests (R28: one NOW path; no other existing activity changed)
 
 # Contract repo (existing): api-cp-crime-results-enforcementgateway — src/main/resources/openapi/openapi-spec.yml (new path + tag)
 ```
@@ -160,7 +160,7 @@ views (US4).
    headroom (OP-15), `RESULTS_CACHE_ENABLED=false` until D3; remove `HEARING_NOWS_*`; FA
    `ENFORCEMENT_WORKFLOW_API_BASE_URI`, `ENFORCEMENT_AUTHORITY_CODE` (W's `NOTIFICATION_ALLOWED_SYSTEM_USERS` = the FA's
    existing `CJSCPPUID` system user, R2); H retention
-   setting; internal-only ingress (T076).
+   setting (time kept after the first claim, R30); internal-only ingress (T076).
 4. No feature flags (R25): W, H and FA released together (D6, R15); deploy FA outside resulting peaks (in-flight Enforcement case orchestrations may need a restart).
 5. ADR 002 Accepted before production switch-on (D4, T077).
 6. T090: TEMP diagnostics removed in W, H and the gateway (`LibraClient`, `ProsecutionCaseClient`); PII log tests

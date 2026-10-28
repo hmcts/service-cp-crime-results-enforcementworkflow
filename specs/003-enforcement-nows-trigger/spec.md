@@ -40,8 +40,8 @@ others still apply.
 - Q: How are stored failures replayed? → A: Automatically, on a longer schedule up to a configured limit, and
   manually by support at any time (FR-015).
 - Q: What happens to a GOB data event that matches no held NOW (it arrives before the NOW)? → A: The NOWS service
-  keeps the GOB data by request id for a configurable retention period; a NOW with that request id arriving within it
-  is completed at once; afterwards the data is released (FR-013).
+  keeps the GOB data by request id; a NOW with that request id arriving later is completed at once (FR-013; how long
+  the data is kept: session 2026-10-30).
 - Q: What does the results-processing app do when it cannot deliver the notification? → A: It retries as its
   NOW-posting step does; on final failure its run is marked failed, visible and restartable (FR-002a).
 - Q: Which NOWS for an Enforcement case are held? → A: All of them, including NOWS that need no GOB data; each is
@@ -73,9 +73,25 @@ others still apply.
 - Q: How long does a NOW that reached the NOWS service first wait for the GOB data? → A: Without a time limit (feature
   002's 24-hour maximum wait is removed) (FR-016).
 - Q: Is the email on amend & reshare built here? → A: No; an email is sent on amend & reshare, as its own story.
+
+### Session 2026-10-29 (tech lead review)
+
+- Q: Does an Enforcement case change the compliance flow (e.g. an FCOMP result and its compliance NOW)? → A: No. The
+  compliance flow runs as for any other case: the compliance NOW (e.g. FCOMP) is generated as today and the
+  results-processing app still sends its financial-imposition update to GOB. The enforcement NOWS are generated as
+  well, so such a defendant gets both. Refines FR-001 (the compliance NOWS are not held for the enforcement workflow)
+  and supersedes the 2026-10-19 FR-017 rule ("GOB updated by the enforcement flow only").
 - Q: Who decides whether NOWS are distributed or suppressed? → A: The existing subscription rules, with no manual
   suppression; the first-time result decides for an amend & reshare: NOWS suppressed the first time stay suppressed,
   NOWS distributed the first time are distributed again (FR-021).
+
+### Session 2026-10-30
+
+- Q: How long does the NOWS service keep GOB data that no NOW has claimed yet? → A: Until a NOW claims it, without a
+  time limit (as held NOWS wait without one, FR-016), so a NOW arriving late is never left held for want of released
+  data. Once a NOW is completed with it, the data is released a configurable retention period later (other NOWS with
+  the same request id are completed meanwhile). Supersedes "released after the retention period, recorded as
+  unclaimed" (FR-013, research R30).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -209,8 +225,8 @@ findable by hearing and request id.
   stays held with the others (FR-001, FR-016).
 - **Enforcement case with more than one offence**: supported; each offence is sent once (FR-008).
 - **Notification with request ids of NOWS that do not exist**: GOB processing still happens; GOB's data for an unknown
-  request id is kept for the retention period and then released as unclaimed (FR-013). A notification without request
-  ids is invalid (rejected).
+  request id is kept until a NOW with that request id claims it (FR-013). A notification without request ids is invalid
+  (rejected).
 - **Repeated notification** (results-processing app retry or replay) with the same request ids: no effect. A re-run that
   creates **new** request ids for already-sent offences: nothing to GOB, GOB data sent with the new request ids (US2).
 - **Amend & reshare whose NOW needs GOB data that the first send did not provide** (architect scenario 4): the NOW is
@@ -228,7 +244,8 @@ findable by hearing and request id.
 - **FR-001**: For every share whose NOWS include NOWS for an Enforcement case's defendant, the results-processing app
   MUST create those NOWS in the NOWS service as today, give each such NOW a unique request id, and have the NOWS service
   hold them until GOB's data for their request id arrives. This applies to **every** NOW for that defendant, including
-  NOWS that need no GOB data (clarified 2026-10-19).
+  NOWS that need no GOB data (clarified 2026-10-19), except the NOWS of the compliance flow (e.g. FCOMP), which are
+  created and completed exactly as today (clarified 2026-10-29, FR-017).
 - **FR-002**: After creating them, the results-processing app MUST inform the enforcement workflow of the hearing, the
   hearing date of the share, whether the share is an amend & reshare (clarified 2026-10-22) and the request ids of
   those NOWS. It MUST NOT inform it for shares without NOWS for an
@@ -289,9 +306,10 @@ findable by hearing and request id.
 - **FR-013**: The NOWS service MUST find the held NOWS by request id, place GOB's data unchanged into each NOW's
   document data (as feature 002 FR-009) and resume their generation. Each NOW MUST be completed exactly once, also when
   the same event is delivered more than once. When a request id matches no held NOW (the event arrived first), the NOWS
-  service MUST keep GOB's data for that request id for a configurable retention period and complete a NOW with that
-  request id at once if it arrives within it; after the period the data MUST be released and recorded as unclaimed (as
-  feature 002 FR-011). Such an event MUST NOT fail other events.
+  service MUST keep GOB's data for that request id until a NOW with that request id claims it, without a time limit,
+  and complete such a NOW at once when it arrives. The data MUST be released a configurable retention period after the
+  first NOW was completed with it; until then it also completes other NOWS with the same request id. Such an event MUST
+  NOT fail other events.
 - **FR-014**: The NOWS service MUST accept this event only from the enforcement workflow's agreed event name. There is
   no feature switch (research R25): the results-processing app always holds enforcement NOWS for this data, so dropping
   it would leave them held.
@@ -315,9 +333,10 @@ findable by hearing and request id.
 
 **Results-processing app**
 
-- **FR-017**: For an Enforcement case's defendant, GOB MUST be updated by the enforcement flow only; the
-  results-processing app MUST NOT send its own financial-imposition update for that defendant, so a result never
-  reaches GOB twice.
+- **FR-017**: For an Enforcement case's defendant, the compliance flow MUST NOT change: the results-processing app
+  MUST send its financial-imposition update to GOB and generate the compliance NOWS (e.g. FCOMP) exactly as for any
+  other case, in addition to the enforcement NOWS (clarified 2026-10-29; supersedes "GOB updated by the enforcement
+  flow only").
 - **FR-018**: Shares and NOWS for non-Enforcement cases MUST be processed by the results-processing app and the NOWS
   service exactly as today.
 
@@ -349,7 +368,7 @@ findable by hearing and request id.
 | 002 FR-001 to FR-005 (direct hand-over call and its acceptance) | FR-012 to FR-015 |
 | 002 FR-004 (replay out of scope) | FR-015 |
 | 002 FR-006, FR-008, FR-010, FR-021 (matching by share correlation id from hearing day / order date) | FR-001, FR-013 (matching by request id) |
-| 002 FR-011, FR-012 (maximum wait, then "no GOB data") | FR-016 (retention of kept data stays, FR-013) |
+| 002 FR-011, FR-012 (maximum wait, then "no GOB data") | FR-016 (kept data is released only after a claim, FR-013) |
 | 002 FR-017 (amended NOW generated only when covered by GOB data) | FR-009 (generated; email story handles differences) |
 | 002 FR-013 (existing NOWS flow unchanged) | FR-001, FR-002, FR-017, FR-018 |
 | 002 FR-020 (share with no result code reuses the earlier GOB data) | FR-010 (nothing sent to GOB or to the NOWS service) |
