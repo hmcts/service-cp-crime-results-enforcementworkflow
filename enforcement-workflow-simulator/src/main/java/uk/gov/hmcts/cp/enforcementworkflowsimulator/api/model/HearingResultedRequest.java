@@ -20,7 +20,7 @@ import jakarta.validation.constraints.Size;
  * truth for that enumeration.
  *
  * <p>{@code results} and {@code nowsDataRequest} carry cascading validation so their nested
- * constraints ({@code HearingResult.resultCode}'s {@code @NotBlank}, {@code
+ * constraints ({@code HearingResult.resultCode}'s {@code @NotBlank} and {@code @Size(max = 10)}, {@code
  * NowsDataRequest.nowsDataItems}'s {@code @Size(min = 1)}, and — one level deeper, so {@code
  * NowsDataRequest.nowsDataItems} cascades too — {@code NowsDataItemRequest.name}'s {@code
  * @NotBlank}) actually run. Jakarta Bean Validation never cascades into a nested type without
@@ -51,6 +51,9 @@ public record HearingResultedRequest(
         @NotEmpty List<@Valid HearingResult> results,
         @Valid NowsDataRequest nowsDataRequest) {
 
+    /** The contract's {@code HearingResult.resultCode} {@code maxLength}. */
+    public static final int RESULT_CODE_MAX_LENGTH = 10;
+
     /**
      * The NOWS entities the caller asked for, or an empty list when it asked for none — v0.6.0
      * makes both {@code nowsDataRequest} and its {@code nowsDataItems} optional.
@@ -62,8 +65,15 @@ public record HearingResultedRequest(
                 : nowsDataRequest.nowsDataItems().stream().map(NowsDataItemRequest::name).toList();
     }
 
+    /**
+     * {@code resultCode} is a free string since the LOCAL AMENDMENT (CIMD-4530, 2026-10-22): every
+     * CP result code is sent, as agreed with the GOB/Libra team. Only the contract's
+     * {@code maxLength: 10} (and non-blank) is enforced, here, as bean validation — a code with no
+     * catalogue row is accepted and contributes no extra NOWS data fields. {@code
+     * CatalogueCoverageTest} pins this {@code max} to the bundled contract's {@code maxLength}.
+     */
     @JsonIgnoreProperties(ignoreUnknown = false)
-    public record HearingResult(@NotBlank String resultCode, Number enforcerCode, Number jailDays) {
+    public record HearingResult(@NotBlank @Size(max = RESULT_CODE_MAX_LENGTH) String resultCode, Number enforcerCode, Number jailDays) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = false)

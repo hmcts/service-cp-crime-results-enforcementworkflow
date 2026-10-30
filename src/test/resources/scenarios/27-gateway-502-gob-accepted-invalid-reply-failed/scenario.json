@@ -20,6 +20,9 @@
     "gatewayPosts": 1,
     "status": "FAILED",
     "httpStatus": 502,
-    "errorDetail": "error=LIBRA_CALL_FAILED; libraStatus=200; errorCode=INVALID_RESPONSE"
+    "errorDetail": "error=LIBRA_CALL_FAILED; libraStatus=200; errorCode=INVALID_RESPONSE",
+    "notificationStatuses": [
+      "GOB_FAILED"
+    ]
   }
 }

@@ -34,7 +34,7 @@ class RestClientConfigTest {
             slow.stubFor(get(urlEqualTo("/slow")).willReturn(aResponse().withStatus(200).withFixedDelay(3000)));
 
             for (final RestClient.Builder builder : List.of(config.referenceDataRestClientBuilder(1000, 300),
-                    config.enforcementGatewayRestClientBuilder(1000, 300))) {
+                    config.enforcementGatewayRestClientBuilder(1000, 300), config.resultsRestClientBuilder(1000, 300))) {
                 final long start = System.nanoTime();
                 assertThatThrownBy(() -> builder.baseUrl(slow.baseUrl()).build().get().uri("/slow").retrieve().toBodilessEntity())
                         .isInstanceOf(ResourceAccessException.class);
@@ -52,6 +52,8 @@ class RestClientConfigTest {
 
         assertThat(yaml.getProperty("cp.reference-data.connect-timeout-ms")).isEqualTo(5000);
         assertThat(yaml.getProperty("cp.reference-data.read-timeout-ms")).isEqualTo(10000);
+        assertThat(yaml.getProperty("cp.results.connect-timeout-ms")).isEqualTo(5000);
+        assertThat(yaml.getProperty("cp.results.read-timeout-ms")).isEqualTo(10000);
         assertThat(yaml.getProperty("cp.enforcement-gateway.connect-timeout-ms")).isEqualTo(5000);
         final int gatewayReadTimeout = (Integer) yaml.getProperty("cp.enforcement-gateway.read-timeout-ms");
         assertThat(gatewayReadTimeout).isEqualTo(50000);

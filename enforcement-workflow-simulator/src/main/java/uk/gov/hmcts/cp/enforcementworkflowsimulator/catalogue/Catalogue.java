@@ -33,6 +33,16 @@ public record Catalogue(
         return resolve(resultCode, 0).fields();
     }
 
+    /**
+     * Field labels a POSTED result code contributes. Since CIMD-4530 (2026-10-22) CP sends every
+     * result code, not just the ones GOB curated, so a contract-valid code with no catalogue row is
+     * legitimate input: it contributes no extra NOWS data fields rather than failing. Use {@link
+     * #fieldsFor} where an unknown code is a catalogue defect (e.g. an alias target).
+     */
+    public List<String> fieldsForPostedCode(final String resultCode) {
+        return isKnown(resultCode) ? fieldsFor(resultCode) : List.of();
+    }
+
     public FieldPath fieldPath(final String label) {
         return fieldPaths.get(label);
     }

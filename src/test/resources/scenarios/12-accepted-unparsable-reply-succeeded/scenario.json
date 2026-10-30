@@ -15,6 +15,9 @@
     "httpStatus": 200,
     "responsePayloadContains": [
       "not json"
+    ],
+    "notificationStatuses": [
+      "PUBLISH_REJECTED"
     ]
   }
 }

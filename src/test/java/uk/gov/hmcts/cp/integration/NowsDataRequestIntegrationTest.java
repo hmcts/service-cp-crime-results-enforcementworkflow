@@ -6,7 +6,6 @@ import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.JsonNode;
 import uk.gov.hmcts.cp.config.PayloadJson;
 import uk.gov.hmcts.cp.entity.SubmissionStatus;
-import uk.gov.hmcts.cp.support.Fixtures;
 import uk.gov.hmcts.cp.support.LibraContract;
 
 import java.util.List;
@@ -21,7 +20,7 @@ class NowsDataRequestIntegrationTest extends WorkflowStubsIntegrationTestBase {
 
     @Test
     void mapped_short_codes_should_request_the_unique_union_of_items() {
-        processor.process(Fixtures.event("hearing-resulted-enforcement.json")); // SC + WC
+        process("hearing-resulted-enforcement.json"); // SC + WC
 
         final List<LoggedRequest> posts = STUBS.findAll(postRequestedFor(urlEqualTo(GATEWAY_PATH)));
         assertThat(posts).hasSize(1);
@@ -36,7 +35,7 @@ class NowsDataRequestIntegrationTest extends WorkflowStubsIntegrationTestBase {
     void empty_nows_data_items_in_the_reply_should_be_stored_as_succeeded() {
         stubGateway("{\"caseUrn\":\"E012345678\",\"timestamp\":\"2026-05-03T14:30:00Z\",\"nowsDataItems\":{}}");
 
-        processor.process(Fixtures.event("hearing-resulted-enforcement.json"));
+        process("hearing-resulted-enforcement.json");
 
         assertThat(repository.findAll()).singleElement().satisfies(row -> {
             assertThat(row.getStatus()).isEqualTo(SubmissionStatus.SUCCEEDED);

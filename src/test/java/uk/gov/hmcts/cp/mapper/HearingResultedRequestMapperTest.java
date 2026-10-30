@@ -8,7 +8,6 @@ import uk.gov.hmcts.cp.config.PayloadJson;
 import uk.gov.hmcts.cp.event.HearingResultedEvent;
 import uk.gov.hmcts.cp.event.HearingResultedEvent.Defendant;
 import uk.gov.hmcts.cp.event.HearingResultedEvent.PersonDetails;
-import uk.gov.hmcts.cp.openapi.model.HearingResult.ResultCodeEnum;
 import uk.gov.hmcts.cp.openapi.model.HearingResultedRequest;
 import uk.gov.hmcts.cp.service.ResolvedCodes;
 import uk.gov.hmcts.cp.service.SelectionResult;
@@ -24,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class HearingResultedRequestMapperTest {
 
     private static final ResolvedCodes SC_AND_WC = new ResolvedCodes(List.of("SC", "WC"),
-            new LinkedHashSet<>(List.of(ResultCodeEnum.SC, ResultCodeEnum.DW)), List.of());
+            new LinkedHashSet<>(List.of("SC", "DW")), List.of());
 
     @Test
     void enforcement_fixture_should_map_to_the_expected_minimum_payload() {
@@ -59,14 +58,14 @@ class HearingResultedRequestMapperTest {
 
     @Test
     void descriptive_fields_should_be_truncated_to_gob_limits() {
-        final HearingResultedEvent event = withPerson("F".repeat(40), "S".repeat(40), "A".repeat(40), "N17 6RT XYZ");
+        final HearingResultedEvent event = withPerson("F".repeat(40), "S".repeat(40), "A".repeat(40), "ZZ9 9ZZ XYZ");
 
         final HearingResultedRequest request = mapped(event, PaymentDueDateFallback.HEARING_DATE);
 
         assertThat(request.getDefendantDetails().getForename()).hasSize(35);
         assertThat(request.getDefendantDetails().getSurname()).hasSize(35);
         assertThat(request.getDefendantDetails().getAddress1()).hasSize(35);
-        assertThat(request.getDefendantDetails().getPostcode()).isEqualTo("N17 6RT ");
+        assertThat(request.getDefendantDetails().getPostcode()).isEqualTo("ZZ9 9ZZ ");
     }
 
     @Test
@@ -101,7 +100,7 @@ class HearingResultedRequestMapperTest {
 
     @Test
     void missing_address1_should_fail_mapping() {
-        assertFailure(withPerson("Edward", "Harrison", null, "N17 6RT"), MappingFailureReason.ADDRESS1_MISSING);
+        assertFailure(withPerson("Edward", "Harrison", null, "ZZ99 9ZZ"), MappingFailureReason.ADDRESS1_MISSING);
     }
 
     @Test

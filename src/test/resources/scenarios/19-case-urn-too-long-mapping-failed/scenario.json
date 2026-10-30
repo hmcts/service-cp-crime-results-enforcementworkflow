@@ -8,6 +8,9 @@
   "expected": {
     "gatewayPosts": 0,
     "status": "MAPPING_FAILED",
-    "errorDetailStartsWith": "CASE_URN_INVALID"
+    "errorDetailStartsWith": "CASE_URN_INVALID",
+    "notificationStatuses": [
+      "GOB_FAILED"
+    ]
   }
 }

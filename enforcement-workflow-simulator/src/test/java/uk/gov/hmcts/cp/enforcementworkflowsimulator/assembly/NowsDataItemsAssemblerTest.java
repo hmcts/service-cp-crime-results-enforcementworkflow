@@ -34,6 +34,20 @@ class NowsDataItemsAssemblerTest {
         assertThat(items.terms()).isNull();
     }
 
+    // CIMD-4530 (2026-10-22): every CP result code is sent, so a posted code with no catalogue row
+    // is legitimate. It must not fail assembly and must contribute nothing beyond what the other
+    // posted codes already do.
+    @Test
+    void a_posted_code_with_no_catalogue_row_contributes_no_fields() {
+        final List<String> names = List.of("Account Balance", "Account Number", "Account Terms to Pay",
+                "Defendant Account", "Account Warrant Number");
+
+        assertThat(assembler.assemble("E999999999", List.of("SC", "ZZNEWCODE"), names))
+                .isEqualTo(assembler.assemble("E999999999", List.of("SC"), names));
+        assertThat(assembler.assemble("E999999999", List.of("ZZNEWCODE"), names))
+                .isEqualTo(assembler.assemble("E999999999", List.of("NOENF"), names));
+    }
+
     @Test
     void emits_a_requested_entity_even_when_no_posted_code_contributes_a_field_to_it() {
         // FSN requires only Account No. and Total Balance — nothing lands in warrantContactDetails.

@@ -34,7 +34,7 @@
 - Validation iteration 1: all items pass.
 - **Re-validated 2026-09-27** (analysis N6), after the Clarifications session. Per-step timeout values and the access-control mechanism moved to research.md R20/R21. The spec keeps only business-level statements (≤ 60s end to end; callable only by the enforcement workflow). Remaining named components (enforcement gateway, APIM, GOB) are agreed architecture and business boundaries, as noted below. All items still pass.
 - **Architecture terms:** FR-016 names the "enforcement gateway" and the Assumptions name APIM and GOB. These are agreed architecture and business boundaries (gap #7), not implementation choices, so they are kept.
-- **No clarification markers, by choice.** The remaining genuinely open items are recorded as explicit Assumptions with interim behaviour. They are already tracked with the BA/GOB in `specs/001-cimd-4246-hearing-resulted-to-libra/docs/CIMD-4246-gap-analysis.md`:
+- **No clarification markers, by choice.** The remaining genuinely open items are recorded as explicit Assumptions with interim behaviour. They are already tracked with the BA/GOB in `specs/docs/CIMD-4246-gap-analysis.md`:
   - the payment due date;
   - the result-code filter rule;
   - the mapping rows.
