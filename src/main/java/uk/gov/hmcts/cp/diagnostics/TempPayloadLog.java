@@ -62,9 +62,21 @@ public final class TempPayloadLog {
     }
 
     private static String sanitizeForLog(final Object value) {
-        return String.valueOf(value)
-                .replace("\r", "\\r")
-                .replace("\n", "\\n");
+        final String raw = String.valueOf(value);
+        final StringBuilder sanitized = new StringBuilder(raw.length());
+        for (int i = 0; i < raw.length(); i++) {
+            final char c = raw.charAt(i);
+            if (c == '\r') {
+                sanitized.append("\\r");
+            } else if (c == '\n') {
+                sanitized.append("\\n");
+            } else if (Character.isISOControl(c)) {
+                sanitized.append('?');
+            } else {
+                sanitized.append(c);
+            }
+        }
+        return sanitized.toString();
     }
 
     /** The object as JSON for the log (its {@code toString()} when it can't be written). */
