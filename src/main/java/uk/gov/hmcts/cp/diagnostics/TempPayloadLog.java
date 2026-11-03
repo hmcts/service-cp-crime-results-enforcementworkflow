@@ -23,16 +23,16 @@ public final class TempPayloadLog {
     }
 
     public static void info(final String format, final Object... args) {
-        safely(() -> LOG.info(PREFIX + format, args));
+        safely(() -> LOG.info(PREFIX + format, sanitizeArgs(args)));
     }
 
     public static void warn(final String format, final Object... args) {
-        safely(() -> LOG.warn(PREFIX + format, args));
+        safely(() -> LOG.warn(PREFIX + format, sanitizeArgs(args)));
     }
 
     /** Pass the throwable as the last argument to get its stack trace. */
     public static void error(final String format, final Object... args) {
-        safely(() -> LOG.error(PREFIX + format, args));
+        safely(() -> LOG.error(PREFIX + format, sanitizeArgs(args)));
     }
 
     /** Diagnostics never fail the flow they describe (e.g. an argument whose {@code toString()} throws). */
@@ -43,6 +43,28 @@ public final class TempPayloadLog {
         } catch (RuntimeException e) {
             LOG.debug("TEMP DIAGNOSTICS line not written: {}", e.getClass().getSimpleName());
         }
+    }
+
+    private static Object[] sanitizeArgs(final Object... args) {
+        if (args == null || args.length == 0) {
+            return args;
+        }
+        final Object[] sanitized = new Object[args.length];
+        for (int i = 0; i < args.length; i++) {
+            final Object arg = args[i];
+            if (arg instanceof Throwable) {
+                sanitized[i] = arg;
+            } else {
+                sanitized[i] = sanitizeForLog(arg);
+            }
+        }
+        return sanitized;
+    }
+
+    private static String sanitizeForLog(final Object value) {
+        return String.valueOf(value)
+                .replace("\r", "\\r")
+                .replace("\n", "\\n");
     }
 
     /** The object as JSON for the log (its {@code toString()} when it can't be written). */
