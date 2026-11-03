@@ -12,16 +12,6 @@ spring:
     client-id: service-cp-crime-results-enforcementworkflow
     listener:
       auto-startup: ${ARTEMIS_LISTENER_ENABLED:true}   # enabled by default (listener only loads under the 'docker' profile)
-  # Results cache (feature 003, research R8): Azure Cache for Redis with Entra ID (managed identity), no access key.
-  # Used only when cp.results-cache.enabled=true.
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6380}
-      ssl:
-        enabled: ${REDIS_SSL_ENABLED:true}
-      timeout: 2s
-      connect-timeout: 2s
   # Postgres + Flyway, service-cp-crime-results-pcr pattern (constitution Principle III)
   datasource:
     url: ${DATASOURCE_URL:jdbc:postgresql://localhost:5432/enforcementworkflowdb}
@@ -33,6 +23,9 @@ spring:
       # fail fast (503 to the Function App, retry for a task) rather than wait 30 s for a connection
       connection-timeout: ${DATASOURCE_CONNECTION_TIMEOUT_MS:5000}
       data-source-properties:
+        # As service-cp-crime-informant-register: a database that dies without closing its connections would otherwise
+        # leave a query waiting for ever, holding a job thread and its claimed task. Seconds, per the PostgreSQL driver.
+        socketTimeout: 30
         # FR-017: Postgres error details quote the failing row ("Failing row contains (...)", request_payload
         # included), and Hibernate logs the driver message. Keep the detail out of messages and logs.
         logServerErrorDetail: false
@@ -58,8 +51,9 @@ cp:
     selector: "CPPNAME LIKE 'public.results%'"
     # feature 003 research R12: consumed by cpp-context-hearing-nows; must not start with public.results
     gob-data-event-name: public.enforcementworkflow.enforcement-nows-data-ready
-    # _metadata.context.user of the event: this service's system user (placeholder until the platform supplies one)
-    system-user: ${CP_MESSAGING_SYSTEM_USER:00000000-0000-0000-0000-000000000000}
+    # _metadata.context.user of the event: this service's system user. Required, no default: startup fails when it is
+    # missing or the all-zero placeholder (StartupPropertiesValidator).
+    system-user: ${CP_MESSAGING_SYSTEM_USER:}
   # Notifications from the results-processing Function App (feature 003, research R2, R10)
   notification:
     # CJSCPPUIDs allowed to notify; empty closes the endpoint
@@ -69,12 +63,24 @@ cp:
   # Share results for stage 1 (feature 003, contracts/results-data-sources.md)
   results:
     base-url: ${RESULTS_URL:http://localhost:8080}
-    cjscppuid: ${RESULTS_CJSCPPUID:00000000-0000-0000-0000-000000000000}
-    connect-timeout-ms: 5000
-    read-timeout-ms: 10000
+    # A System Users member. Required, no default (StartupPropertiesValidator)
+    cjscppuid: ${RESULTS_CJSCPPUID:}
+    connect-timeout: 5s
+    read-timeout: 10s
+  # Results cache (feature 003, research R8): the Results context's Azure Managed Redis, read with Entra ID (managed
+  # identity), no access key. Same layout as service-cp-crime-informant-register: LOCAL development defaults here, and
+  # deployed environments set them through environment variables bound by name (no placeholders):
+  #   CP_RESULTSCACHE_ENABLED, CP_RESULTSCACHE_HOST, CP_RESULTSCACHE_PORT (10000 deployed), CP_RESULTSCACHE_SSL (true
+  #   deployed), CP_RESULTSCACHE_USERNAME (the managed identity's object id).
+  # When disabled, no Redis client exists and stage 1 reads the Results query only.
   results-cache:
-    enabled: ${RESULTS_CACHE_ENABLED:false}
-    username: ${RESULTS_CACHE_USERNAME:}
+    enabled: false
+    host: localhost
+    port: 6379
+    ssl: false
+    connect-timeout: 2s
+    command-timeout: 2s
+    username: ""
     managed-identity-client-id: ${AZURE_CLIENT_ID:}
   # Enforcement case predicate: same logic as the enforcement gateway (research.md R1)
   enforcement:
@@ -82,14 +88,14 @@ cp:
   # Timeout budget (research.md R20): each hop gives up before its caller
   reference-data:
     base-url: ${REFERENCEDATA_URL:http://localhost:8081}
-    # Placeholder system-user UUID until a real value is confirmed (same convention as service-cp-crime-results-pcr).
-    cjscppuid: ${REFERENCEDATA_CJSCPPUID:00000000-0000-0000-0000-000000000000}
-    connect-timeout-ms: 5000
-    read-timeout-ms: 10000
+    # A System Users member. Required, no default (StartupPropertiesValidator)
+    cjscppuid: ${REFERENCEDATA_CJSCPPUID:}
+    connect-timeout: 5s
+    read-timeout: 10s
   enforcement-gateway:
     base-url: ${ENFORCEMENT_GATEWAY_URL:http://localhost:8082}
-    connect-timeout-ms: 5000
-    read-timeout-ms: 50000   # must exceed the gateway's own total towards APIM (5s + 40s)
+    connect-timeout: 5s
+    read-timeout: 50s   # must exceed the gateway's own total towards APIM (5s + 40s)
   hearing-result:
     # research.md R13: default NONE (unsendable). HEARING_DATE only via explicit local/test/simulator config.
     payment-due-date-fallback: ${PAYMENT_DUE_DATE_FALLBACK:NONE}
@@ -145,9 +151,6 @@ management:
       # on every /actuator/health call. Disabled: connectivity is proven via the listener log, and
       # we don't want the aggregate health (or a broker outage) to flap the service. Probe groups
       # (liveness/readiness) don't include it anyway.
-      enabled: false
-    redis:
-      # Results cache is optional (stage 1 falls back to the Results query); it must not flap the service's health.
       enabled: false
 
 logging:

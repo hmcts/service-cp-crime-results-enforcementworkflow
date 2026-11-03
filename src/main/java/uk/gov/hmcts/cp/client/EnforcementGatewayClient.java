@@ -2,7 +2,7 @@ package uk.gov.hmcts.cp.client;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
+import uk.gov.hmcts.cp.config.ClientProperties;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -53,7 +53,8 @@ public class EnforcementGatewayClient {
     private final String url;
 
     public EnforcementGatewayClient(@Qualifier("enforcementGatewayRestClientBuilder") final RestClient.Builder restClientBuilder,
-                                    @Value("${cp.enforcement-gateway.base-url}") final String baseUrl) {
+                                    final ClientProperties properties) {
+        final String baseUrl = properties.getEnforcementGateway().getBaseUrl();
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
         this.url = baseUrl + EnforcementHearingApi.PATH_POST_HEARING_RESULTED;
     }

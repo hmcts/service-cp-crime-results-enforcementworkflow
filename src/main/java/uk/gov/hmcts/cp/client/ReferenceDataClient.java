@@ -2,7 +2,7 @@ package uk.gov.hmcts.cp.client;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
+import uk.gov.hmcts.cp.config.ClientProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
@@ -38,10 +38,10 @@ public class ReferenceDataClient {
     private final Map<CacheKey, Optional<String>> cache = new ConcurrentHashMap<>();
 
     public ReferenceDataClient(@Qualifier("referenceDataRestClientBuilder") final RestClient.Builder restClientBuilder,
-                               @Value("${cp.reference-data.base-url}") final String baseUrl,
-                               @Value("${cp.reference-data.cjscppuid}") final String cjscppuid) {
+                               final ClientProperties properties) {
+        final String baseUrl = properties.getReferenceData().getBaseUrl();
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
-        this.cjscppuid = cjscppuid;
+        this.cjscppuid = properties.getReferenceData().getCjscppuid();
         this.baseUrl = baseUrl;
     }
 

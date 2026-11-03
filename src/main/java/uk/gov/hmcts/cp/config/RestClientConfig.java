@@ -1,6 +1,5 @@
 package uk.gov.hmcts.cp.config;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
@@ -11,7 +10,8 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 
 /**
- * One named {@link RestClient.Builder} per outbound target, each with its own connect/read timeouts.
+ * One named {@link RestClient.Builder} per outbound target, each with its own connect/read timeouts, read from
+ * {@link ClientProperties} and {@link ResultsProperties}.
  * The timeout budget (research.md R20, constitution Principle V) requires every hop to give up
  * before its caller. The workflow → gateway read timeout (50s) must therefore exceed the gateway's
  * own total towards APIM (5s + 40s). Reference data is a separate, shorter call.
@@ -24,36 +24,33 @@ public class RestClientConfig {
 
     @Bean(name = "referenceDataRestClientBuilder")
     @Scope("prototype")
-    public RestClient.Builder referenceDataRestClientBuilder(
-            @Value("${cp.reference-data.connect-timeout-ms:5000}") final long connectTimeoutMs,
-            @Value("${cp.reference-data.read-timeout-ms:10000}") final long readTimeoutMs) {
-        return builderWithTimeouts(connectTimeoutMs, readTimeoutMs);
+    public RestClient.Builder referenceDataRestClientBuilder(final ClientProperties properties) {
+        final ClientProperties.ReferenceData referenceData = properties.getReferenceData();
+        return builderWithTimeouts(referenceData.getConnectTimeout(), referenceData.getReadTimeout());
     }
 
     @Bean(name = "enforcementGatewayRestClientBuilder")
     @Scope("prototype")
-    public RestClient.Builder enforcementGatewayRestClientBuilder(
-            @Value("${cp.enforcement-gateway.connect-timeout-ms:5000}") final long connectTimeoutMs,
-            @Value("${cp.enforcement-gateway.read-timeout-ms:50000}") final long readTimeoutMs) {
-        return builderWithTimeouts(connectTimeoutMs, readTimeoutMs);
+    public RestClient.Builder enforcementGatewayRestClientBuilder(final ClientProperties properties) {
+        final ClientProperties.EnforcementGateway gateway = properties.getEnforcementGateway();
+        return builderWithTimeouts(gateway.getConnectTimeout(), gateway.getReadTimeout());
     }
 
     /** Results query (feature 003, research R17): stage 1 reads the share's results. */
     @Bean(name = "resultsRestClientBuilder")
     @Scope("prototype")
-    public RestClient.Builder resultsRestClientBuilder(
-            @Value("${cp.results.connect-timeout-ms:5000}") final long connectTimeoutMs,
-            @Value("${cp.results.read-timeout-ms:10000}") final long readTimeoutMs) {
-        return builderWithTimeouts(connectTimeoutMs, readTimeoutMs);
+    public RestClient.Builder resultsRestClientBuilder(final ResultsProperties properties) {
+        final ResultsProperties.Results results = properties.getResults();
+        return builderWithTimeouts(results.getConnectTimeout(), results.getReadTimeout());
     }
 
-    /* default */ static RestClient.Builder builderWithTimeouts(final long connectTimeoutMs, final long readTimeoutMs) {
+    /* default */ static RestClient.Builder builderWithTimeouts(final Duration connectTimeout, final Duration readTimeout) {
         @SuppressWarnings("PMD.CloseResource") // wrapped into requestFactory below and kept open for the bean's lifetime, not closed here
         final HttpClient httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(connectTimeoutMs))
+                .connectTimeout(connectTimeout)
                 .build();
         final JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
-        requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+        requestFactory.setReadTimeout(readTimeout);
         return RestClient.builder().requestFactory(requestFactory);
     }
 }

@@ -1,6 +1,7 @@
 package uk.gov.hmcts.cp.client;
 
 import org.junit.jupiter.api.Test;
+import uk.gov.hmcts.cp.config.ClientProperties;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -38,7 +39,13 @@ class EnforcementGatewayClientTest {
 
     private final RestClient.Builder builder = RestClient.builder();
     private final MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-    private final EnforcementGatewayClient client = new EnforcementGatewayClient(builder, BASE_URL);
+    private final EnforcementGatewayClient client = new EnforcementGatewayClient(builder, properties());
+
+    private static ClientProperties properties() {
+        final ClientProperties properties = new ClientProperties();
+        properties.getEnforcementGateway().setBaseUrl(BASE_URL);
+        return properties;
+    }
 
     @Test
     void success_should_return_parsed_response_and_raw_body() {

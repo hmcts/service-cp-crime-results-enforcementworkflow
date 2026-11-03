@@ -1,6 +1,7 @@
 package uk.gov.hmcts.cp.client;
 
 import org.junit.jupiter.api.Test;
+import uk.gov.hmcts.cp.config.ClientProperties;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -38,7 +39,14 @@ class ReferenceDataClientTest {
 
     private final RestClient.Builder builder = RestClient.builder();
     private final MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-    private final ReferenceDataClient client = new ReferenceDataClient(builder, BASE_URL, CJSCPPUID);
+    private final ReferenceDataClient client = new ReferenceDataClient(builder, properties());
+
+    private static ClientProperties properties() {
+        final ClientProperties properties = new ClientProperties();
+        properties.getReferenceData().setBaseUrl(BASE_URL);
+        properties.getReferenceData().setCjscppuid(CJSCPPUID);
+        return properties;
+    }
 
     @Test
     void should_return_short_code_with_vendor_accept_and_cjscppuid_headers() {

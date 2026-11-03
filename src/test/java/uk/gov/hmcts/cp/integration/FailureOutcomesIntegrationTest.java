@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * scenarios 6 (unknown codes only), 7 (mapping failed), 8 (gateway 502), 10 (stale SENDING row) and 11 (gateway timeout),
  * plus reference data unavailable). The gateway read timeout is shortened to 500 ms so the timeout case runs quickly.
  */
-@TestPropertySource(properties = "cp.enforcement-gateway.read-timeout-ms=500")
+@TestPropertySource(properties = "cp.enforcement-gateway.read-timeout=500ms")
 class FailureOutcomesIntegrationTest extends WorkflowStubsIntegrationTestBase {
 
     @Test

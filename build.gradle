@@ -87,8 +87,11 @@ dependencies {
   // --- Queued work, retries and replays (cp-task-manager; constitution 1.2.0, feature 003 research R10) ---
   implementation 'uk.gov.hmcts.cp:task-manager-service:1.0.11'
 
-  // --- Results cache (Azure Cache for Redis), Entra ID auth with managed identity; no access keys (research R8) ---
-  implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+  // --- Results cache (Azure Managed Redis), Entra ID auth with managed identity; no access keys (research R8) ---
+  // Lettuce directly rather than spring-boot-starter-data-redis, as service-cp-crime-informant-register does: this
+  // service reads one string key and needs no template or repository, and the starter's auto-configuration would add a
+  // connection factory and a health contributor even with the cache switched off. Version from the Boot BOM.
+  implementation 'io.lettuce:lettuce-core'
   implementation 'com.azure:azure-identity:1.18.1'
   testImplementation 'org.testcontainers:testcontainers'
   testImplementation 'org.testcontainers:testcontainers-junit-jupiter'

@@ -78,15 +78,16 @@ Contract consumed: [`api-cp-crime-results-enforcementgateway`](https://github.co
 | `DATASOURCE_URL` / `DATASOURCE_USERNAME` / `DATASOURCE_PASSWORD` | `jdbc:postgresql://localhost:5432/enforcementworkflowdb` / `postgres` / `postgres` | Postgres (Flyway migrates on start) |
 | `ARTEMIS_BROKER_URL` / `ARTEMIS_USER` / `ARTEMIS_PASSWORD` | `tcp://localhost:61616` / `admin` / `admin` | CP `public.event` topic |
 | `REFERENCEDATA_URL` | `http://localhost:8081` | referencedata context base URL (host only; the client appends `/referencedata-query-api/...`), used for the shortCode lookup |
-| `REFERENCEDATA_CJSCPPUID` | placeholder UUID | CJSCPPUID system user for reference data (**to be confirmed**) |
+| `REFERENCEDATA_CJSCPPUID` | none (**required**) | CJSCPPUID system user for reference data. Startup fails when it is missing, not a UUID, or all zeros |
 | `ENFORCEMENT_GATEWAY_URL` | `http://localhost:8082` | `service-cp-crime-results-enforcementgateway` base |
 | `ENFORCEMENT_AUTHORITY_CODE` | `GAPGD00` | OU code that identifies an Enforcement case |
 | `NOTIFICATION_ALLOWED_SYSTEM_USERS` | empty (endpoint closed) | comma-separated CJSCPPUID system users allowed to call `POST /enforcement-notifications`: the Function App's existing `CJSCPPUID` system user |
 | `NOTIFICATION_RETRY_DURATIONS` / `NOTIFICATION_REPLAY_SCHEDULE` | `10s,60s,300s` / `15m,1h,4h,12h,24h` | back-offs of a notification stage, then the replay schedule of a stored failure |
-| `RESULTS_URL` / `RESULTS_CJSCPPUID` | `http://localhost:8080` / placeholder UUID | CP host serving the Results internal hearing-details query, and its System Users CJSCPPUID (**to be confirmed**) |
-| `RESULTS_CACHE_ENABLED` / `RESULTS_CACHE_USERNAME` / `AZURE_CLIENT_ID` | `false` / empty / empty | Results Redis cache with Entra ID (managed identity token, no access key); `REDIS_HOST` / `REDIS_PORT` / `REDIS_SSL_ENABLED` |
+| `RESULTS_URL` / `RESULTS_CJSCPPUID` | `http://localhost:8080` / none (**required**, checked at startup) | CP host serving the Results internal hearing-details query, and its System Users CJSCPPUID (**to be confirmed**) |
+| `CP_RESULTSCACHE_ENABLED` / `CP_RESULTSCACHE_HOST` / `CP_RESULTSCACHE_PORT` / `CP_RESULTSCACHE_SSL` | `false` / `localhost` / `6379` / `false` | Results Redis cache (`cp.results-cache.*`, bound by name; deployed: the Results context's `REDIS-<ENV>-CCM-0x.uksouth.redis.azure.net`, port `10000`, SSL `true`). Off: no Redis client, Results query only |
+| `CP_RESULTSCACHE_USERNAME` / `AZURE_CLIENT_ID` | empty / empty | Entra ID login for the cache: the managed identity's object id, and its client id (empty uses the default credential chain). No access key |
 | `CP_MESSAGING_PUBLIC_EVENT_TOPIC` | `public.event` | topic for the GOB data event; locally `jms.topic.public.event` |
-| `CP_MESSAGING_SYSTEM_USER` | placeholder UUID | `_metadata.context.user` of the GOB data event (**to be confirmed**, research OP-16). Released together with hearing-nows and the Function App; no feature flags (research R25) |
+| `CP_MESSAGING_SYSTEM_USER` | none (**required**, checked at startup) | `_metadata.context.user` of the GOB data event (**to be confirmed**, research OP-16). Released together with hearing-nows and the Function App; no feature flags (research R25) |
 | `DATASOURCE_MAX_POOL` / `DATASOURCE_CONNECTION_TIMEOUT_MS` / `JOB_EXECUTOR_POLL_INTERVAL` | `12` / `5000` / `5000` | a running task holds two connections: pool ≥ 2 × executor threads (4) + headroom (research OP-15); a pod claims at most 4 jobs at a time (OP-14) |
 | `ADJOURNMENT_RESULT_CODES` | `NEXH,ADJNN` | CP shortCodes that mark an offence as adjourned (not sent to GOB in that share; OQ-13) |
 | `SPRING_PROFILES_ACTIVE` | none | `docker` adds the diagnostic `public.event` logger (`PublicEventLoggingListener`); publishing the GOB data event does not depend on it |
@@ -113,7 +114,8 @@ docker compose up -d postgres                      # or reuse a local Postgres o
 docker compose --profile stubs up -d wiremock      # optional: stubs reference data, the gateway and the Results query on :8089
 ./gradlew build                                    # unit + integration tests (need Postgres on 5432)
 REFERENCEDATA_URL=http://localhost:8089 ENFORCEMENT_GATEWAY_URL=http://localhost:8089 RESULTS_URL=http://localhost:8089 \
-CP_MESSAGING_PUBLIC_EVENT_TOPIC=jms.topic.public.event NOTIFICATION_ALLOWED_SYSTEM_USERS=5f1a6c2e-0000-4000-8000-00000000fa01 \
+RESULTS_CJSCPPUID=5f1a6c2e-0000-4000-8000-00000000fa11 REFERENCEDATA_CJSCPPUID=5f1a6c2e-0000-4000-8000-00000000fa12 \
+CP_MESSAGING_SYSTEM_USER=5f1a6c2e-0000-4000-8000-00000000fa13 CP_MESSAGING_PUBLIC_EVENT_TOPIC=jms.topic.public.event NOTIFICATION_ALLOWED_SYSTEM_USERS=5f1a6c2e-0000-4000-8000-00000000fa01 \
 PAYMENT_DUE_DATE_FALLBACK=HEARING_DATE SPRING_PROFILES_ACTIVE=docker ./gradlew bootRun
 ```
 

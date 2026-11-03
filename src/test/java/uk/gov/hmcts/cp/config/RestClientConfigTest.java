@@ -2,6 +2,7 @@ package uk.gov.hmcts.cp.config;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.convert.DurationStyle;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.ClassPathResource;
@@ -33,8 +34,13 @@ class RestClientConfigTest {
         try {
             slow.stubFor(get(urlEqualTo("/slow")).willReturn(aResponse().withStatus(200).withFixedDelay(3000)));
 
-            for (final RestClient.Builder builder : List.of(config.referenceDataRestClientBuilder(1000, 300),
-                    config.enforcementGatewayRestClientBuilder(1000, 300), config.resultsRestClientBuilder(1000, 300))) {
+            final ClientProperties clients = new ClientProperties();
+            clients.getReferenceData().setReadTimeout(Duration.ofMillis(300));
+            clients.getEnforcementGateway().setReadTimeout(Duration.ofMillis(300));
+            final ResultsProperties results = new ResultsProperties();
+            results.getResults().setReadTimeout(Duration.ofMillis(300));
+            for (final RestClient.Builder builder : List.of(config.referenceDataRestClientBuilder(clients),
+                    config.enforcementGatewayRestClientBuilder(clients), config.resultsRestClientBuilder(results))) {
                 final long start = System.nanoTime();
                 assertThatThrownBy(() -> builder.baseUrl(slow.baseUrl()).build().get().uri("/slow").retrieve().toBodilessEntity())
                         .isInstanceOf(ResourceAccessException.class);
@@ -50,16 +56,21 @@ class RestClientConfigTest {
         final PropertySource<?> yaml = new YamlPropertySourceLoader()
                 .load("application", new ClassPathResource("application.yaml")).getFirst();
 
-        assertThat(yaml.getProperty("cp.reference-data.connect-timeout-ms")).isEqualTo(5000);
-        assertThat(yaml.getProperty("cp.reference-data.read-timeout-ms")).isEqualTo(10000);
-        assertThat(yaml.getProperty("cp.results.connect-timeout-ms")).isEqualTo(5000);
-        assertThat(yaml.getProperty("cp.results.read-timeout-ms")).isEqualTo(10000);
-        assertThat(yaml.getProperty("cp.enforcement-gateway.connect-timeout-ms")).isEqualTo(5000);
-        final int gatewayReadTimeout = (Integer) yaml.getProperty("cp.enforcement-gateway.read-timeout-ms");
-        assertThat(gatewayReadTimeout).isEqualTo(50000);
+        assertThat(duration(yaml, "cp.reference-data.connect-timeout")).isEqualTo(Duration.ofSeconds(5));
+        assertThat(duration(yaml, "cp.reference-data.read-timeout")).isEqualTo(Duration.ofSeconds(10));
+        assertThat(duration(yaml, "cp.results.connect-timeout")).isEqualTo(Duration.ofSeconds(5));
+        assertThat(duration(yaml, "cp.results.read-timeout")).isEqualTo(Duration.ofSeconds(10));
+        final Duration gatewayConnectTimeout = duration(yaml, "cp.enforcement-gateway.connect-timeout");
+        final Duration gatewayReadTimeout = duration(yaml, "cp.enforcement-gateway.read-timeout");
+        assertThat(gatewayConnectTimeout).isEqualTo(Duration.ofSeconds(5));
+        assertThat(gatewayReadTimeout).isEqualTo(Duration.ofSeconds(50));
         // Each hop must give up before its caller, so the caller outlives the gateway's own budget.
-        assertThat((long) gatewayReadTimeout).isGreaterThan(GATEWAY_TOTAL_BUDGET_MS);
+        assertThat(gatewayReadTimeout.toMillis()).isGreaterThan(GATEWAY_TOTAL_BUDGET_MS);
         // End to end (connect + read) stays under the 60s success criterion SC-006.
-        assertThat(5000L + gatewayReadTimeout).isLessThan(60_000L);
+        assertThat(gatewayConnectTimeout.plus(gatewayReadTimeout)).isLessThan(Duration.ofSeconds(60));
+    }
+
+    private static Duration duration(final PropertySource<?> yaml, final String name) {
+        return DurationStyle.detectAndParse(String.valueOf(yaml.getProperty(name)));
     }
 }
