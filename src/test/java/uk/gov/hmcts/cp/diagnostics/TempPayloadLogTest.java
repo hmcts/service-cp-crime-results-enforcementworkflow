@@ -25,6 +25,13 @@ class TempPayloadLogTest {
     }
 
     @Test
+    void logged_values_should_not_be_able_to_start_a_new_log_line() {
+        assertThat(TempPayloadLog.sanitizeForLog("caseUrn\r\nforged line\u0007\u0085end"))
+                .isEqualTo("caseUrn\\r\\nforged line??end");
+        assertThat(TempPayloadLog.sanitizeForLog(null)).isEqualTo("null");
+    }
+
+    @Test
     void json_should_fall_back_to_to_string_when_the_value_cannot_be_written() {
         final Object unwritable = new Object() {
             public Object getSelf() {

@@ -5,6 +5,9 @@ import org.slf4j.LoggerFactory;
 import tools.jackson.core.JacksonException;
 import uk.gov.hmcts.cp.config.PayloadJson;
 
+import java.util.Arrays;
+import java.util.regex.Pattern;
+
 /**
  * TEMP DIAGNOSTICS (CIMD-4530, 2026-10-23): detailed QA logs at the connection points (payloads, URLs, destinations,
  * statuses, exception messages, root causes and stack traces), as the enforcement gateway does for hearing confirmed.
@@ -18,6 +21,7 @@ public final class TempPayloadLog {
     public static final String LOGGER_NAME = "uk.gov.hmcts.cp.TempDiagnostics";
     private static final Logger LOG = LoggerFactory.getLogger(LOGGER_NAME);
     private static final String PREFIX = "TEMP DIAGNOSTICS ";
+    private static final Pattern CONTROL_CHARACTERS = Pattern.compile("[\\p{Cntrl}\\u0080-\\u009F]");
 
     private TempPayloadLog() {
     }
@@ -45,26 +49,15 @@ public final class TempPayloadLog {
         }
     }
 
+    /** Log injection (CodeQL): line breaks are escaped and other control characters replaced; throwables are kept. */
     private static Object[] sanitizeArgs(final Object... args) {
-        if (args == null || args.length == 0) {
-            return args;
-        }
-        final Object[] sanitized = new Object[args.length];
-        for (int i = 0; i < args.length; i++) {
-            final Object arg = args[i];
-            if (arg instanceof Throwable) {
-                sanitized[i] = arg;
-            } else {
-                sanitized[i] = sanitizeForLog(arg);
-            }
-        }
-        return sanitized;
+        return args == null ? new Object[0]
+                : Arrays.stream(args).map(arg -> arg instanceof Throwable ? arg : sanitizeForLog(arg)).toArray();
     }
 
-    private static String sanitizeForLog(final Object value) {
-        return String.valueOf(value)
-                .replace("\r", "\\r")
-                .replace("\n", "\\n");
+    /* default */ static String sanitizeForLog(final Object value) {
+        final String escaped = String.valueOf(value).replace("\r", "\\r").replace("\n", "\\n");
+        return CONTROL_CHARACTERS.matcher(escaped).replaceAll("?");
     }
 
     /** The object as JSON for the log (its {@code toString()} when it can't be written). */
