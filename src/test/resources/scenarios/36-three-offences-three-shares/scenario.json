@@ -1,0 +1,53 @@
+{
+  "description": "Feature 002 SC-009 (quickstart 18): three offences over three hearing days; each offence's final result reaches GOB exactly once",
+  "events": [
+    "events/hearing-resulted-day1-three-offences.json",
+    "events/hearing-resulted-day2-three-offences.json",
+    "events/hearing-resulted-day3-three-offences.json"
+  ],
+  "referenceData": {
+    "11111111-1111-1111-1111-111111111111": "SC",
+    "22222222-2222-2222-2222-222222222222": "WC",
+    "44444444-4444-4444-4444-444444444444": "NEXH",
+    "55555555-5555-5555-5555-555555555555": "ADJNN",
+    "66666666-6666-6666-6666-666666666666": "COLLO"
+  },
+  "gateway": {
+    "status": 200,
+    "body": {
+      "caseUrn": "E012345678",
+      "timestamp": "2026-05-03T14:30:00Z",
+      "correlationId": "9f3d2e42-8d30-4d16-9dd6-6d4e26889d5c",
+      "nowsDataItems": {
+        "accountBalance": 125.5
+      }
+    }
+  },
+  "expected": {
+    "gatewayPosts": 3,
+    "resultCodesPerPost": [
+      [
+        "SC"
+      ],
+      [
+        "DW"
+      ],
+      [
+        "SC"
+      ]
+    ],
+    "statuses": [
+      "SUCCEEDED",
+      "SUCCEEDED",
+      "SUCCEEDED"
+    ],
+    "published": {
+      "events": 3
+    },
+    "notificationStatuses": [
+      "PUBLISHED",
+      "PUBLISHED",
+      "PUBLISHED"
+    ]
+  }
+}

@@ -12,6 +12,9 @@
     "gatewayPosts": 1,
     "status": "FAILED",
     "httpStatus": 302,
-    "errorDetail": "ERROR – outcome at GOB unknown: HTTP 302"
+    "errorDetail": "ERROR – outcome at GOB unknown: HTTP 302",
+    "notificationStatuses": [
+      "GOB_FAILED"
+    ]
   }
 }

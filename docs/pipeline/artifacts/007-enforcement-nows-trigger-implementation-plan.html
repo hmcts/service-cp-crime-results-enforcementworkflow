@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- claude-artifact: created=2026-10-20 project=service-cp-crime-results-enforcementworkflow kind=report -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enforcement NOWS Trigger Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#071210; --panel:#0c1c19; --panel-2:#103029; --edge:#1d4038;
+    --txt:#9fc7bd; --txt-hi:#e8fff7; --muted:#7fa59b;
+    --teal:#2fe6b6; --teal-dim:#179e7c; --cyan:#46d6ff; --gold:#ffce5c; --done:#2fe6b6; --rose:#ff6b8a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:radial-gradient(1000px 500px at 90% -10%,rgba(47,230,182,.07),transparent),var(--bg);
+    color:var(--txt);font-family:'Manrope',system-ui,sans-serif;font-size:15px;line-height:1.65}
+  .wrap{max-width:960px;margin:0 auto;padding:44px 20px 110px}
+  .mono,code{font-family:'JetBrains Mono',monospace}
+  code{font-size:12.5px;color:var(--txt-hi);background:rgba(70,214,255,.07);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+
+  header{margin-bottom:34px}
+  .kicker{font:700 11px/1.4 'JetBrains Mono',monospace;letter-spacing:3px;text-transform:uppercase;color:var(--teal-dim)}
+  h1{color:var(--txt-hi);font-size:clamp(26px,4.4vw,40px);font-weight:800;letter-spacing:-.5px;margin:12px 0 8px}
+  h2{color:var(--txt-hi);font-size:20px;font-weight:800;margin:38px 0 14px}
+  .sub{color:var(--muted);max-width:70ch}
+  .sub b{color:var(--txt-hi)}
+
+  .overall{margin-top:24px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px 20px}
+  .overall .top{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:13px;margin-bottom:10px}
+  .overall .top b{color:var(--txt-hi)}
+  .track{height:10px;border-radius:6px;background:#0a1714;overflow:hidden;border:1px solid var(--edge)}
+  .fill{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--teal-dim),var(--teal));animation:grow 1.4s ease forwards}
+  @keyframes grow{to{width:var(--w,0%)}}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+  .stat{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:12px 14px}
+  .stat .n{font:800 24px/1.1 'Manrope',sans-serif;color:var(--txt-hi)}
+  .stat .l{font-size:12px;color:var(--muted)}
+
+  .flow{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px 18px;overflow-x:auto}
+  .flow pre{font:12.5px/1.6 'JetBrains Mono',monospace;color:var(--txt);white-space:pre}
+  .flow .w{color:var(--cyan)} .flow .h{color:var(--teal)} .flow .d{color:var(--gold)}
+
+  .phase{position:relative;padding:0 0 14px 46px;margin-bottom:8px}
+  .phase::before{content:"";position:absolute;left:15px;top:6px;bottom:-8px;width:2px;background:var(--edge)}
+  .phase:last-of-type::before{display:none}
+  .phase>.pin{position:absolute;left:0;top:2px;width:32px;height:32px;border-radius:50%;background:var(--panel-2);
+    border:2px solid var(--teal-dim);display:grid;place-items:center;font:700 13px 'JetBrains Mono',monospace;color:var(--teal);z-index:2}
+  .phase.mvp>.pin{border-color:var(--teal);box-shadow:0 0 0 4px rgba(47,230,182,.15)}
+  .phase .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:18px 20px;margin-left:4px}
+  .phase.mvp .card{border-color:var(--teal-dim)}
+  .ph-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .ph-head h3{font-size:17px;color:var(--txt-hi);font-weight:700}
+  .tag{font:600 10.5px/1 'JetBrains Mono',monospace;letter-spacing:.5px;padding:5px 9px;border-radius:20px;border:1px solid currentColor}
+  .tag.t{color:var(--cyan)} .tag.o{color:var(--gold)} .tag.now{color:var(--teal);background:rgba(47,230,182,.1)} .tag.r{color:var(--rose)}
+  .ph-desc{font-size:14px;margin-bottom:12px}
+
+  ul.tasks{list-style:none;margin:6px 0 12px}
+  ul.tasks li{display:flex;align-items:flex-start;gap:10px;padding:5px 0;font-size:14px}
+  ul.tasks .box{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--edge);flex-shrink:0;margin-top:3px}
+  ul.tasks li b{color:var(--txt-hi)}
+  .repo{font:700 10px/1 'JetBrains Mono',monospace;padding:3px 6px;border-radius:4px;margin-right:2px;vertical-align:1px}
+  .repo.w{background:rgba(70,214,255,.15);color:var(--cyan)}
+  .repo.d{background:rgba(255,206,92,.15);color:var(--gold)} .repo.h{background:rgba(47,230,182,.15);color:var(--teal)}
+
+  .milestone{display:inline-flex;align-items:center;gap:8px;margin-top:4px;color:var(--gold);font-size:13px;font-weight:600}
+  .milestone::before{content:"◆";color:var(--gold)}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;overflow:hidden}
+  .tbl{overflow-x:auto;border-radius:12px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--edge);vertical-align:top}
+  th{color:var(--txt-hi);font-size:12px;letter-spacing:.5px;text-transform:uppercase;background:var(--panel-2)}
+  tr:last-child td{border-bottom:none}
+  .sev{font:700 11px 'JetBrains Mono',monospace}
+  .sev.m{color:var(--gold)} .sev.ok{color:var(--teal)} .sev.b{color:var(--rose)}
+
+  .gate{background:linear-gradient(135deg,rgba(255,206,92,.08),transparent);border:1px solid #6b5520;border-radius:12px;padding:18px 20px}
+  .gate h3{color:var(--gold);font-size:16px;margin-bottom:8px}
+  .gate li{margin:4px 0 4px 18px;font-size:14px}
+
+  footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--edge);color:var(--muted);
+    font:500 12px 'JetBrains Mono',monospace;letter-spacing:.5px;overflow-wrap:anywhere}
+  @media (max-width:560px){ .phase{padding-left:38px} .phase>.pin{width:28px;height:28px} .phase::before{left:13px} }
+  @media (prefers-reduced-motion:reduce){ .fill{animation:none;width:var(--w,0%)} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Implementation Plan · CCT-1222 / CIMD-4530 · feature 003 · iteration 1 starting</div>
+    <h1>Triggering NOWS generation for enforcement hearings</h1>
+    <p class="sub">The <b>results-processing Function App (FA)</b> stays the entry point: it creates the NOW requests in <b>hearing-nows (H)</b>, gives every enforcement NOW a <b>request id</b> (held in <code>WAITING_FOR_GOB</code>) and notifies the <b>enforcement workflow (W)</b>. W reads the share's results, sends each offence to GOB <b>once</b> (first-time shares only; an amend &amp; reshare is never sent), and publishes GOB's data with the request ids as a <b>public event</b> on Artemis. H matches on request id and resumes generation. Retries via <code>cp-task-manager</code>; no message is lost.</p>
+    <div class="overall" style="--w:74%">
+      <div class="top"><span>Overall progress</span><b>74% · 67 of 91 tasks done (2026-10-23)</b></div>
+      <div class="track"><div class="fill"></div></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n">91</div><div class="l">tasks in 7 phases</div></div>
+      <div class="stat"><div class="n">4</div><div class="l">user stories (US1–US3 = P1)</div></div>
+      <div class="stat"><div class="n">29/29</div><div class="l">requirements with tasks</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">open findings (analysis re-run)</div></div>
+    </div>
+  </header>
+
+  <h2>How it works</h2>
+  <div class="flow" role="img" aria-label="Sequence: the Function App creates held NOW requests with request ids in hearing-nows and notifies the workflow; the workflow reads results, sends to GOB once and publishes GOB data with the request ids; hearing-nows completes the held NOWs.">
+<pre>hearing-resulted → <span class="d">FA</span>: build NOWs; enforcement NOW → requestId (uuid) → POST <span class="h">H</span> add-now-document → WAITING_FOR_GOB
+                   <span class="d">FA</span> → POST <span class="w">W</span> /enforcement-notifications {hearingId, hearingDate, nows[requestId, masterDefendantId]} → 202
+<span class="w">W</span> stage 1 (task): results (cache by day → Results API) → select → offences not yet sent → GOB via gateway → SUBMITTED
+                   (all already sent → SKIPPED_NOTHING_NEW, reuse GOB data; no recognised code → nothing published)
+<span class="w">W</span> stage 2 (task): public.enforcementworkflow.enforcement-nows-data-ready {nows, accountNumber, nowsDataItems} → PUBLISHED
+<span class="h">H</span>: per requestId → NOW in WAITING_FOR_GOB → enfNowsDataItems + account → ENFORCEMENT_DATA_ADDED → existing chain
+     no NOW yet → keep data by requestId (retention) → complete the NOW when it arrives
+failures: 3 retries with back-off per stage → STORED_FAILURE → automatic replay schedule / manual replay; unknown GOB outcome → manual only</pre>
+  </div>
+
+  <h2>Phases</h2>
+  
+  <div class="phase mvp">
+    <div class="pin">1</div>
+    <div class="card">
+      <div class="ph-head"><h3>Setup</h3><span class="tag now mono">T001–T005 · iteration 1</span></div>
+      <div class="ph-desc">Plan artefact, the notification endpoint in the shared enforcement contract repo, dependencies and configuration.</div>
+      <ul class="tasks"><li><span class="box"></span><span><b>T001</b> · this plan artefact (CLAUDE.md gate)</span></li><li><span class="box"></span><span><span class="repo d">C</span><b>T002</b> · <code>POST /enforcement-notifications</code> in <code>api-cp-crime-results-enforcementgateway</code> (tag <code>enforcement-notification</code>, 0.2.0); the developer publishes a draft</span></li><li><span class="box"></span><span><span class="repo w">W</span><b>T003–T005</b> · cp-task-manager 1.0.11, Redis + azure-identity, new contract version; properties (Results, cache off, allow-list, retry/replay schedules, topic, event name)</span></li></ul>
+      
+    </div>
+  </div>
+  
+  <div class="phase mvp">
+    <div class="pin">2</div>
+    <div class="card">
+      <div class="ph-head"><h3>Foundational</h3><span class="tag now mono">T006–T021 · iteration 1</span></div>
+      <div class="ph-desc">Schema, entities, task manager and contract copies, tests first.</div>
+      <ul class="tasks"><li><span class="box"></span><span><span class="repo w">W</span><b>T006–T013</b> · Flyway <code>V1.006</code>–<code>V1.009</code>: <code>jobs</code> (library DDL, owned by W), <code>enforcement_notification</code>, <code>enforcement_notification_now</code> (PK request id); notification id in the existing <code>correlation_id</code> (V1.010–V1.013 not needed, 2026-10-20)</span></li><li><span class="box"></span><span><span class="repo w">W</span><b>T014–T018</b> · repository IT, entities, repositories, task-manager configuration</span></li><li><span class="box"></span><span><span class="repo w">W</span><span class="repo h">H</span><b>T019–T021</b> · H event schema + subscription; verbatim copy and validator in W; Liquibase <code>006</code> (kept data keyed by request id)</span></li></ul>
+      <span class="milestone">W starts with the new schema; H knows the new event</span>
+    </div>
+  </div>
+  
+  <div class="phase mvp">
+    <div class="pin">3</div>
+    <div class="card">
+      <div class="ph-head"><h3>US1 · NOWS generated with GOB data, triggered by FA</h3><span class="tag now mono">T022–T054 · P1 · MVP</span></div>
+      <div class="ph-desc">Endpoint, results source, two tasks, publisher; H event processor and request-id completion; FA request ids and notification; listener and REST hand-over removed.</div>
+      <ul class="tasks"><li><span class="box"></span><span><span class="repo w">W</span><b>T022–T028</b> · tests first: API IT (202/repeat/400/403/409), service, Results client, source, publisher (envelope, CPPNAME, schema), tasks (incl. <code>PUBLISH_REJECTED</code>), flow IT with PII log assertion</span></li><li><span class="box"></span><span><span class="repo h">H</span><b>T029–T033</b> · tests first: processor, service/tasks re-keyed, log test, add-NOW kept-data check, <code>EnforcementNowsIT</code> via public events</span></li><li><span class="box"></span><span><span class="repo d">FA</span><b>T034–T035</b> · tests first: request ids on enforcement NOWs, notify activity, compliance entries marked, left out of the GOB update only</span></li><li><span class="box"></span><span><span class="repo w">W</span><b>T036–T046</b> · implementation; cache (off by default); REST hand-over and hearing-resulted listener removed; scenario suite driven through the API</span></li><li><span class="box"></span><span><span class="repo h">H</span><b>T047–T050</b> · processor, re-keying, kept-data check, removal of the REST command and the Progression-based hold</span></li><li><span class="box"></span><span><span class="repo d">FA</span><b>T051–T054</b> · enforcement rule helper, request ids, compliance skip, notify activity</span></li></ul>
+      <span class="milestone">Iteration 1 done: first shares flow end to end with Results only</span>
+    </div>
+  </div>
+  
+  <div class="phase">
+    <div class="pin">4</div>
+    <div class="card">
+      <div class="ph-head"><h3>US2 · each offence to GOB once: first-time results once; amend &amp; reshare never</h3><span class="tag t mono">T055–T061, T084–T089, T091 · P1 · iteration 2</span></div>
+      <div class="ph-desc">isReshare from the notification; reshare → reuse or NO_GOB_DATA; every result code sent (FR-010); reuse when nothing new; no result code → nothing sent; ShareCorrelationId removed.</div>
+      <ul class="tasks"><li><span class="box"></span><span><span class="repo w">W</span><span class="repo h">H</span><b>T055–T061, T084–T089, T091</b></span></li></ul>
+      
+    </div>
+  </div>
+  
+  <div class="phase">
+    <div class="pin">5</div>
+    <div class="card">
+      <div class="ph-head"><h3>US3 · no message lost</h3><span class="tag t mono">T062–T069 · P1 · iteration 3</span></div>
+      <div class="ph-desc">Failure classification, stored failures, automatic and manual replay, unknown GOB outcome never auto-retried, FA run marked failed.</div>
+      <ul class="tasks"><li><span class="box"></span><span><span class="repo w">W</span><span class="repo d">FA</span><b>T062–T069</b></span></li></ul>
+      
+    </div>
+  </div>
+  
+  <div class="phase">
+    <div class="pin">6</div>
+    <div class="card">
+      <div class="ph-head"><h3>US4 · support visibility</h3><span class="tag t mono">T070–T072 · P2</span></div>
+      <div class="ph-desc">Outcome IT, structured logs, runbook.</div>
+      <ul class="tasks"><li><span class="box"></span><span><span class="repo w">W</span><b>T070–T072</b></span></li></ul>
+      
+    </div>
+  </div>
+  
+  <div class="phase">
+    <div class="pin">7</div>
+    <div class="card">
+      <div class="ph-head"><h3>Polish</h3><span class="tag t mono">T073–T083, T090 (TEMP diagnostics rollback before main)</span></div>
+      <div class="ph-desc">README/compose/WireMock, superseded notes, deployment values, internal-only ingress check, ADR production gate, fixed contract version, green builds in all repos, timings vs 10 min.</div>
+      <ul class="tasks"><li><span class="box"></span><span><span class="repo w">W</span><span class="repo h">H</span><span class="repo d">FA</span><b>T073–T083, T090 (TEMP diagnostics rollback before main)</b></span></li></ul>
+      
+    </div>
+  </div>
+
+  <h2>Decisions this plan rests on</h2>
+  <ul class="tasks">
+   <li><span class="box"></span><span>Request id per enforcement NOW, created by FA (R4); H holds them with its existing <code>WAITING_FOR_GOB</code> routing</span></li>
+   <li><span class="box"></span><span>Reshare never sent; first-time share once per offence (R9); submission key = notification + case + defendant; <code>gob_sent_offence</code> keeps once-per-offence</span></li>
+   <li><span class="box"></span><span>Internal network + system-user allow-list (R2); one contract repo for all enforcement APIs (R3)</span></li>
+   <li><span class="box"></span><span>Redis via Entra ID only, switched off until the platform enables it (R8); Results latest day accepted for now (OP-1)</span></li>
+   <li><span class="box"></span><span>Product decisions 2026-10-22: every result code sent to GOB (only no code or a code over 10 characters left out); amend &amp; reshare never sent (<code>isReshare</code> from the notification), earlier GOB data reused or <code>NO_GOB_DATA</code>; held NOWS wait without time limit; email on amend &amp; reshare is its own story; NOW distribution by the existing subscription rules (FR-021, T088)</span></li>
+   <li><span class="box"></span><span>Decided 2026-10-23: a reshare without earlier GOB data waits while the hearing's first-time share is still received, processing or a stored failure (retry, then <code>STORED_FAILURE</code> with <code>FIRST_SHARE_IN_PROGRESS</code>; T091)</span></li>
+   <li><span class="box"></span><span>Temporary exception 2026-10-23: TEMP payload diagnostics in W and H for QA, test environments with synthetic data only; removed before main (research I19, T090)</span></li>
+   <li><span class="box"></span><span>Public event with GOB data — ADR <code>specs/001-…/adrs/002-CIMD-4530-…</code> must be Accepted before production</span></li>
+  </ul>
+
+  <h2>Open points (none blocking iteration 1)</h2>
+  <ul class="tasks">
+   <li><span class="box"></span><span>OP-9 "multiple results, one right, one wrong" — closed 2026-10-22: all results sent (R21)</span></li>
+   <li><span class="box"></span><span>OP-10 architect document not final; OP-3 bearer auth; OP-4 Redis Entra; OP-6 ADR acceptance; OP-8 held NOWs after GOB rejection (CIMD-4259)</span></li>
+  </ul>
+
+  <h2>Stage 5 gate</h2>
+  <p class="sub">Spec clarified (2026-10-19/20/22), plan and tasks analysed with no open findings, constitution 1.2.1. Iteration 1 approved by the developer on 2026-10-20 ("go ahead").</p>
+</div>
+</body>
+</html>

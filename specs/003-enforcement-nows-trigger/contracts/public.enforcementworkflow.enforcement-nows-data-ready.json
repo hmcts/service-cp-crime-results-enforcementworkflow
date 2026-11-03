@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "http://moj.gov.uk/cpp/hearingnows/processor/public.enforcementworkflow.enforcement-nows-data-ready.json",
+  "description": "DRAFT (feature 003, R12). Owned by cpp-context-hearing-nows (hearingnows-event-processor/src/yaml/json/schema/). The enforcement workflow keeps a verbatim copy in src/test/resources/contracts/hearingnows/ (keep in sync; do not edit independently) and validates every payload it builds against it. The CPP envelope's _metadata is not part of this schema.",
+  "type": "object",
+  "properties": {
+    "hearingId": {
+      "$ref": "#/definitions/uuid"
+    },
+    "nows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "$ref": "#/definitions/uuid"
+          },
+          "masterDefendantId": {
+            "$ref": "#/definitions/uuid"
+          }
+        },
+        "required": ["requestId", "masterDefendantId"],
+        "additionalProperties": false
+      }
+    },
+    "accountNumber": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36
+    },
+    "gobDataReused": {
+      "type": "boolean"
+    },
+    "sharedTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "nowsDataItems": {
+      "$ref": "http://moj.gov.uk/cpp/hearingnows/nowdocument/nows-data-items.json"
+    }
+  },
+  "required": ["hearingId", "nows", "accountNumber", "gobDataReused", "nowsDataItems"],
+  "additionalProperties": false,
+  "definitions": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

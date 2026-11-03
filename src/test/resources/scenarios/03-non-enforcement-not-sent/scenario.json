@@ -2,6 +2,9 @@
   "description": "A case that isn't an enforcement case (prosecutionAuthorityOUCode not GAPGD00) is ignored (US2)",
   "event": "events/hearing-resulted-non-enforcement.json",
   "expected": {
-    "gatewayPosts": 0
+    "gatewayPosts": 0,
+    "notificationStatuses": [
+      "SKIPPED_NOT_ENFORCEMENT"
+    ]
   }
 }

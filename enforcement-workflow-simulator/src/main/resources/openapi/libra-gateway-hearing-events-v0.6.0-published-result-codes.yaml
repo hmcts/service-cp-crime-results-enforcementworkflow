@@ -1,0 +1,55 @@
+# Frozen snapshot of the HearingResult.resultCode enum exactly as Libra published it in
+# libra-gateway-hearing-events-v0.6.0.yml, before the LOCAL AMENDMENT (CIMD-4530, 2026-10-22)
+# removed the enum from the bundled copy (every CP result code is now sent, as agreed with the
+# GOB/Libra team; the contract keeps only maxLength: 10).
+#
+# This list no longer gates what the simulator ACCEPTS: any resultCode of 1..maxLength
+# characters is accepted, and a code with no result-codes.yaml row simply contributes no extra
+# NOWS data fields. It is kept only so the catalogue checks stay meaningful:
+#   - CatalogueLoader (startup) fails if any of these codes has no result-codes.yaml row, so a
+#     code GOB actually curated cannot silently lose its field list;
+#   - CatalogueCoverageTest asserts "in this list" <=> "postable" for every catalogue row;
+#   - AllResultCodesConformanceIT posts every one of them and checks the response conforms.
+# Do not edit it to track new CP codes - add a result-codes.yaml row instead.
+- "ABDC"
+- "ACF"
+- "ACNOTE"
+- "ACON"
+- "ADJNN"
+- "AEC"
+- "AEO"
+- "AEOC"
+- "BPOC"
+- "BWTD"
+- "BWTU"
+- "BPOCRFSD"
+- "CLAMPO"
+- "COLLO"
+- "CSC"
+- "CW"
+- "CWN"
+- "DW"
+- "FIDIC"
+- "FIDICT"
+- "FIDIP"
+- "FSN"
+- "FTTP"
+- "MP"
+- "MPSO"
+- "NBWT"
+- "NOENF"
+- "ORD"
+- "PTNV"
+- "REGF"
+- "REM"
+- "REMCC"
+- "REMF"
+- "RT"
+- "S136"
+- "SC"
+- "SUMM"
+- "TEXT"
+- "ENFTEXT"
+- "TFOOUT"
+- "WDN"
+- "WDRN"

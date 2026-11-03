@@ -19,6 +19,13 @@
   "expected": {
     "gatewayPosts": 1,
     "status": "SUCCEEDED",
-    "httpStatus": 200
+    "httpStatus": 200,
+    "published": {
+      "events": 1,
+      "gobDataReused": false
+    },
+    "notificationStatuses": [
+      "PUBLISHED"
+    ]
   }
 }

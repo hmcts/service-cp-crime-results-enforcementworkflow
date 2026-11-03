@@ -25,6 +25,13 @@
     "responsePayloadContains": [
       "9f3d2e42-8d30-4d16-9dd6-6d4e26889d5c",
       "accountWarrantNumber"
+    ],
+    "published": {
+      "events": 1,
+      "gobDataReused": false
+    },
+    "notificationStatuses": [
+      "PUBLISHED"
     ]
   }
 }

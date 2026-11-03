@@ -1,5 +1,5 @@
 {
-  "description": "The first share failed at GOB (502); its reshare is still never sent, and the FAILED row stays for follow-up (spec edge case, FR-003)",
+  "description": "The first share failed at GOB (502); its reshare is never sent (FR-008) and has no GOB data to publish (NO_GOB_DATA, NOWS stay held); the FAILED row stays for follow-up (CIMD-4259)",
   "events": [
     "events/hearing-resulted-enforcement.json",
     "events/hearing-resulted-reshare.json"
@@ -22,6 +22,10 @@
     "gatewayPosts": 1,
     "status": "FAILED",
     "httpStatus": 502,
-    "errorDetail": "error=LIBRA_CALL_FAILED; libraStatus=404; errorCode=E404"
+    "errorDetail": "error=LIBRA_CALL_FAILED; libraStatus=404; errorCode=E404",
+    "notificationStatuses": [
+      "GOB_FAILED",
+      "NO_GOB_DATA"
+    ]
   }
 }

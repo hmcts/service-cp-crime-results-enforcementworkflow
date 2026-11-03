@@ -8,8 +8,14 @@ services:
       # Dependencies on the host when run from compose (bootRun uses the localhost defaults instead)
       SPRING_PROFILES_ACTIVE: docker
       ARTEMIS_BROKER_URL: tcp://host.docker.internal:61616
+      # Topic of the GOB data event on the local Artemis (cpp-developers-docker)
+      CP_MESSAGING_PUBLIC_EVENT_TOPIC: jms.topic.public.event
       REFERENCEDATA_URL: http://host.docker.internal:8089
       ENFORCEMENT_GATEWAY_URL: http://host.docker.internal:8082
+      # Feature 003 Results query: the WireMock stub (--profile stubs); use http://host.docker.internal:8080 for a local CP backend
+      RESULTS_URL: http://host.docker.internal:8089
+      # Local only: a synthetic system user allowed to POST /enforcement-notifications (send it as CJSCPPUID)
+      NOTIFICATION_ALLOWED_SYSTEM_USERS: 5f1a6c2e-0000-4000-8000-00000000fa01
       # Local only: placeholder paymentDueDate when no payment result (research.md R13).
       # Never set this in a deployed environment; the application default is NONE.
       PAYMENT_DUE_DATE_FALLBACK: HEARING_DATE
@@ -31,7 +37,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-  # Optional local stubs for reference data and the enforcement gateway (tasks.md T077):
+  # Optional local stubs for reference data, the enforcement gateway and the Results query (feature 003 tasks.md T073):
   #   docker compose --profile stubs up -d wiremock
   wiremock:
     image: wiremock/wiremock:3.13.2
