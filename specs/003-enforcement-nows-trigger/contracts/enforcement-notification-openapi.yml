@@ -1,0 +1,154 @@
+# Copy of the enforcement-notification part of api-cp-crime-results-enforcementgateway 0.2.0
+# (src/main/resources/openapi/openapi-spec.yml, tag enforcement-notification), the one contract repo for all
+# enforcement scenarios (constitution II). The gateway repo is authoritative; keep this copy in sync.
+openapi: 3.0.3
+info:
+  title: Enforcement workflow - enforcement notifications
+  version: 0.2.0
+  description: >
+    Called by the results-processing app (Function App) after it has created the enforcement NOW requests of a share
+    in the hearing NOWS service. Internal network only; no external API gateway.
+tags:
+  - name: enforcement-notification
+    description: Notifications from the results-processing app to the enforcement workflow
+paths:
+  /enforcement-notifications:
+    post:
+      summary: Notify the enforcement workflow of a share's enforcement NOW requests
+      description: >-
+        Called by the results-processing Function App after it has created a share's enforcement NOW requests in
+        hearing-nows, each with a request id. The enforcement workflow stores the notification and processes it
+        asynchronously (results, GOB submission, GOB data event to hearing-nows). Internal network only; the caller
+        sends an allow-listed system user in CJSCPPUID. Implemented by service-cp-crime-results-enforcementworkflow
+        (CIMD-4530).
+      operationId: notifyEnforcementNows
+      tags:
+        - enforcement-notification
+      parameters:
+        - name: CJSCPPUID
+          in: header
+          required: true
+          description: System user id of the caller; must be in the workflow's allow-list.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnforcementNotification"
+            example:
+              hearingId: "6f1c2b9e-0000-4000-8000-000000000001"
+              hearingDate: "2026-10-19"
+              isReshare: false
+              nows:
+                - requestId: "1d2c3b4a-0000-4000-8000-0000000000a1"
+                  masterDefendantId: "9a8b7c6d-0000-4000-8000-0000000000d1"
+      responses:
+        '202':
+          description: >-
+            Accepted (stored and queued), or a repeat of an already accepted notification (same request ids), in
+            which case the existing notificationId is returned and nothing new is queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationAccepted"
+        '400':
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '403':
+          description: Missing or not allow-listed CJSCPPUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '409':
+          description: Some, but not all, request ids belong to an earlier notification, or the request ids belong to a notification for another hearing, hearing date or isReshare value.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '503':
+          description: The notification cannot be stored; the caller retries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    EnforcementNotification:
+      description: A share's enforcement NOW requests, sent by the results-processing Function App (CIMD-4530).
+      type: object
+      additionalProperties: false
+      required:
+        - hearingId
+        - hearingDate
+        - isReshare
+        - nows
+      properties:
+        hearingId:
+          type: string
+          format: uuid
+        hearingDate:
+          type: string
+          format: date
+          description: The hearing day of the share (yyyy-MM-dd).
+        isReshare:
+          type: boolean
+          description: >-
+            True for an amend & reshare. The enforcement workflow never sends an amend & reshare to GOB; it passes the
+            GOB data received for the first-time result to hearing-nows (CIMD-4530, decided 2026-10-22).
+        nows:
+          type: array
+          description: The share's enforcement NOW requests. requestId values must be unique (400 otherwise).
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/EnforcementNow"
+    EnforcementNow:
+      description: One enforcement NOW request created in hearing-nows.
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+        - masterDefendantId
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          description: Request id the Function App gave the NOW request in hearing-nows.
+        masterDefendantId:
+          type: string
+          format: uuid
+    NotificationAccepted:
+      type: object
+      required:
+        - notificationId
+      properties:
+        notificationId:
+          type: string
+          format: uuid
+    ErrorResponse:
+      type: object
+      description: Shared with the gateway's other operations. Never contains payload values beyond identifiers.
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error context
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+          description: Unique identifier for error tracing

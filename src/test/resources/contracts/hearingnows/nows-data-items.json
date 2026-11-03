@@ -1,0 +1,622 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "http://moj.gov.uk/cpp/hearingnows/nowdocument/nows-data-items.json",
+  "description": "NOWS logical entities returned by GoB. Optional response property names use the XML-safe element names defined in nows-data-items.xsd; each referenced schema identifies the corresponding NOWS logical entity.",
+  "type": "object",
+  "properties": {
+    "defendant": {
+      "$ref": "#/definitions/Defendant"
+    },
+    "paymentHistory": {
+      "$ref": "#/definitions/PaymentHistory"
+    },
+    "transactionHistory": {
+      "$ref": "#/definitions/TransactionHistory"
+    },
+    "offences": {
+      "$ref": "#/definitions/Offences"
+    },
+    "terms": {
+      "$ref": "#/definitions/Terms"
+    },
+    "accountBalance": {
+      "description": "Notes: Only returns the account balance that’s stored in GoB (at time of request) Source: NOWS Logical Entities v1.3 table 23, row 2",
+      "type": "number"
+    },
+    "accountWarrantNumber": {
+      "description": "Source: NOWS Logical Entities v1.3 table 26, row 2",
+      "type": "string",
+      "pattern": "^[0-9]{3}/[0-9]{2}/[0-9]{5}$"
+    },
+    "warrantContactDetails": {
+      "$ref": "#/definitions/WarrantContactDetails"
+    },
+    "accountBailAmount": {
+      "description": "Original Source CDI: account.bailamount Source: NOWS Logical Entities v1.3 table 32, row 2",
+      "type": "number"
+    },
+    "ctBankDetails": {
+      "$ref": "#/definitions/CtBankDetails"
+    },
+    "daysBeforeReleaseWarrant": {
+      "description": "Original Source CDI: ct.dwdays Source: NOWS Logical Entities v1.3 table 38, row 2",
+      "type": "integer"
+    },
+    "accountNumber": {
+      "description": "Source: NOWS Logical Entities v1.3 table 41, row 2",
+      "type": "string"
+    },
+    "accountDateImposed": {
+      "description": "Source: NOWS Logical Entities v1.3 table 44, row 2",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "Defendant": {
+      "description": "Debtor details derived from the defendant details or parent/guardian details.",
+      "type": "object",
+      "properties": {
+        "defName": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 2",
+          "type": "string"
+        },
+        "defAddress": {
+          "$ref": "#/definitions/DefAddress"
+        },
+        "nationalInsuranceNumber": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 6",
+          "type": "string"
+        },
+        "DoB": {
+          "description": "Notes: DD Month YYYY Source: NOWS Logical Entities v1.3 table 11, row 7",
+          "type": "string"
+        },
+        "homeTelNo": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 8",
+          "type": "string"
+        },
+        "businessTelNo": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 9",
+          "type": "string"
+        },
+        "mobileTelNo": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 10",
+          "type": "string"
+        },
+        "email1": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 11",
+          "type": "string"
+        },
+        "email2": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 12",
+          "type": "string"
+        },
+        "assetVehicleReg": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 13",
+          "type": "string"
+        },
+        "assetVehicleMake": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 14",
+          "type": "string"
+        },
+        "alias1": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 15",
+          "type": "string"
+        },
+        "alias2": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 16",
+          "type": "string"
+        },
+        "alias3": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 17",
+          "type": "string"
+        },
+        "alias4": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 18",
+          "type": "string"
+        },
+        "alias5": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 19",
+          "type": "string"
+        },
+        "accountNotes": {
+          "$ref": "#/definitions/AccountNotes"
+        },
+        "imposingCourt": {
+          "$ref": "#/definitions/ImposingCourt"
+        },
+        "parentGuardian": {
+          "$ref": "#/definitions/ParentGuardian"
+        },
+        "daysInDefault": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 30",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "defName"
+      ],
+      "additionalProperties": false
+    },
+    "DefAddress": {
+      "type": "object",
+      "properties": {
+        "defAddressLine1": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 3",
+          "type": "string"
+        },
+        "defAddressLine2": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 4",
+          "type": "string"
+        },
+        "defAddressLine3": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 5",
+          "type": "string"
+        },
+        "defPostcode": {
+          "description": "Notes: Present in the Defendant Account data structure. Source: NOWS Logical Entities v1.3 table 9 data structure",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "AccountNotes": {
+      "type": "object",
+      "properties": {
+        "accountNote1": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 20",
+          "type": "string"
+        },
+        "accountNote2": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 21",
+          "type": "string"
+        },
+        "accountNote3": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 22",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ImposingCourt": {
+      "type": "object",
+      "properties": {
+        "ljaCode": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 23",
+          "type": "integer"
+        },
+        "courtName": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 24",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ParentGuardian": {
+      "type": "object",
+      "properties": {
+        "parentToPayFlag": {
+          "description": "Notes: Y or N Source: NOWS Logical Entities v1.3 table 11, row 25",
+          "type": "string",
+          "enum": [
+            "Y",
+            "N"
+          ],
+          "maxLength": 1
+        },
+        "parentGuardianName": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 26",
+          "type": "string"
+        },
+        "parentGuardianAddress": {
+          "$ref": "#/definitions/ParentGuardianAddress"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ParentGuardianAddress": {
+      "type": "object",
+      "properties": {
+        "parentGuardianAddressLine1": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 27",
+          "type": "string"
+        },
+        "parentGuardianAddressLine2": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 28",
+          "type": "string"
+        },
+        "parentGuardianAddressLine3": {
+          "description": "Source: NOWS Logical Entities v1.3 table 11, row 29",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PaymentHistory": {
+      "type": "object",
+      "properties": {
+        "payment": {
+          "description": "Repeated payment history entries.",
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "$ref": "#/definitions/Payment"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Payment": {
+      "type": "object",
+      "properties": {
+        "paymentDate": {
+          "description": "Notes: DD Mon YYYY Source: NOWS Logical Entities v1.3 table 14, row 2",
+          "type": "string"
+        },
+        "paymentEventCode": {
+          "description": "Source: NOWS Logical Entities v1.3 table 14, row 3",
+          "type": "string"
+        },
+        "paymentType": {
+          "description": "Source: NOWS Logical Entities v1.3 table 14, row 4",
+          "type": "string"
+        },
+        "paymentAmount": {
+          "description": "Source: NOWS Logical Entities v1.3 table 14, row 5",
+          "type": "number"
+        },
+        "creditOrDebit": {
+          "description": "Notes: CR – Credit (positive amount) DR – Debit (negative amount) Referring to ‘Payment Amount’ one field that could have either one of the values Source: NOWS Logical Entities v1.3 table 14, row 6",
+          "type": "string",
+          "enum": [
+            "CR",
+            "DR"
+          ],
+          "maxLength": 2
+        }
+      },
+      "required": [
+        "paymentDate",
+        "paymentEventCode"
+      ],
+      "additionalProperties": false
+    },
+    "TransactionHistory": {
+      "type": "object",
+      "properties": {
+        "transaction": {
+          "description": "Transaction history entry wrapper.",
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "$ref": "#/definitions/Transaction"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Transaction": {
+      "type": "object",
+      "properties": {
+        "accountDate": {
+          "description": "Notes: DD Mon YYYY Source: NOWS Logical Entities v1.3 table 14, row 7",
+          "type": "string"
+        },
+        "accountEventCode": {
+          "description": "Source: NOWS Logical Entities v1.3 table 14, row 8",
+          "type": "string"
+        },
+        "accountEventDetails": {
+          "description": "Source: NOWS Logical Entities v1.3 table 14, row 9",
+          "type": "string"
+        }
+      },
+      "required": [
+        "accountDate",
+        "accountEventCode"
+      ],
+      "additionalProperties": false
+    },
+    "Offences": {
+      "type": "object",
+      "properties": {
+        "offence": {
+          "description": "Repeated offence entries.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/Offence"
+          }
+        },
+        "accountTotal": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 31",
+          "type": "number"
+        },
+        "accountPaid": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 32",
+          "type": "number"
+        }
+      },
+      "required": [
+        "offence",
+        "accountTotal",
+        "accountPaid"
+      ],
+      "additionalProperties": false
+    },
+    "Offence": {
+      "description": "One offence entry within Account Offences and Penalties.",
+      "type": "object",
+      "properties": {
+        "dateImposed": {
+          "description": "Notes: DD Mon YYYY Source: NOWS Logical Entities v1.3 table 17, row 2",
+          "type": "string"
+        },
+        "caseNumber": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 3",
+          "type": "string"
+        },
+        "offenceCode": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 4",
+          "type": "string"
+        },
+        "offenceTitle": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 5",
+          "type": "string"
+        },
+        "cymraeg_offenceTitle": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 6",
+          "type": "string"
+        },
+        "ticketNumber": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 7",
+          "type": "string"
+        },
+        "centralTicketOfficeName": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 8",
+          "type": "string"
+        },
+        "vehicleReg": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 9",
+          "type": "string"
+        },
+        "timeOfOffence": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 10",
+          "type": "string"
+        },
+        "placeOfOffence": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 11",
+          "type": "string"
+        },
+        "noticeToOwnerNoticeToHirer": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 12",
+          "type": "string"
+        },
+        "dateIssued": {
+          "description": "Notes: DD/MM/YYYY Source: NOWS Logical Entities v1.3 table 17, row 13",
+          "type": "string"
+        },
+        "licenceNo": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 14",
+          "type": "string"
+        },
+        "impositions": {
+          "$ref": "#/definitions/Impositions"
+        },
+        "offenceTotal": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 30",
+          "type": "number"
+        }
+      },
+      "required": [
+        "dateImposed",
+        "offenceCode",
+        "offenceTitle",
+        "impositions",
+        "offenceTotal"
+      ],
+      "additionalProperties": false
+    },
+    "Impositions": {
+      "type": "object",
+      "properties": {
+        "imposition": {
+          "description": "Repeated imposition entries.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/Imposition"
+          }
+        }
+      },
+      "required": [
+        "imposition"
+      ],
+      "additionalProperties": false
+    },
+    "Imposition": {
+      "description": "One imposition within an offence.",
+      "type": "object",
+      "properties": {
+        "impositionCode": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 15",
+          "type": "string"
+        },
+        "impositionType": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 16",
+          "type": "string"
+        },
+        "impositionText": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 17",
+          "type": "string"
+        },
+        "cymraeg_impositionText": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 18",
+          "type": "string"
+        },
+        "amountImposed": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 19",
+          "type": "number"
+        },
+        "amountPaid": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 20",
+          "type": "number"
+        },
+        "impositionBalance": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 21",
+          "type": "number"
+        },
+        "creditor": {
+          "$ref": "#/definitions/Creditor"
+        }
+      },
+      "required": [
+        "amountImposed",
+        "amountPaid",
+        "impositionBalance"
+      ],
+      "additionalProperties": false
+    },
+    "Creditor": {
+      "description": "Creditor details related to an imposition.",
+      "type": "object",
+      "properties": {
+        "creditorName": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 22",
+          "type": "string"
+        },
+        "creditorAddress": {
+          "$ref": "#/definitions/CreditorAddress"
+        },
+        "creditorSortCode": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 27",
+          "type": "integer"
+        },
+        "creditorBankAccountNumber": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 28",
+          "type": "integer"
+        },
+        "creditorBankAccountReference": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 29",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CreditorAddress": {
+      "type": "object",
+      "properties": {
+        "creditorAddressLine1": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 23",
+          "type": "string"
+        },
+        "creditorAddressLine2": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 24",
+          "type": "string"
+        },
+        "creditorAddressLine3": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 25",
+          "type": "string"
+        },
+        "creditorAddressLine4": {
+          "description": "Source: NOWS Logical Entities v1.3 table 17, row 26",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Terms": {
+      "type": "object",
+      "properties": {
+        "english_due": {
+          "description": "Notes: Date Source: NOWS Logical Entities v1.3 table 20, row 2",
+          "type": "string"
+        },
+        "english_instalment": {
+          "description": "Notes: Currency Source: NOWS Logical Entities v1.3 table 20, row 3",
+          "type": "string"
+        },
+        "english_lumpsum": {
+          "description": "Notes: Currency Source: NOWS Logical Entities v1.3 table 20, row 4",
+          "type": "string"
+        },
+        "english_instalmetPaymentPeriod": {
+          "description": "Notes: ENUM(Weekly, Fortnightly, Monthly) TBC exactly Source: NOWS Logical Entities v1.3 table 20, row 5",
+          "type": "string"
+        },
+        "english_firstDate": {
+          "description": "Notes: Date Source: NOWS Logical Entities v1.3 table 20, row 6",
+          "type": "string"
+        },
+        "cymraeg_due": {
+          "description": "Notes: Date Source: NOWS Logical Entities v1.3 table 20, row 7",
+          "type": "string"
+        },
+        "cymraeg_instalment": {
+          "description": "Notes: Currency Source: NOWS Logical Entities v1.3 table 20, row 8",
+          "type": "string"
+        },
+        "cymraeg_lumpsum": {
+          "description": "Notes: Currency Source: NOWS Logical Entities v1.3 table 20, row 9",
+          "type": "string"
+        },
+        "cymraeg_instalmentPaymentPeriod": {
+          "description": "Notes: ENUM(Weekly, Fortnightly, Monthly) Source: NOWS Logical Entities v1.3 table 20, row 10",
+          "type": "string"
+        },
+        "cymraeg_firstDate": {
+          "description": "Notes: Date Source: NOWS Logical Entities v1.3 table 20, row 11",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "WarrantContactDetails": {
+      "type": "object",
+      "properties": {
+        "warrantContactDetailsLine1": {
+          "description": "Original Source CDI: account.warrantcont.line1 Source: NOWS Logical Entities v1.3 table 29, row 2",
+          "type": "string"
+        },
+        "warrantContactDetailsLine2": {
+          "description": "Original Source CDI: account.warrantcont.line2 Source: NOWS Logical Entities v1.3 table 29, row 3",
+          "type": "string"
+        },
+        "warrantContactDetailsLine3": {
+          "description": "Original Source CDI: account.warrantcont.line3 Source: NOWS Logical Entities v1.3 table 29, row 4",
+          "type": "string"
+        },
+        "warrantContactDetailsLine4": {
+          "description": "Original Source CDI: account.warrantcont.line4 Source: NOWS Logical Entities v1.3 table 29, row 5",
+          "type": "string"
+        },
+        "warrantContactDetailsLine5": {
+          "description": "Original Source CDI: account.warrantcont.line5 Source: NOWS Logical Entities v1.3 table 29, row 6",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CtBankDetails": {
+      "type": "object",
+      "properties": {
+        "ct_account_number": {
+          "description": "Original Source CDI: account.ctbankdetail.ct_account_number_desc Source: NOWS Logical Entities v1.3 table 35, row 2",
+          "type": "integer",
+          "maximum": 99999999
+        },
+        "ct_sort_code": {
+          "description": "Original Source CDI: account.ctbankdetail.ct_sort_code Source: NOWS Logical Entities v1.3 table 35, row 3",
+          "type": "integer",
+          "maximum": 999999
+        }
+      },
+      "required": [
+        "ct_account_number",
+        "ct_sort_code"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

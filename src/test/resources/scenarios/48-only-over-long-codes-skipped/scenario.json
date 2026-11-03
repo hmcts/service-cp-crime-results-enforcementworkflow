@@ -1,0 +1,16 @@
+{
+  "description": "Feature 003 FR-010: every result code is longer than the contract's 10 characters: SKIPPED_NO_RESULT_CODE, nothing sent to GOB or hearing-nows",
+  "event": "events/hearing-resulted-enforcement.json",
+  "referenceData": {
+    "11111111-1111-1111-1111-111111111111": "ABCDEFGHIJK",
+    "22222222-2222-2222-2222-222222222222": "ABCDEFGHIJKL"
+  },
+  "expected": {
+    "gatewayPosts": 0,
+    "status": "SKIPPED_NO_RESULT_CODE",
+    "errorDetail": "no result code to send; dropped [longer-than-10:ABCDEFGHIJK, longer-than-10:ABCDEFGHIJKL]",
+    "notificationStatuses": [
+      "SKIPPED_NO_RESULT_CODE"
+    ]
+  }
+}

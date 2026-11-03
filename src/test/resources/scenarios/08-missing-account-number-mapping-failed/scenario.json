@@ -8,6 +8,9 @@
   "expected": {
     "gatewayPosts": 0,
     "status": "MAPPING_FAILED",
-    "errorDetailStartsWith": "PROSECUTOR_DEFENDANT_ID_MISSING"
+    "errorDetailStartsWith": "PROSECUTOR_DEFENDANT_ID_MISSING",
+    "notificationStatuses": [
+      "GOB_FAILED"
+    ]
   }
 }

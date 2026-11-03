@@ -3,30 +3,37 @@ package uk.gov.hmcts.cp.enforcementworkflowsimulator.catalogue;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import jakarta.validation.constraints.Size;
 import org.junit.jupiter.api.Test;
+
+import uk.gov.hmcts.cp.enforcementworkflowsimulator.api.model.HearingResultedRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Guards the catalogue against drifting away from the bundled OpenAPI contract's resultCode
- * enum. Every set asserted here is derived from the schema and the loaded catalogue rather than
- * hand-typed — {@link CatalogueLoader#schemaResultCodes()} is the same parsing path {@link
- * CatalogueLoader#load()} uses for its own startup validation, so there is exactly one place
- * that knows how to read the enum out of the contract.
+ * Guards the catalogue against drifting away from the resultCode list Libra published in v0.6.0.
  *
- * <p>"In the schema resultCode enum" and "postable" are meant to be the same set: a code CP can
- * actually send is postable, and a code marked postable: false is asserting that CP cannot send
- * it. That is a biconditional — E(c) &lt;=&gt; P(c) — and catching a regression in it requires
+ * <p>Since the LOCAL AMENDMENT (CIMD-4530, 2026-10-22) the bundled contract has no resultCode
+ * enum — every CP result code is sent, and a code with no catalogue row simply contributes no
+ * extra NOWS data fields. The published enum is kept as a frozen "codes GOB used before" list
+ * ({@link CatalogueLoader#publishedResultCodes()}, the same parsing path {@link
+ * CatalogueLoader#load()} uses for its own startup validation), and every set asserted here is
+ * derived from it and the loaded catalogue rather than hand-typed.
+ *
+ * <p>"In the published v0.6.0 enum" and "postable" are meant to be the same set: postable marks a
+ * row for a code GOB curated, and postable: false marks a row kept only as an alias target or a
+ * historic spelling (WC/TFOUT/WWDN, CLAMPS/LATG/LATR/PGPAY). Since CIMD-4530 CP may still send a
+ * postable: false code and the simulator accepts it like any other. That is a biconditional — E(c) &lt;=&gt; P(c) — and catching a regression in it requires
  * asserting both of its two independent directions, not the same implication and its
  * contrapositive relabelled:
  *
  * <ul>
- *   <li>{@link #every_schema_result_code_is_marked_postable()} asserts E(c) =&gt; P(c): a code in
+ *   <li>{@link #every_published_result_code_is_marked_postable()} asserts E(c) =&gt; P(c): a code in
  *       the enum must be postable.
- *   <li>{@link #every_catalogue_code_absent_from_the_schema_enum_is_marked_not_postable()}
+ *   <li>{@link #every_catalogue_code_absent_from_the_published_enum_is_marked_not_postable()}
  *       asserts &not;E(c) =&gt; &not;P(c): a code absent from the enum must be marked
  *       postable: false. This is the direction that actually catches a code the vendor stopped
- *       accepting (like WC/TFOUT/WWDN in v0.4.0) being left postable by omission — asserting
+ *       listing (like WC/TFOUT/WWDN in v0.4.0) being left postable by omission — asserting
  *       &not;P(c) =&gt; &not;E(c) instead (the contrapositive of the first bullet, not a second
  *       direction) would not.
  * </ul>
@@ -35,40 +42,57 @@ class CatalogueCoverageTest {
 
     private final CatalogueLoader loader = new CatalogueLoader();
     private final Catalogue catalogue = loader.load();
-    private final Set<String> schemaResultCodes = loader.schemaResultCodes();
+    private final Set<String> publishedResultCodes = loader.publishedResultCodes();
 
     @Test
-    void every_schema_result_code_is_known_to_the_catalogue() {
-        assertThat(schemaResultCodes).as("sanity: the schema must actually declare some codes").isNotEmpty();
+    void the_request_models_result_code_max_length_matches_the_bundled_contract() throws Exception {
+        final Size size = HearingResultedRequest.HearingResult.class
+                .getDeclaredField("resultCode").getAnnotation(Size.class);
 
-        for (final String code : schemaResultCodes) {
+        assertThat(loader.schemaResultCodeMaxLength()).isEqualTo(HearingResultedRequest.RESULT_CODE_MAX_LENGTH);
+        assertThat(size).as("resultCode must carry @Size so an over-long code is a 400").isNotNull();
+        assertThat(size.max()).isEqualTo(loader.schemaResultCodeMaxLength());
+    }
+
+    @Test
+    void a_code_with_no_catalogue_row_contributes_no_fields_rather_than_failing() {
+        assertThat(catalogue.isKnown("ZZNEWCODE")).isFalse();
+        assertThat(catalogue.fieldsForPostedCode("ZZNEWCODE")).isEmpty();
+        assertThat(catalogue.fieldsForPostedCode("SC")).isEqualTo(catalogue.fieldsFor("SC")).isNotEmpty();
+    }
+
+    @Test
+    void every_published_result_code_is_known_to_the_catalogue() {
+        assertThat(publishedResultCodes).as("sanity: the published list must actually declare some codes").isNotEmpty();
+
+        for (final String code : publishedResultCodes) {
             assertThat(catalogue.isKnown(code)).as("resultCode %s must be in the catalogue", code).isTrue();
         }
     }
 
     @Test
-    void every_schema_result_code_is_marked_postable() {
-        assertThat(schemaResultCodes).as("sanity: the schema must actually declare some codes").isNotEmpty();
+    void every_published_result_code_is_marked_postable() {
+        assertThat(publishedResultCodes).as("sanity: the published list must actually declare some codes").isNotEmpty();
 
-        for (final String code : schemaResultCodes) {
+        for (final String code : publishedResultCodes) {
             assertThat(catalogue.isPostable(code))
-                    .as("%s is in the schema resultCode enum and must not be marked postable: false", code)
+                    .as("%s is in the published v0.6.0 resultCode enum and must not be marked postable: false", code)
                     .isTrue();
         }
     }
 
     @Test
-    void every_catalogue_code_absent_from_the_schema_enum_is_marked_not_postable() {
+    void every_catalogue_code_absent_from_the_published_enum_is_marked_not_postable() {
         final Set<String> absentFromSchema = catalogue.allCodes().stream()
-                .filter(code -> !schemaResultCodes.contains(code))
+                .filter(code -> !publishedResultCodes.contains(code))
                 .collect(Collectors.toSet());
 
-        assertThat(absentFromSchema).as("sanity: at least one catalogue row must be absent from the schema enum")
+        assertThat(absentFromSchema).as("sanity: at least one catalogue row must be absent from the published enum")
                 .isNotEmpty();
 
         for (final String code : absentFromSchema) {
             assertThat(catalogue.isPostable(code))
-                    .as("%s is absent from the schema resultCode enum and must be marked postable: false", code)
+                    .as("%s is absent from the published v0.6.0 resultCode enum and must be marked postable: false", code)
                     .isFalse();
         }
     }
@@ -80,7 +104,7 @@ class CatalogueCoverageTest {
      */
     @Test
     void handles_the_enftext_code_distinctly_from_text() {
-        assertThat(schemaResultCodes).contains("ENFTEXT", "TEXT").doesNotContain("ENF TEXT");
+        assertThat(publishedResultCodes).contains("ENFTEXT", "TEXT").doesNotContain("ENF TEXT");
         assertThat(catalogue.isKnown("ENFTEXT")).isTrue();
         assertThat(catalogue.isPostable("ENFTEXT")).isTrue();
         assertThat(catalogue.isKnown("ENF TEXT")).isFalse();

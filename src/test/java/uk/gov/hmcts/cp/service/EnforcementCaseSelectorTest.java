@@ -39,10 +39,20 @@ class EnforcementCaseSelectorTest {
                 .isEqualTo(new SelectionResult.Skipped(SkipReason.NO_ENFORCEMENT_CASE));
     }
 
+    // feature 002 FR-016: a reshare of an in-scope Enforcement case is never sent to GOB but reuses the GOB data received
     @Test
-    void reshare_should_be_skipped_first_even_for_an_enforcement_case() {
-        assertThat(selector.select(Fixtures.event("hearing-resulted-reshare.json")))
-                .isEqualTo(new SelectionResult.Skipped(SkipReason.RESHARE));
+    void reshare_of_an_enforcement_case_should_be_selected_as_a_reshare() {
+        assertThat(selector.select(Fixtures.event("hearing-resulted-reshare.json"))).isInstanceOfSatisfying(SelectionResult.Reshare.class,
+                reshare -> assertThat(reshare.defendant().prosecutionAuthorityReference()).isEqualTo("1234567890"));
+    }
+
+    @Test
+    void reshare_of_an_out_of_scope_shape_should_still_be_skipped() {
+        final HearingResultedEvent twoDefendants = Fixtures.event("hearing-resulted-two-defendants.json");
+        final HearingResultedEvent reshared = new HearingResultedEvent(twoDefendants.hearing(), true, twoDefendants.sharedTime(),
+                twoDefendants.hearingDay());
+
+        assertThat(selector.select(reshared)).isEqualTo(new SelectionResult.Skipped(SkipReason.MULTIPLE_DEFENDANTS));
     }
 
     @Test

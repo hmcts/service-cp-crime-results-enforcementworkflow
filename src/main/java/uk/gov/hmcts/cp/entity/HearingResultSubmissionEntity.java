@@ -18,7 +18,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * One attempt to send a defendant's first-share hearing results to GOB. The request and response are
+ * One attempt to send a defendant's newly resulted offences of one share to GOB (feature 002: each offence once). The request and response are
  * held as JSON, not a column per field, because the GOB contract is still changing. The payloads carry
  * defendant PII and are stored in plain form in iteration 1 (specs/001-cimd-4246-hearing-resulted-to-libra/adrs/001-…pii-at-rest.md).
  */
@@ -31,6 +31,10 @@ public class HearingResultSubmissionEntity {
 
     @Id
     private UUID id;
+
+    /** Share correlation id (feature 002 research R18): one submission per share, case and defendant. */
+    @Column(name = "correlation_id", nullable = false)
+    private UUID correlationId;
 
     @Column(name = "hearing_id", nullable = false)
     private UUID hearingId;
@@ -64,6 +68,17 @@ public class HearingResultSubmissionEntity {
 
     @Column(name = "error_detail")
     private String errorDetail;
+
+    /** Outcome of the latest hand-over of GOB's reply to hearing-nows (feature 002); null = none attempted. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "nows_handover_status", length = 16)
+    private NowsHandoverStatus nowsHandoverStatus;
+
+    @Column(name = "nows_handover_detail")
+    private String nowsHandoverDetail;
+
+    @Column(name = "nows_handover_at")
+    private Instant nowsHandoverAt;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

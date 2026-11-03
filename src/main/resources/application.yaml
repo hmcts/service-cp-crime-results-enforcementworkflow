@@ -7,18 +7,31 @@ spring:
     user: ${ARTEMIS_USER:admin}
     password: ${ARTEMIS_PASSWORD:admin}
   jms:
-    pub-sub-domain: true                 # public.event is a multicast topic
+    pub-sub-domain: true                 # public.event is a multicast topic (also for publishing the GOB data event)
     subscription-durable: true           # durable: events queued while down are still delivered
     client-id: service-cp-crime-results-enforcementworkflow
     listener:
       auto-startup: ${ARTEMIS_LISTENER_ENABLED:true}   # enabled by default (listener only loads under the 'docker' profile)
+  # Results cache (feature 003, research R8): Azure Cache for Redis with Entra ID (managed identity), no access key.
+  # Used only when cp.results-cache.enabled=true.
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6380}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:true}
+      timeout: 2s
+      connect-timeout: 2s
   # Postgres + Flyway, service-cp-crime-results-pcr pattern (constitution Principle III)
   datasource:
     url: ${DATASOURCE_URL:jdbc:postgresql://localhost:5432/enforcementworkflowdb}
     username: ${DATASOURCE_USERNAME:postgres}
     password: ${DATASOURCE_PASSWORD:postgres}
     hikari:
-      maximum-pool-size: ${DATASOURCE_MAX_POOL:5}
+      # a running task holds its own connection plus one per REQUIRES_NEW write (research OP-15): >= 2 x job threads + API
+      maximum-pool-size: ${DATASOURCE_MAX_POOL:12}
+      # fail fast (503 to the Function App, retry for a task) rather than wait 30 s for a connection
+      connection-timeout: ${DATASOURCE_CONNECTION_TIMEOUT_MS:5000}
       data-source-properties:
         # FR-017: Postgres error details quote the failing row ("Failing row contains (...)", request_payload
         # included), and Hibernate logs the driver message. Keep the detail out of messages and logs.
@@ -35,17 +48,34 @@ spring:
 server:
   port: ${SERVER_PORT:8083}
 
-# CP public-event consumption (connectivity logging; active only under the 'docker' profile).
-# Selector filters to results public events only (e.g. public.results.police-result-generated).
+# CP public topic: connectivity logging (active only under the 'docker' profile) and the GOB data event (feature 003).
+# The logging selector filters to results public events only (e.g. public.results.police-result-generated).
 cp:
   messaging:
-    public-event-topic: public.event
+    # AKS: public.event; the local cpp-developers-docker broker: jms.topic.public.event (auto-create off)
+    public-event-topic: ${CP_MESSAGING_PUBLIC_EVENT_TOPIC:public.event}
     subscription-name: service-cp-crime-results-enforcementworkflow.public.event.logger
     selector: "CPPNAME LIKE 'public.results%'"
-    # own JMS client id: a second durable listener sharing spring.jms.client-id fails to connect (HearingResultedJmsConfig)
-    hearing-resulted-client-id: service-cp-crime-results-enforcementworkflow.hearing-resulted
-    hearing-resulted-subscription-name: service-cp-crime-results-enforcementworkflow.hearing-resulted
-    hearing-resulted-selector: "CPPNAME = 'public.events.hearing.hearing-resulted'"
+    # feature 003 research R12: consumed by cpp-context-hearing-nows; must not start with public.results
+    gob-data-event-name: public.enforcementworkflow.enforcement-nows-data-ready
+    # _metadata.context.user of the event: this service's system user (placeholder until the platform supplies one)
+    system-user: ${CP_MESSAGING_SYSTEM_USER:00000000-0000-0000-0000-000000000000}
+  # Notifications from the results-processing Function App (feature 003, research R2, R10)
+  notification:
+    # CJSCPPUIDs allowed to notify; empty closes the endpoint
+    allowed-system-users: ${NOTIFICATION_ALLOWED_SYSTEM_USERS:}
+    retry-durations: ${NOTIFICATION_RETRY_DURATIONS:10s,60s,300s}
+    replay-schedule: ${NOTIFICATION_REPLAY_SCHEDULE:15m,1h,4h,12h,24h}
+  # Share results for stage 1 (feature 003, contracts/results-data-sources.md)
+  results:
+    base-url: ${RESULTS_URL:http://localhost:8080}
+    cjscppuid: ${RESULTS_CJSCPPUID:00000000-0000-0000-0000-000000000000}
+    connect-timeout-ms: 5000
+    read-timeout-ms: 10000
+  results-cache:
+    enabled: ${RESULTS_CACHE_ENABLED:false}
+    username: ${RESULTS_CACHE_USERNAME:}
+    managed-identity-client-id: ${AZURE_CLIENT_ID:}
   # Enforcement case predicate: same logic as the enforcement gateway (research.md R1)
   enforcement:
     authority-code: ${ENFORCEMENT_AUTHORITY_CODE:GAPGD00}
@@ -69,9 +99,24 @@ cp:
       WWDN: WDN
     # research.md R7: CP shortCode -> GOB NowsDataItemName values (rows from the updated Confluence page)
     nows-data-items-by-short-code: {}
+    # feature 002 research R19 (OQ-13): shortCodes marking an adjournment; an offence adjourned in a share is not sent
+    adjournment-result-codes: ${ADJOURNMENT_RESULT_CODES:NEXH,ADJNN}
     # research.md R19: stale SENDING -> FAILED (INTERRUPTED), never resent
     stale-sending-threshold: ${STALE_SENDING_THRESHOLD:PT5M}
     stale-sending-sweep-interval: ${STALE_SENDING_SWEEP_INTERVAL:PT1M}
+
+# cp-task-manager (feature 003, research R10): its tables come from this service's migrations (V1.006, V1.007)
+taskmanager:
+  schema:
+    enabled: false
+job:
+  executor:
+    poll-interval: ${JOB_EXECUTOR_POLL_INTERVAL:5000}
+    core-pool-size: 2
+    max-pool-size: 4
+    # claim only what can run soon: claimed jobs of a pod that dies are not reclaimed (research OP-14)
+    batch-size: 4
+    queue-capacity: 4
 
 azure:
   application-insights:
@@ -100,6 +145,9 @@ management:
       # on every /actuator/health call. Disabled: connectivity is proven via the listener log, and
       # we don't want the aggregate health (or a broker outage) to flap the service. Probe groups
       # (liveness/readiness) don't include it anyway.
+      enabled: false
+    redis:
+      # Results cache is optional (stage 1 falls back to the Results query); it must not flap the service's health.
       enabled: false
 
 logging:

@@ -38,6 +38,15 @@ public class RestClientConfig {
         return builderWithTimeouts(connectTimeoutMs, readTimeoutMs);
     }
 
+    /** Results query (feature 003, research R17): stage 1 reads the share's results. */
+    @Bean(name = "resultsRestClientBuilder")
+    @Scope("prototype")
+    public RestClient.Builder resultsRestClientBuilder(
+            @Value("${cp.results.connect-timeout-ms:5000}") final long connectTimeoutMs,
+            @Value("${cp.results.read-timeout-ms:10000}") final long readTimeoutMs) {
+        return builderWithTimeouts(connectTimeoutMs, readTimeoutMs);
+    }
+
     /* default */ static RestClient.Builder builderWithTimeouts(final long connectTimeoutMs, final long readTimeoutMs) {
         @SuppressWarnings("PMD.CloseResource") // wrapped into requestFactory below and kept open for the bean's lifetime, not closed here
         final HttpClient httpClient = HttpClient.newBuilder()

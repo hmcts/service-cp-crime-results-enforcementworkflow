@@ -22,6 +22,9 @@
   "expected": {
     "gatewayPosts": 1,
     "status": "FAILED",
-    "errorDetail": "TIMEOUT – outcome at GOB unknown"
+    "errorDetail": "TIMEOUT – outcome at GOB unknown",
+    "notificationStatuses": [
+      "GOB_FAILED"
+    ]
   }
 }

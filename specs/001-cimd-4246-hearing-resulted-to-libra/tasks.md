@@ -157,7 +157,7 @@ Branches: W is on `001-cimd-4246-hearing-resulted-to-libra`. A and G: branch `de
   - `paymentCardRequested`/`parentToPay`/`prisonSentenceIndicator` are "N";
   - with `HEARING_DATE`, `paymentDueDate` equals `dateOfHearing`;
   - `nowsDataRequest` is null.
-  - **Schema test:** validate the serialised request against the `HearingResultedRequest` schema in `specs/001-cimd-4246-hearing-resulted-to-libra/docs/libra-gateway-hearing-events-openapi-v0.4.0.yml` using `com.networknt:json-schema-validator`. Load the YAML with Jackson YAML and resolve the `#/components/schemas` refs.
+  - **Schema test:** validate the serialised request against the `HearingResultedRequest` schema in `specs/docs/libra-gateway-hearing-events-openapi-v0.4.0.yml` using `com.networknt:json-schema-validator`. Load the YAML with Jackson YAML and resolve the `#/components/schemas` refs.
 - [X] T027 [P] [US1] Create `src/test/java/uk/gov/hmcts/cp/client/EnforcementGatewayClientTest.java` (`MockRestServiceServer`): POST `{base}/hearingResulted` → 200 body → `GatewayResult.Success(response)`.
 - [X] T028 [P] [US1] Create `src/test/java/uk/gov/hmcts/cp/messaging/HearingResultedEventListenerTest.java` (mocked `jakarta.jms.Message`): a valid body calls `HearingResultedProcessor.process` once; malformed JSON is logged and not rethrown.
 
@@ -405,14 +405,14 @@ Branches: W is on `001-cimd-4246-hearing-resulted-to-libra`. A and G: branch `de
 - [X] T078 *(2026-09-27: over a real Artemis broker, with the real gateway and WireMock as APIM and reference data. This found and fixed the JMS client-id clash (research.md R23, `HearingResultedJmsConfig`).)* Run every quickstart.md step and verification scenario 1-9 end to end, and record the results in `specs/001-cimd-4246-hearing-resulted-to-libra/quickstart.md` (a "Last validated" line).
 - [X] T079 *(2026-09-27: `build pmdMain jacocoTestReport` green in W (110 tests) and G (36). Hand-written code is PMD-clean everywhere. Open notes: (1) `pmdTest` is disabled by the template in W and G (`gradle/pmd.gradle`), which the constitution VII wording (pmdMain *and* pmdTest) needs a decision on; (2) the API repo `pmdMain` reports 1921 violations, all in generated `build/generated` code (not run in its CI).)* Run `./gradlew build pmdMain pmdTest jacocoTestReport` in W, G and A, and fix every PMD violation.
 - [ ] T080 [P] When Libra publishes contract v0.5.0:
-  - replace `specs/001-cimd-4246-hearing-resulted-to-libra/docs/libra-gateway-hearing-events-openapi-v0.4.0.yml` (removing the local amendment comment);
+  - replace `specs/docs/libra-gateway-hearing-events-openapi-v0.4.0.yml` (removing the local amendment comment);
   - re-copy the schema block into `../api-cp-crime-results-enforcementgateway/src/main/resources/openapi/openapi-spec.yml`;
   - bump the API jar version in W and G `build.gradle`;
   - re-run the T026 schema test.
 - [ ] T081 [P] Replace the per-id cache in `src/main/java/uk/gov/hmcts/cp/client/ReferenceDataClient.java` with a bulk `cacheable` result-definition load and a scheduled refresh (research.md R4b).
 - [ ] T082 [P] `X-Correlation-ID`: add an optional header parameter to `postHearingResulted` in A's `openapi-spec.yml`; generate it in `EnforcementGatewayClient` (W); forward it in `LibraClient.resultHearing` (G); persist it in a new `V1.002__add_correlation_id_to_hearing_result_submission.sql`.
 - [ ] T083 [P] Retention: add `expires_at` and a purge job (PCR `cp_version.expires_at` pattern) in `V1.00N__add_expires_at_to_hearing_result_submission.sql` and `src/main/java/uk/gov/hmcts/cp/service/SubmissionPurgeJob.java`, once the retention period is agreed.
-- [ ] T084 Update `specs/001-cimd-4246-hearing-resulted-to-libra/docs/CIMD-4246-gap-analysis.md` and `specs/001-cimd-4246-hearing-resulted-to-libra/research.md` §2 as open items close; update `specs/001-cimd-4246-hearing-resulted-to-libra/adrs/001-…` when encryption is scheduled.
+- [ ] T084 Update `specs/docs/CIMD-4246-gap-analysis.md` and `specs/001-cimd-4246-hearing-resulted-to-libra/research.md` §2 as open items close; update `specs/001-cimd-4246-hearing-resulted-to-libra/adrs/001-…` when encryption is scheduled.
 - [X] T085 [P] Create `../service-cp-crime-results-enforcementgateway/docs/InboundAccess.md` for the platform/deploy team (FR-018, research.md R21):
   - the gateway must have **no ingress or external route** for `/hearingResulted`;
   - a sample Kubernetes `NetworkPolicy` admitting traffic to the gateway pod's port 8082 only from pods labelled as `service-cp-crime-results-enforcementworkflow`;

@@ -11,4 +11,12 @@ public sealed interface SelectionResult {
 
     record Skipped(SkipReason reason) implements SelectionResult {
     }
+
+    /**
+     * An amend &amp; reshare of an in-scope Enforcement case (feature 002 FR-016): never sent to GOB; the most recent GOB
+     * data for the case and defendant is handed over again.
+     */
+    record Reshare(HearingResultedEvent.ProsecutionCase prosecutionCase, HearingResultedEvent.Defendant defendant)
+            implements SelectionResult {
+    }
 }

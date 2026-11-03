@@ -27,6 +27,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static uk.gov.hmcts.cp.support.TempDiagnosticsLogFilter.withoutTempDiagnostics;
 
 @ExtendWith(OutputCaptureExtension.class)
 class EnforcementGatewayClientTest {
@@ -107,6 +108,17 @@ class EnforcementGatewayClientTest {
         assertThat(client.submit(minimumRequest())).isEqualTo(new GatewayResult.Failure(502, "non-JSON error body omitted"));
     }
 
+    // any other failure (here an exception that is not an I/O one) is recorded as outcome unknown, never thrown
+    @Test
+    void unexpected_failure_should_be_a_failure_with_unknown_outcome() {
+        server.expect(requestTo(BASE_URL + "/hearingResulted")).andRespond(request -> {
+            throw new IllegalStateException("unexpected");
+        });
+
+        assertThat(client.submit(minimumRequest())).isEqualTo(new GatewayResult.Failure(null,
+                EnforcementGatewayClient.OUTCOME_UNKNOWN_ERROR + ": IllegalStateException"));
+    }
+
     @Test
     void connection_refused_should_be_a_failure_that_was_not_sent() {
         server.expect(requestTo(BASE_URL + "/hearingResulted")).andRespond(withException(new ConnectException("Connection refused")));
@@ -151,7 +163,7 @@ class EnforcementGatewayClientTest {
 
         assertThat(client.submit(minimumRequest()))
                 .isEqualTo(new GatewayResult.Failure(502, "error=LIBRA_CALL_FAILED; libraStatus=404; errorCode=E404"));
-        assertThat(output.getAll())
+        assertThat(withoutTempDiagnostics(output.getAll()))
                 .contains("HTTP 502 Bad Gateway (url=" + BASE_URL + "/hearingResulted")
                 .contains("errorCode=E404")
                 .contains("message=Libra hearing-result call failed with HTTP 404; errorDescription=No GoB enforcement record")
@@ -165,7 +177,7 @@ class EnforcementGatewayClientTest {
 
         client.submit(minimumRequest());
 
-        assertThat(output.getAll())
+        assertThat(withoutTempDiagnostics(output.getAll()))
                 .contains("url=" + BASE_URL + "/hearingResulted")
                 .contains("ResourceAccessException")
                 .contains("rootCause=java.net.ConnectException: Connection refused")
@@ -180,6 +192,6 @@ class EnforcementGatewayClientTest {
 
         client.submit(minimumRequest());
 
-        assertThat(output.getAll()).contains("HTTP 302 (not followed; url=" + BASE_URL + "/hearingResulted, location=https://elsewhere/hearingResulted)");
+        assertThat(withoutTempDiagnostics(output.getAll())).contains("HTTP 302 (not followed; url=" + BASE_URL + "/hearingResulted, location=https://elsewhere/hearingResulted)");
     }
 }
