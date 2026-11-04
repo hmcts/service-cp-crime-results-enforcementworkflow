@@ -156,7 +156,7 @@ views (US4).
    `14-unknown-result-code-rejected` to accept any ≤ 10-character code, add a > 10-character → 400 test (T087, D7);
    Libra accepting any code.
 3. Deployment values (D5, T075): W `RESULTS_URL`, `RESULTS_CJSCPPUID`, `NOTIFICATION_ALLOWED_SYSTEM_USERS`,
-   `CP_MESSAGING_PUBLIC_EVENT_TOPIC`, `CP_MESSAGING_SYSTEM_USER` (OP-16), `DATASOURCE_MAX_POOL` ≥ 2 × executor +
+   `CP_MESSAGING_PUBLIC_EVENT_TOPIC`, `DATASOURCE_MAX_POOL` ≥ 2 × executor +
    headroom (OP-15), `CP_RESULTSCACHE_ENABLED=false` until D3; remove `HEARING_NOWS_*`; FA
    `ENFORCEMENT_WORKFLOW_API_BASE_URI`, `ENFORCEMENT_AUTHORITY_CODE` (W's `NOTIFICATION_ALLOWED_SYSTEM_USERS` = the FA's
    existing `CJSCPPUID` system user, R2); H retention

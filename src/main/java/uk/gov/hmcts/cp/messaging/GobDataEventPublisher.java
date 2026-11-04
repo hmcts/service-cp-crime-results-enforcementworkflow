@@ -27,18 +27,15 @@ public class GobDataEventPublisher {
     private final JmsTemplate jmsTemplate;
     private final String topic;
     private final String eventName;
-    private final String systemUser;
     private final Clock clock;
 
     public GobDataEventPublisher(final JmsTemplate jmsTemplate,
                                  @Value("${cp.messaging.public-event-topic}") final String topic,
                                  @Value("${cp.messaging.gob-data-event-name}") final String eventName,
-                                 @Value("${cp.messaging.system-user}") final String systemUser,
                                  final Clock clock) {
         this.jmsTemplate = jmsTemplate;
         this.topic = topic;
         this.eventName = eventName;
-        this.systemUser = systemUser;
         this.clock = clock;
     }
 
@@ -46,7 +43,7 @@ public class GobDataEventPublisher {
     @SuppressWarnings("PMD.AvoidCatchingGenericException") // TEMP DIAGNOSTICS: logged and rethrown unchanged
     public UUID publish(final ObjectNode payload) {
         final UUID id = UUID.randomUUID();
-        final String body = NowsHandoverPayloadBuilder.write(CppEnvelope.wrap(eventName, systemUser, payload, id, Instant.now(clock)));
+        final String body = NowsHandoverPayloadBuilder.write(CppEnvelope.wrap(eventName, payload, id, Instant.now(clock)));
         // TEMP DIAGNOSTICS: destination, CPPNAME and the full message
         TempPayloadLog.info("Publishing {} message {} to {} (CPPNAME={}): body={}", eventName, id, topic, eventName, body);
         try {

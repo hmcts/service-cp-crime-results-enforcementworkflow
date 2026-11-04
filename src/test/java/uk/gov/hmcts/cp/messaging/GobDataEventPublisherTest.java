@@ -31,11 +31,10 @@ import static org.mockito.Mockito.when;
 class GobDataEventPublisherTest {
 
     private static final String EVENT = "public.enforcementworkflow.enforcement-nows-data-ready";
-    private static final String SYSTEM_USER = "bbbbbbbb-0000-4000-8000-000000000002";
     private static final Instant NOW = Instant.parse("2026-10-20T10:00:00Z");
 
     private final JmsTemplate jmsTemplate = mock(JmsTemplate.class);
-    private final GobDataEventPublisher publisher = new GobDataEventPublisher(jmsTemplate, "jms.topic.public.event", EVENT, SYSTEM_USER,
+    private final GobDataEventPublisher publisher = new GobDataEventPublisher(jmsTemplate, "jms.topic.public.event", EVENT,
             Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
@@ -59,7 +58,7 @@ class GobDataEventPublisherTest {
         assertThat(envelope.path("_metadata").path("id").asString()).isEqualTo(id.toString());
         assertThat(envelope.path("_metadata").path("name").asString()).isEqualTo(EVENT);
         assertThat(envelope.path("_metadata").path("createdAt").asString()).isEqualTo(NOW.toString());
-        assertThat(envelope.path("_metadata").path("context").path("user").asString()).isEqualTo(SYSTEM_USER);
+        assertThat(envelope.path("_metadata").has("context")).isFalse(); // hearing-nows acts as its own system user
         assertThat(body.getValue()).contains("\"accountBalance\":125.50");
         assertThat(GobDataEventContract.violations(body.getValue())).isEmpty();
     }

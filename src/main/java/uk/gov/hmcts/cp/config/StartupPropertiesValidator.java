@@ -15,9 +15,8 @@ import java.util.UUID;
  * service-cp-crime-informant-register's {@code PropertiesValidator}.
  *
  * <p>Refuses to start without real system user ids. Results and reference data reject a call whose {@code CJSCPPUID}
- * is not a System Users member, and the GOB data event carries {@code CP_MESSAGING_SYSTEM_USER} as its user. With a
- * missing or all-zero id the service would start normally and every call would fail one at a time, so it fails at
- * startup instead, naming the setting.
+ * is not a System Users member. With a missing or all-zero id the service would start normally and every call would
+ * fail one at a time, so it fails at startup instead, naming the setting.
  *
  * <p>The startup line carries hosts only, never whole URLs (a path or query can carry a token), never a system user id,
  * and never a credential.
@@ -30,19 +29,16 @@ public class StartupPropertiesValidator implements InitializingBean {
 
     private final ResultsProperties results;
     private final ClientProperties clients;
-    private final String messagingSystemUser;
     private final String publicEventTopic;
     private final String brokerUrl;
     private final String datasourceUrl;
 
     public StartupPropertiesValidator(final ResultsProperties results, final ClientProperties clients,
-                                      @Value("${cp.messaging.system-user:}") final String messagingSystemUser,
                                       @Value("${cp.messaging.public-event-topic:}") final String publicEventTopic,
                                       @Value("${spring.artemis.broker-url:}") final String brokerUrl,
                                       @Value("${spring.datasource.url:}") final String datasourceUrl) {
         this.results = results;
         this.clients = clients;
-        this.messagingSystemUser = messagingSystemUser;
         this.publicEventTopic = publicEventTopic;
         this.brokerUrl = brokerUrl;
         this.datasourceUrl = datasourceUrl;
@@ -52,7 +48,6 @@ public class StartupPropertiesValidator implements InitializingBean {
     public void afterPropertiesSet() {
         requireSystemUser("cp.results.cjscppuid (RESULTS_CJSCPPUID)", results.getResults().getCjscppuid());
         requireSystemUser("cp.reference-data.cjscppuid (REFERENCEDATA_CJSCPPUID)", clients.getReferenceData().getCjscppuid());
-        requireSystemUser("cp.messaging.system-user (CP_MESSAGING_SYSTEM_USER)", messagingSystemUser);
         announce();
     }
 

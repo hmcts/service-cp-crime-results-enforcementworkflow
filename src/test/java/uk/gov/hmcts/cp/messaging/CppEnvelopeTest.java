@@ -16,26 +16,33 @@ class CppEnvelopeTest {
 
     @Test
     void created_at_should_be_truncated_to_milliseconds() {
-        final ObjectNode envelope = CppEnvelope.wrap("public.x", "user", payload(), ID, Instant.parse("2026-10-23T09:15:30.123456789Z"));
+        final ObjectNode envelope = CppEnvelope.wrap("public.x", payload(), ID, Instant.parse("2026-10-23T09:15:30.123456789Z"));
 
         assertThat(envelope.path("_metadata").path("createdAt").asString()).isEqualTo("2026-10-23T09:15:30.123Z");
     }
 
     @Test
     void created_at_with_microseconds_should_have_exactly_three_fraction_digits() {
-        final ObjectNode envelope = CppEnvelope.wrap("public.x", "user", payload(), ID, Instant.parse("2026-10-23T09:15:30.987654Z"));
+        final ObjectNode envelope = CppEnvelope.wrap("public.x", payload(), ID, Instant.parse("2026-10-23T09:15:30.987654Z"));
 
         assertThat(envelope.path("_metadata").path("createdAt").asString()).matches("2026-10-23T09:15:30\\.987Z");
     }
 
     @Test
     void envelope_should_carry_the_metadata_then_the_payload_fields() {
-        final ObjectNode envelope = CppEnvelope.wrap("public.x", "user-1", payload(), ID, Instant.parse("2026-10-23T09:15:30.5Z"));
+        final ObjectNode envelope = CppEnvelope.wrap("public.x", payload(), ID, Instant.parse("2026-10-23T09:15:30.5Z"));
 
         assertThat(envelope.path("_metadata").path("id").asString()).isEqualTo(ID.toString());
         assertThat(envelope.path("_metadata").path("name").asString()).isEqualTo("public.x");
-        assertThat(envelope.path("_metadata").path("context").path("user").asString()).isEqualTo("user-1");
         assertThat(envelope.path("hearingId").asString()).isEqualTo("h");
+    }
+
+    // hearing-nows uses its own context system user when the event names none
+    @Test
+    void envelope_should_name_no_user() {
+        final ObjectNode envelope = CppEnvelope.wrap("public.x", payload(), ID, Instant.parse("2026-10-23T09:15:30.5Z"));
+
+        assertThat(envelope.path("_metadata").has("context")).isFalse();
     }
 
     private static ObjectNode payload() {
