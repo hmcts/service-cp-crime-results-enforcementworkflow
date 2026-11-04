@@ -9,7 +9,7 @@ Schema: [public.enforcementworkflow.enforcement-nows-data-ready.json](public.enf
 | Destination | Artemis topic, configurable `cp.messaging.public-event-topic` (AKS `public.event`; local docker `jms.topic.public.event`) |
 | Message | JMS `TextMessage`, persistent, string property `CPPNAME` |
 | Body | `{"_metadata": {...}, <payload fields at top level>}` |
-| `_metadata` | `id` (new UUID per publish), `name` (= event name), `createdAt` (UTC ISO-8601), `context.user` (W's system user) |
+| `_metadata` | `id` (new UUID per publish), `name` (= event name), `createdAt` (UTC ISO-8601), no `context.user` (H then uses its own context system user; research OP-16) |
 | Producer | W stage 2 task `PUBLISH_GOB_DATA` (one event per notification) |
 | Consumer | H `EnforcementNowsDataEventProcessor` (`subscriptions-descriptor.yaml`, durable shared subscription) |
 | When | notification `SUBMITTED` (GOB accepted, `gobDataReused=false`) or `SKIPPED_NOTHING_NEW` with earlier GOB data (`gobDataReused=true`): a first-time share with nothing new, or **every amend & reshare** with earlier GOB data (never sent to GOB, FR-008/FR-009) |

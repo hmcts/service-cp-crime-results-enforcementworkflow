@@ -51,9 +51,7 @@ cp:
     selector: "CPPNAME LIKE 'public.results%'"
     # feature 003 research R12: consumed by cpp-context-hearing-nows; must not start with public.results
     gob-data-event-name: public.enforcementworkflow.enforcement-nows-data-ready
-    # _metadata.context.user of the event: this service's system user. Required, no default: startup fails when it is
-    # missing or the all-zero placeholder (StartupPropertiesValidator).
-    system-user: ${CP_MESSAGING_SYSTEM_USER:}
+    # The event carries no _metadata.context.user: hearing-nows then acts as its own context system user (CppEnvelope)
   # Notifications from the results-processing Function App (feature 003, research R2, R10)
   notification:
     # CJSCPPUIDs allowed to notify; empty closes the endpoint

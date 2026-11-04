@@ -14,7 +14,7 @@ docker compose --profile stubs up -d wiremock       # stubs reference data, gate
 ./gradlew build                                     # unit + integration tests, PMD
 REFERENCEDATA_URL=http://localhost:8089 ENFORCEMENT_GATEWAY_URL=http://localhost:8089 RESULTS_URL=http://localhost:8089 \
 RESULTS_CJSCPPUID=5f1a6c2e-0000-4000-8000-00000000fa11 REFERENCEDATA_CJSCPPUID=5f1a6c2e-0000-4000-8000-00000000fa12 \
-CP_MESSAGING_SYSTEM_USER=5f1a6c2e-0000-4000-8000-00000000fa13 ARTEMIS_BROKER_URL=tcp://localhost:61616 CP_MESSAGING_PUBLIC_EVENT_TOPIC=jms.topic.public.event \
+ARTEMIS_BROKER_URL=tcp://localhost:61616 CP_MESSAGING_PUBLIC_EVENT_TOPIC=jms.topic.public.event \
 NOTIFICATION_ALLOWED_SYSTEM_USERS=5f1a6c2e-0000-4000-8000-00000000fa01 PAYMENT_DUE_DATE_FALLBACK=HEARING_DATE \
 SPRING_PROFILES_ACTIVE=docker ./gradlew bootRun
 ```
