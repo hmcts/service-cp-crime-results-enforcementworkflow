@@ -38,8 +38,9 @@ public class HearingResultsSource {
 
     /** @throws ResultsUnavailableException when Results can't be read */
     public Optional<HearingResultedEvent> sharedResults(final UUID hearingId, final LocalDate hearingDay, final boolean isReshare) {
-        final ResultsCacheClient cache = cacheClient.getIfAvailable();
-        Optional<HearingResultedEvent> event = Optional.ofNullable(cache).flatMap(c -> c.sharedResults(hearingId, hearingDay))
+        // the cache client's connection belongs to the Spring context (closed on shutdown), not to this call
+        Optional<HearingResultedEvent> event = Optional.ofNullable(cacheClient.getIfAvailable())
+                .flatMap(c -> c.sharedResults(hearingId, hearingDay))
                 .flatMap(json -> parseCached(json, hearingId, hearingDay, isReshare))
                 .filter(HearingResultsSource::isReady);
         if (event.isEmpty()) {

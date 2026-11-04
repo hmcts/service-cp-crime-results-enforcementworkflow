@@ -11,7 +11,7 @@ Research R7, R8, R17. Read-only; both owned by `cpp-context-results`.
 | `isReshare` | The cached `isReshare` is ignored; the notification's `isReshare` is used (R22, `HearingResultsSource`). |
 | TTL | 24 h (owner's setting) |
 | Auth | Microsoft Entra ID, W managed identity (no access key) |
-| Config | `cp.results-cache.enabled` (default `false` until OP-4 is done), `REDIS_HOST`, `REDIS_PORT`, SSL on; connect 2 s, command 2 s |
+| Config | All under `cp.results-cache.*`, set per environment by name-bound env vars (`CP_RESULTSCACHE_ENABLED`, default `false` until OP-4 is done; `CP_RESULTSCACHE_HOST`; `CP_RESULTSCACHE_PORT`, 10000 deployed; `CP_RESULTSCACHE_SSL`, on deployed with the certificate verified; `CP_RESULTSCACHE_USERNAME`); connect 2 s, command 2 s. Client: plain Lettuce `RedisClient` (no Spring Data Redis), as in service-cp-crime-informant-register |
 | Miss / disabled / error | fall back to §2 (an error is logged as a warning, not a failure) |
 
 ## 2. Results query API

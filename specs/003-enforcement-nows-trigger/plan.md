@@ -104,7 +104,7 @@ specs/003-enforcement-nows-trigger/
 # W: service-cp-crime-results-enforcementworkflow (this repo)
 src/main/java/uk/gov/hmcts/cp/
 ├── controller/EnforcementNotificationController.java   # implements the generated API (R1-R3)
-├── config/  TaskManagerConfig, RedisConfig (Entra), RestClientConfig (Results builder), ResultsProperties, NotificationProperties
+├── config/  TaskManagerConfig, ResultsCacheConfig (Lettuce client, Entra), RestClientConfig (Results builder), ResultsProperties, NotificationProperties
 ├── client/  ResultsClient, ResultsCacheClient            # new; HearingNowsClient removed
 ├── messaging/ GobDataEventPublisher, CppEnvelope          # new; HearingResultedEventListener + JmsConfig removed
 ├── service/ NotificationService, HearingResultsSource, ProcessNotificationTask, PublishGobDataTask,
@@ -157,7 +157,7 @@ views (US4).
    Libra accepting any code.
 3. Deployment values (D5, T075): W `RESULTS_URL`, `RESULTS_CJSCPPUID`, `NOTIFICATION_ALLOWED_SYSTEM_USERS`,
    `CP_MESSAGING_PUBLIC_EVENT_TOPIC`, `CP_MESSAGING_SYSTEM_USER` (OP-16), `DATASOURCE_MAX_POOL` ≥ 2 × executor +
-   headroom (OP-15), `RESULTS_CACHE_ENABLED=false` until D3; remove `HEARING_NOWS_*`; FA
+   headroom (OP-15), `CP_RESULTSCACHE_ENABLED=false` until D3; remove `HEARING_NOWS_*`; FA
    `ENFORCEMENT_WORKFLOW_API_BASE_URI`, `ENFORCEMENT_AUTHORITY_CODE` (W's `NOTIFICATION_ALLOWED_SYSTEM_USERS` = the FA's
    existing `CJSCPPUID` system user, R2); H retention
    setting (time kept after the first claim, R30); internal-only ingress (T076).

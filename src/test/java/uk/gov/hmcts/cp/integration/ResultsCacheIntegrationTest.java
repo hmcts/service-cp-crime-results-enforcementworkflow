@@ -2,6 +2,10 @@ package uk.gov.hmcts.cp.integration;
 
 import com.azure.core.credential.AccessToken;
 import com.azure.core.credential.TokenCredential;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.RedisURI;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.sync.RedisCommands;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,7 +13,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -22,6 +25,7 @@ import uk.gov.hmcts.cp.support.Fixtures;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
@@ -40,6 +44,7 @@ class ResultsCacheIntegrationTest extends WorkflowStubsIntegrationTestBase {
     private static final String TOKEN = "entra-id-token";
     private static final UUID HEARING_ID = UUID.fromString("04180ff1-99b0-40b7-9929-ca05bdc767d8");
     private static final LocalDate DAY = LocalDate.parse("2026-05-03");
+    private static final String KEY = "INT_" + HEARING_ID + "_" + DAY + "_result_";
 
     @SuppressWarnings("resource") // stopped in @AfterAll
     private static final GenericContainer<?> REDIS = new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine"))
@@ -53,16 +58,13 @@ class ResultsCacheIntegrationTest extends WorkflowStubsIntegrationTestBase {
     @Autowired
     private HearingResultsSource source;
 
-    @Autowired
-    private StringRedisTemplate redis;
-
     @DynamicPropertySource
     static void cache(final DynamicPropertyRegistry registry) {
         registry.add("cp.results-cache.enabled", () -> "true");
         registry.add("cp.results-cache.username", () -> IDENTITY);
-        registry.add("spring.data.redis.host", REDIS::getHost);
-        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
-        registry.add("spring.data.redis.ssl.enabled", () -> "false");
+        registry.add("cp.results-cache.host", REDIS::getHost);
+        registry.add("cp.results-cache.port", () -> REDIS.getMappedPort(6379));
+        registry.add("cp.results-cache.ssl", () -> "false");
     }
 
     @AfterAll
@@ -73,8 +75,8 @@ class ResultsCacheIntegrationTest extends WorkflowStubsIntegrationTestBase {
     @Test
     void cached_share_should_be_read_with_the_entra_id_token_and_not_query_results() {
         // the cached payload's own day differs, to show the day is the notification's (the key's)
-        redis.opsForValue().set("INT_" + HEARING_ID + "_" + DAY + "_result_", Fixtures.json("events/hearing-resulted-enforcement.json")
-                .replace("\"hearingDay\": \"2026-05-03\"", "\"hearingDay\": \"2026-04-30\""));
+        withRedis(redis -> redis.set(KEY, Fixtures.json("events/hearing-resulted-enforcement.json")
+                .replace("\"hearingDay\": \"2026-05-03\"", "\"hearingDay\": \"2026-04-30\"")));
 
         final HearingResultedEvent event = source.sharedResults(HEARING_ID, DAY, false).orElseThrow();
 
@@ -85,11 +87,22 @@ class ResultsCacheIntegrationTest extends WorkflowStubsIntegrationTestBase {
 
     @Test
     void cache_miss_should_fall_back_to_the_results_query() {
-        redis.delete("INT_" + HEARING_ID + "_" + DAY + "_result_");
+        withRedis(redis -> redis.del(KEY));
         stubResults(HEARING_ID, Fixtures.json("events/hearing-resulted-enforcement.json"));
 
         assertThat(source.sharedResults(HEARING_ID, DAY, false)).isPresent();
         STUBS.verify(1, getRequestedFor(urlEqualTo(RESULTS_PATH + HEARING_ID)));
+    }
+
+    /** Seeds the cache as the Results context would: a separate connection, logged in as the identity's ACL user. */
+    private static void withRedis(final Consumer<RedisCommands<String, String>> action) {
+        final RedisClient seeding = RedisClient.create(RedisURI.builder().withHost(REDIS.getHost())
+                .withPort(REDIS.getMappedPort(6379)).withAuthentication(IDENTITY, TOKEN).build());
+        try (StatefulRedisConnection<String, String> connection = seeding.connect()) {
+            action.accept(connection.sync());
+        } finally {
+            seeding.shutdown();
+        }
     }
 
     /** Stands in for the managed identity: the token Redis accepts for the identity's ACL user. */

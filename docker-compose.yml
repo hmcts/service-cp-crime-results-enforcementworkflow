@@ -14,6 +14,10 @@ services:
       ENFORCEMENT_GATEWAY_URL: http://host.docker.internal:8082
       # Feature 003 Results query: the WireMock stub (--profile stubs); use http://host.docker.internal:8080 for a local CP backend
       RESULTS_URL: http://host.docker.internal:8089
+      # Local only: synthetic system user ids. Required: startup fails when they are missing or all zeros.
+      RESULTS_CJSCPPUID: 5f1a6c2e-0000-4000-8000-00000000fa11
+      REFERENCEDATA_CJSCPPUID: 5f1a6c2e-0000-4000-8000-00000000fa12
+      CP_MESSAGING_SYSTEM_USER: 5f1a6c2e-0000-4000-8000-00000000fa13
       # Local only: a synthetic system user allowed to POST /enforcement-notifications (send it as CJSCPPUID)
       NOTIFICATION_ALLOWED_SYSTEM_USERS: 5f1a6c2e-0000-4000-8000-00000000fa01
       # Local only: placeholder paymentDueDate when no payment result (research.md R13).

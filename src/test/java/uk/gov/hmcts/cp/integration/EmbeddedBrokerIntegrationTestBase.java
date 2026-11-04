@@ -43,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "spring.artemis.embedded.persistent=false",
     "spring.artemis.embedded.topics=public.event",
     "spring.jms.listener.auto-startup=true",
-    "cp.enforcement-gateway.read-timeout-ms=1000",
+    "cp.enforcement-gateway.read-timeout=1s",
     "cp.notification.allowed-system-users=" + EmbeddedBrokerIntegrationTestBase.FUNCTION_APP_USER,
     "cp.notification.retry-durations=1s,1s,1s",
     "job.executor.poll-interval=200"
