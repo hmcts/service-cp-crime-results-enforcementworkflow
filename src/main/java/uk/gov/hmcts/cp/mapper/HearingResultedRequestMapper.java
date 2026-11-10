@@ -19,6 +19,7 @@ import uk.gov.hmcts.cp.service.ResolvedCodes;
 import uk.gov.hmcts.cp.service.SelectionResult;
 
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Builds the iteration-1 minimum {@code HearingResultedRequest} (data-model.md §2).
@@ -44,6 +45,12 @@ public class HearingResultedRequestMapper {
     private static final int NINO_MAX = 9;
     private static final int COURT_HEARING_LOCATION_MAX = 7;
 
+    // CIMD-4251 Payment Terms Result shortCodes (research.md R13 / CIMD-4251 data-mapping table): only these
+    // assert a real payment plan, so only these owe a real paymentDueDate. Temporary - this set and the check
+    // below are removed once CIMD-4251 maps the real due date per code; every other result keeps the
+    // hearing-day placeholder build() already sends today, which asserts no real commitment.
+    private static final Set<String> PAYMENT_TERMS_RESULT_SHORT_CODES = Set.of("INSTL", "LUMSI", "PDATE", "PTFOR");
+
     private final HearingResultProperties properties;
 
     public MappingResult map(final HearingResultedEvent event, final SelectionResult.Selected selection,
@@ -66,8 +73,9 @@ public class HearingResultedRequestMapper {
         } else if (isBlank(courtHearingLocation) || courtHearingLocation.length() > COURT_HEARING_LOCATION_MAX) {
             result = failed(MappingFailureReason.COURT_HEARING_LOCATION_INVALID,
                     "hearing courtCentre.code missing or longer than " + COURT_HEARING_LOCATION_MAX);
-        } else if (properties.getPaymentDueDateFallback() == PaymentDueDateFallback.NONE) {
-            // Iteration 1 does not yet map payment terms results (CIMD-4251, tasks.md T069), so no paymentDueDate source exists
+        } else if (hasPaymentTermsResult(codes) && properties.getPaymentDueDateFallback() == PaymentDueDateFallback.NONE) {
+            // a real payment plan was captured but CIMD-4251's mapping isn't implemented yet - inventing a date here
+            // would misreport a real commitment to GOB, so this still fails safe
             result = failed(MappingFailureReason.PAYMENT_DUE_DATE_UNAVAILABLE,
                     "paymentDueDate has no source: payment terms mapping not yet implemented (CIMD-4251) and "
                             + "payment-due-date-fallback=NONE (research.md R13)");
@@ -117,6 +125,10 @@ public class HearingResultedRequestMapper {
                 .homeTelephoneNumber(withinLimit(contact.home(), TELEPHONE_MAX))
                 .workTelephoneNumber(withinLimit(contact.work(), TELEPHONE_MAX))
                 .mobileTelephoneNumber(withinLimit(contact.mobile(), TELEPHONE_MAX));
+    }
+
+    private static boolean hasPaymentTermsResult(final ResolvedCodes codes) {
+        return codes.cpShortCodes().stream().anyMatch(PAYMENT_TERMS_RESULT_SHORT_CODES::contains);
     }
 
     private static Address addressOf(final Defendant defendant) {
