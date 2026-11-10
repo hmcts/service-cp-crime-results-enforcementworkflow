@@ -1,6 +1,8 @@
 package uk.gov.hmcts.cp.mapper;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.JsonNode;
 import uk.gov.hmcts.cp.config.HearingResultProperties;
 import uk.gov.hmcts.cp.config.PaymentDueDateFallback;
@@ -24,6 +26,8 @@ class HearingResultedRequestMapperTest {
 
     private static final ResolvedCodes SC_AND_WC = new ResolvedCodes(List.of("SC", "WC"),
             new LinkedHashSet<>(List.of("SC", "DW")), List.of());
+    private static final ResolvedCodes INSTL_RESULT = new ResolvedCodes(List.of("INSTL"),
+            new LinkedHashSet<>(List.of("INSTL")), List.of());
 
     @Test
     void enforcement_fixture_should_map_to_the_expected_minimum_payload() {
@@ -103,13 +107,31 @@ class HearingResultedRequestMapperTest {
         assertFailure(withPerson("Edward", "Harrison", null, "ZZ99 9ZZ"), MappingFailureReason.ADDRESS1_MISSING);
     }
 
-    @Test
-    void payment_due_date_fallback_none_should_fail_mapping() {
-        final MappingResult result = mapper(PaymentDueDateFallback.NONE).map(Fixtures.event("hearing-resulted-enforcement.json"),
-                select(Fixtures.event("hearing-resulted-enforcement.json")), SC_AND_WC, Optional.empty());
+    @ParameterizedTest
+    @ValueSource(strings = {"INSTL", "LUMSI", "PDATE", "PTFOR"})
+    void payment_due_date_fallback_none_should_fail_mapping_for_every_payment_terms_result_shortcode(final String shortCode) {
+        final ResolvedCodes codes = new ResolvedCodes(List.of(shortCode), new LinkedHashSet<>(List.of(shortCode)), List.of());
+        final HearingResultedEvent event = Fixtures.event("hearing-resulted-enforcement.json");
+
+        final MappingResult result = mapper(PaymentDueDateFallback.NONE).map(event, select(event), codes, Optional.empty());
 
         assertThat(result).isInstanceOfSatisfying(MappingResult.Failed.class,
                 f -> assertThat(f.reason()).isEqualTo(MappingFailureReason.PAYMENT_DUE_DATE_UNAVAILABLE));
+    }
+
+    @Test
+    void payment_due_date_fallback_none_should_succeed_when_no_payment_terms_result_is_captured() {
+        final HearingResultedRequest request = mapped(Fixtures.event("hearing-resulted-enforcement.json"), PaymentDueDateFallback.NONE);
+
+        assertThat(request.getPaymentTerms().getPaymentDueDate()).isEqualTo(request.getDateOfHearing());
+    }
+
+    @Test
+    void payment_terms_result_should_still_map_when_fallback_is_hearing_date() {
+        final HearingResultedEvent event = Fixtures.event("hearing-resulted-enforcement.json");
+        final MappingResult result = mapper(PaymentDueDateFallback.HEARING_DATE).map(event, select(event), INSTL_RESULT, Optional.empty());
+
+        assertThat(result).isInstanceOf(MappingResult.Mapped.class);
     }
 
     @Test
