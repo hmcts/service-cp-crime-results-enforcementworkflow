@@ -127,6 +127,29 @@ class HearingResultControllerIT {
                 .andExpect(conformsToSpec());
     }
 
+    // CIMD-4611: the request the workflow sends for an imprisonment (IMP, with TIMP on the
+    // defendant): result codes outside GOB's pre-2026-10-22 list and no nowsDataRequest (no code
+    // asks for NOWS data). The simulator image deployed until then rejected it as a bean-validation
+    // failure (nowsDataRequest was @NotNull), which the gateway reported as Libra HTTP 400.
+    @Test
+    void accepts_an_imprisonment_result_with_no_nows_data_request() throws Exception {
+        final String request = SC_REQUEST.replace("""
+                  "results": [ { "resultCode": "SC" } ],
+                  "nowsDataRequest": {
+                    "nowsDataItems": [ { "name": "Account Balance" }, { "name": "Account Number" } ]
+                  }
+                """, """
+                  "results": [ { "resultCode": "IMP" }, { "resultCode": "TIMP" } ]
+                """);
+        assertThat(request).contains("\"IMP\"").doesNotContain("nowsDataRequest");
+
+        mockMvc.perform(post("/hearing/result").header(AUTHORIZATION, authorization).contentType(APPLICATION_JSON).content(request))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.caseUrn").value("E012345678"))
+                .andExpect(jsonPath("$.nowsDataItems").doesNotExist())
+                .andExpect(conformsToSpec());
+    }
+
     // v0.6.0 also dropped nowsDataItems from NowsDataRequest's required list, so an empty
     // nowsDataRequest object is contract-valid and means "nothing requested".
     @Test

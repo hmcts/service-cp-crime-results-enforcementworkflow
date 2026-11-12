@@ -82,7 +82,8 @@ UUIDs, `requestId` unique within the body.
 - Enforcement NOWs carry FA's `request_id` and are held in the existing `WAITING_FOR_GOB` status (F4).
 - New transition: `WAITING_FOR_GOB` → `ENFORCEMENT_DATA_ADDED` (on the W event, conditional update) → existing chain.
 - Feature 002's `master_defendant_id` / `enforcement_correlation_id` columns are no longer mapped or written (R14,
-  R26); the columns stay (005 not edited). Status `WAITING_FOR_ENFORCEMENT_DATA` is removed.
+  R26). Changeset `008-drop-enforcement-columns-from-now-document-request.xml` drops them and their index
+  `idx_ndr_enforcement_correlation` (005 not edited). Status `WAITING_FOR_ENFORCEMENT_DATA` is removed.
 
 ### `enforcement_nows_data` (feature 002, changed) — changeset `006-key-enforcement-nows-data-by-request-id.xml`
 
