@@ -34,10 +34,10 @@ configurations {
 dependencies {
   // Api spec: enforcement gateway contract (generated HearingResultedRequest/Response models).
   // 0.2.0 adds POST /enforcement-notifications (tag enforcement-notification, implemented by this service, CIMD-4530).
-  // Draft published from api-cp-crime-results-enforcementgateway team/CCT-1222 (merge e11d94e, PR #38). Replace with a
+  // Draft published from api-cp-crime-results-enforcementgateway team/CCT-1222 (merge 479438e, PR #47). Replace with a
   // fixed X.Y.Z release before a release build: validateApiSpecVersions rejects draft versions (task T078).
-  implementation('uk.gov.hmcts.cp:api-cp-crime-results-enforcementgateway:0.0.0-e11d94e')
-  apiSpec('uk.gov.hmcts.cp:api-cp-crime-results-enforcementgateway:0.0.0-e11d94e')
+  implementation('uk.gov.hmcts.cp:api-cp-crime-results-enforcementgateway:0.0.0-479438e')
+  apiSpec('uk.gov.hmcts.cp:api-cp-crime-results-enforcementgateway:0.0.0-479438e')
   // Generated models carry @Schema annotations; needed on the compile classpath (-Werror), as in service-cp-crime-results-pcr
   implementation 'io.swagger.core.v3:swagger-annotations:2.2.55'
 
