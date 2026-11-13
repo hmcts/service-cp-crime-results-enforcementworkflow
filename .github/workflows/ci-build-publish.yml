@@ -281,13 +281,6 @@ jobs:
       - name: Extract repo name
         run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
-      # gitRef pins the ADO-side checkout to this exact commit. Without it, pipeline 460's clone
-      # step only checks out a tag named v<ARTIFACT_VERSION> if one exists (true for release
-      # builds, whose ARTIFACT_VERSION is the release tag) and otherwise silently stays on
-      # whatever `git clone` defaults to (the repo's default branch) — so a team-branch build
-      # would build/deploy main's tree, not this branch's. Confirmed via pipeline 460's run log
-      # for build 962453: clone step script checks `if [ -n "<gitRef>" ]` before falling back
-      # to the tag lookup.
       - name: Trigger ADO pipeline for service image
         uses: hmcts/trigger-ado-pipeline@v2
         with:
@@ -299,7 +292,6 @@ jobs:
               "ARTIFACT_ID": "${{ env.REPO_NAME }}",
               "ARTIFACT_VERSION": "${{ needs.Artefact-Version.outputs.artefact_version }}",
               "TARGET_REPOSITORY": "${{ github.repository }}",
-              "gitRef": "${{ github.sha }}",
               "agentDemand": "ubuntu-j25",
               "baseImage": "hmcts/apm-services:25-jre"
             }
@@ -308,9 +300,6 @@ jobs:
       # not the default ghcr.io/<repo> the pipeline derives from ARTIFACT_ID/TARGET_REPOSITORY alone,
       # so it needs its own trigger with an explicit imageRepository override to land in ACR — mirroring
       # the pattern cpp-context-azure-legalaidagency/build-image.yml uses for the same reason.
-      # Also needs gitRef (see above): enforcement-workflow-simulator/ doesn't exist on main yet, so
-      # without it the clone step's tag-only fallback leaves the checkout on main and the Dockerfile
-      # lookup 404s — this is what build 962453 actually hit.
       # pushToLive mirrors the service image's own default; adjust if the simulator should only ever
       # reach the non-live ACR.
       - name: Trigger ADO pipeline for simulator image
@@ -324,7 +313,6 @@ jobs:
               "ARTIFACT_ID": "${{ env.REPO_NAME }}-enforcement-workflow-simulator",
               "ARTIFACT_VERSION": "${{ needs.Artefact-Version.outputs.artefact_version }}",
               "TARGET_REPOSITORY": "${{ github.repository }}",
-              "gitRef": "${{ github.sha }}",
               "artifactType": "docker",
               "dockerfilePath": "enforcement-workflow-simulator/Dockerfile",
               "imageRepository": "${{ github.repository }}/enforcement-workflow-simulator",
