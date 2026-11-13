@@ -311,8 +311,12 @@ jobs:
       # Also needs gitRef (see above): enforcement-workflow-simulator/ doesn't exist on main yet, so
       # without it the clone step's tag-only fallback leaves the checkout on main and the Dockerfile
       # lookup 404s — this is what build 962453 actually hit.
-      # pushToLive mirrors the service image's own default; adjust if the simulator should only ever
-      # reach the non-live ACR.
+      # baseImage is resolved as <non-live ACR>/<baseImage> inside pipeline 460's Buildah step
+      # (confirmed from its task script: `export BASE_IMAGE=$(acr_url_nonlive)/${BASE_IMAGE_TAG}`) —
+      # it can only ever be a path already mirrored into that ACR, never a public registry reference.
+      # "eclipse-temurin:25-jre" (the public Docker Hub tag used in the GH Actions build-arg for this
+      # same image) isn't mirrored there and 404s; "hmcts/apm-services:25-jre" is the Java-25-JRE base
+      # every other trigger in this file already resolves successfully, confirmed by build 962523.
       - name: Trigger ADO pipeline for simulator image
         uses: hmcts/trigger-ado-pipeline@v2
         with:
@@ -329,5 +333,5 @@ jobs:
               "dockerfilePath": "enforcement-workflow-simulator/Dockerfile",
               "imageRepository": "${{ github.repository }}/enforcement-workflow-simulator",
               "agentDemand": "ubuntu-j25",
-              "baseImage": "eclipse-temurin:25-jre"
+              "baseImage": "hmcts/apm-services:25-jre"
             }
