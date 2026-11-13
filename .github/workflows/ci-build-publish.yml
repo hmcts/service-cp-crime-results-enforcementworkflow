@@ -268,14 +268,20 @@ jobs:
           severity: 'HIGH,CRITICAL'
 
   Deploy:
-    needs: [ Provider-Deploy, Build, Artefact-Version ]
-    if: ${{ inputs.trigger_deploy }}
+    # Also waits on both docker jobs (not just Provider-Deploy) so the ACR-copy triggers below
+    # never race ahead of the GHCR pushes they read from. skipped is accepted because
+    # trigger_docker can be false independently of trigger_deploy.
+    needs: [ Provider-Deploy, Build, Artefact-Version, Build-Docker, Build-Docker-Simulator ]
+    if: >-
+      ${{ inputs.trigger_deploy &&
+          (needs.Build-Docker.result == 'success' || needs.Build-Docker.result == 'skipped') &&
+          (needs.Build-Docker-Simulator.result == 'success' || needs.Build-Docker-Simulator.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - name: Extract repo name
         run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
-      - name: Trigger ADO pipeline
+      - name: Trigger ADO pipeline for service image
         uses: hmcts/trigger-ado-pipeline@v2
         with:
           pipeline_id: 460
@@ -288,4 +294,28 @@ jobs:
               "TARGET_REPOSITORY": "${{ github.repository }}",
               "agentDemand": "ubuntu-j25",
               "baseImage": "hmcts/apm-services:25-jre"
+            }
+
+      # The simulator image lives at a nested GHCR path (ghcr.io/<repo>/enforcement-workflow-simulator),
+      # not the default ghcr.io/<repo> the pipeline derives from ARTIFACT_ID/TARGET_REPOSITORY alone,
+      # so it needs its own trigger with an explicit imageRepository override to land in ACR — mirroring
+      # the pattern cpp-context-azure-legalaidagency/build-image.yml uses for the same reason.
+      # pushToLive mirrors the service image's own default; adjust if the simulator should only ever
+      # reach the non-live ACR.
+      - name: Trigger ADO pipeline for simulator image
+        uses: hmcts/trigger-ado-pipeline@v2
+        with:
+          pipeline_id: 460
+          ado_pat: ${{ secrets.HMCTS_ADO_PAT }}
+          template_parameters: >
+            {
+              "GROUP_ID": "uk.gov.hmcts.cp",
+              "ARTIFACT_ID": "${{ env.REPO_NAME }}-enforcement-workflow-simulator",
+              "ARTIFACT_VERSION": "${{ needs.Artefact-Version.outputs.artefact_version }}",
+              "TARGET_REPOSITORY": "${{ github.repository }}",
+              "artifactType": "docker",
+              "dockerfilePath": "enforcement-workflow-simulator/Dockerfile",
+              "imageRepository": "${{ github.repository }}/enforcement-workflow-simulator",
+              "agentDemand": "ubuntu-j25",
+              "baseImage": "eclipse-temurin:25-jre"
             }
