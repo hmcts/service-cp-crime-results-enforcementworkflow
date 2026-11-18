@@ -175,4 +175,32 @@ class ResultCodeResolverTest {
                 new ResolvedResult(offenceId, adjournment.judicialResultId(), PGPAY_TYPE, "PGPAY", "PGPAY", true, LocalDate.parse("2026-05-03")),
                 new ResolvedResult(null, caseResult.judicialResultId(), WC_TYPE, "WC", "DW", false, LocalDate.parse("2026-05-03")));
     }
+
+    // review 2026-11-18 (FR-014): a logged result never shows prompt values
+    @Test
+    void to_string_should_not_contain_prompt_values() {
+        final ResolvedResult result = new ResolvedResult(null, UUID.randomUUID(), SC_TYPE, "INSTL", "INSTL", false, LocalDate.parse("2026-05-03"),
+                List.of(new HearingResultedEvent.JudicialResultPrompt("test-ref", "amount", "487.13")));
+
+        assertThat(result.toString()).contains("prompts=1").doesNotContain("487.13", "test-ref");
+    }
+
+    // feature 004 T005: each result carries its prompts (CIMD-4251), empty when the event has none
+    @Test
+    void each_result_should_carry_its_prompts() {
+        final List<HearingResultedEvent.JudicialResultPrompt> prompts = List.of(
+                new HearingResultedEvent.JudicialResultPrompt("test-ref-a", "label a", "value a"),
+                new HearingResultedEvent.JudicialResultPrompt("test-ref-b", "label b", "value b"));
+        final HearingResultedEvent.JudicialResult withPrompts = new HearingResultedEvent.JudicialResult(UUID.randomUUID(), SC_TYPE,
+                "sc", LocalDate.parse("2026-05-03"), prompts, null, null);
+        final HearingResultedEvent.JudicialResult caseWithPrompts = new HearingResultedEvent.JudicialResult(UUID.randomUUID(), WC_TYPE,
+                "wc", LocalDate.parse("2026-05-03"), prompts, null, null);
+        final HearingResultedEvent.JudicialResult noPrompts = new HearingResultedEvent.JudicialResult(UUID.randomUUID(), PGPAY_TYPE,
+                "pgpay", LocalDate.parse("2026-05-03"), null, null, null);
+        final HearingResultedEvent event = withResults(List.of(withPrompts, noPrompts), List.of(caseWithPrompts), List.of());
+
+        final List<ResolvedResult> results = resolver.resolve(event, defendantOf(event)).results();
+
+        assertThat(results).extracting(ResolvedResult::prompts).containsExactly(prompts, List.of(), prompts);
+    }
 }

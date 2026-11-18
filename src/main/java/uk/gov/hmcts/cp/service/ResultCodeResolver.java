@@ -62,7 +62,8 @@ public class ResultCodeResolver {
                 }
             }
             resolved.add(new ResolvedResult(offenceResult.offenceId(), result.judicialResultId(), result.judicialResultTypeId(),
-                    shortCode.orElse(null), gobCode, result.hasAdjournmentMarker(), result.orderedDate()));
+                    shortCode.orElse(null), gobCode, result.hasAdjournmentMarker(), result.orderedDate(),
+                    result.judicialResultPrompts()));
         }
         return ResolvedCodes.fromResults(resolved, new ArrayList<>(dropped));
     }

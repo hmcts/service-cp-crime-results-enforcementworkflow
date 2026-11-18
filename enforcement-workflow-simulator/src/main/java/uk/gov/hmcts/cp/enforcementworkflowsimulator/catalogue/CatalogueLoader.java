@@ -32,7 +32,7 @@ public class CatalogueLoader {
 
     private static final String RESULT_CODE_PREFIX = "Result code '";
     private static final String DEFAULT_CATALOGUE_BASE = "enforcement-workflow-simulator/catalogue/";
-    private static final String OPENAPI_SPEC_PATH = "openapi/libra-gateway-hearing-events-v0.6.0.yml";
+    private static final String OPENAPI_SPEC_PATH = "openapi/libra-gateway-hearing-events-v0.8.0.yml";
     private static final String PUBLISHED_RESULT_CODES_PATH =
             "openapi/libra-gateway-hearing-events-v0.6.0-published-result-codes.yaml";
     private static final String UNCHECKED = "unchecked";

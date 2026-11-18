@@ -90,7 +90,6 @@ Contract consumed: [`api-cp-crime-results-enforcementgateway`](https://github.co
 | `DATASOURCE_MAX_POOL` / `DATASOURCE_CONNECTION_TIMEOUT_MS` / `JOB_EXECUTOR_POLL_INTERVAL` | `12` / `5000` / `5000` | a running task holds two connections: pool ≥ 2 × executor threads (4) + headroom (research OP-15); a pod claims at most 4 jobs at a time (OP-14) |
 | `ADJOURNMENT_RESULT_CODES` | `NEXH,ADJNN` | CP shortCodes that mark an offence as adjourned (not sent to GOB in that share; OQ-13) |
 | `SPRING_PROFILES_ACTIVE` | none | `docker` adds the diagnostic `public.event` logger (`PublicEventLoggingListener`); publishing the GOB data event does not depend on it |
-| `PAYMENT_DUE_DATE_FALLBACK` | `NONE` | **Leave as `NONE` in deployed environments.** `HEARING_DATE` is a local/test/simulator stand-in only (logs a warning at startup) |
 | `STALE_SENDING_THRESHOLD` / `STALE_SENDING_SWEEP_INTERVAL` | `PT5M` / `PT1M` | when an interrupted submission is marked failed |
 
 > ⚠️ TEMP DIAGNOSTICS (CIMD-4530, until T090): logger `uk.gov.hmcts.cp.TempDiagnostics` writes full payloads, including
@@ -115,7 +114,7 @@ docker compose --profile stubs up -d wiremock      # optional: stubs reference d
 REFERENCEDATA_URL=http://localhost:8089 ENFORCEMENT_GATEWAY_URL=http://localhost:8089 RESULTS_URL=http://localhost:8089 \
 RESULTS_CJSCPPUID=5f1a6c2e-0000-4000-8000-00000000fa11 REFERENCEDATA_CJSCPPUID=5f1a6c2e-0000-4000-8000-00000000fa12 \
 CP_MESSAGING_SYSTEM_USER=5f1a6c2e-0000-4000-8000-00000000fa13 CP_MESSAGING_PUBLIC_EVENT_TOPIC=jms.topic.public.event NOTIFICATION_ALLOWED_SYSTEM_USERS=5f1a6c2e-0000-4000-8000-00000000fa01 \
-PAYMENT_DUE_DATE_FALLBACK=HEARING_DATE SPRING_PROFILES_ACTIVE=docker ./gradlew bootRun
+SPRING_PROFILES_ACTIVE=docker ./gradlew bootRun
 ```
 
 ## Support runbook
@@ -130,7 +129,7 @@ defendant PII and bank details (specs/001-cimd-4246-hearing-resulted-to-libra/ad
 | `FAILED` + `http_status` | gateway/GOB rejected or failed; `error_detail` = `error=…; libraStatus=…; errorCode=…` (`errorCode INVALID_RESPONSE` with `libraStatus=200` means GOB **accepted** it but sent back an invalid reply) | investigate; replay is CIMD-4259 |
 | `FAILED`, `error_detail` `NOT_SENT – …` | nothing reached GOB (reference data unavailable, or the gateway unreachable) | fix the cause; safe to replay (CIMD-4259) |
 | `FAILED`, `error_detail` `TIMEOUT – …` / `INTERRUPTED – …` / `ERROR – …` (outcome at GOB unknown) | CP stopped waiting, or the service stopped mid-call. **GOB may or may not have applied the update** | check the GoB account before any replay; never resend blindly |
-| `MAPPING_FAILED` | could not be built: `CASE_URN_INVALID`, `PROSECUTOR_DEFENDANT_ID_MISSING`, `ADDRESS1_MISSING`, `DATE_OF_HEARING_MISSING`, `COURT_HEARING_LOCATION_INVALID`, `PAYMENT_DUE_DATE_UNAVAILABLE`, `ORGANISATION_DEFENDANT_NOT_SUPPORTED_YET` | fix the source data in CP; a repeated delivery of the same share isn't sent again (a later hearing day's share is a new share; replay is CIMD-4259) |
+| `MAPPING_FAILED` | could not be built: `CASE_URN_INVALID`, `PROSECUTOR_DEFENDANT_ID_MISSING`, `ADDRESS1_MISSING`, `DATE_OF_HEARING_MISSING`, `COURT_HEARING_LOCATION_INVALID`, `PAYMENT_TERMS_INCOMPLETE`, `PAYMENT_TERMS_UNREADABLE`, `PAYMENT_TERMS_CONFLICTING`, `ORGANISATION_DEFENDANT_NOT_SUPPORTED_YET` | fix the source data in CP; a repeated delivery of the same share isn't sent again (a later hearing day's share is a new share; replay is CIMD-4259) |
 | `SKIPPED_NO_RESULT_CODE` | no result has a code to send (unknown in reference data, or a code over 10 characters); `error_detail` lists the dropped results. GOB is not contacted and nothing is sent to hearing-nows (feature 003 FR-010) | usually none |
 | `SKIPPED_NOTHING_NEW` | a later share with nothing new for GOB (every offence already sent, or the rest adjourned); `error_detail` gives counts. The most recent GOB data is handed over again | none |
 
@@ -142,7 +141,25 @@ earlier GOB data; NOWS stay held without a time limit), `GOB_FAILED` (see the su
 NOWS stay held in hearing-nows until a GOB data event reaches them. `nows_handover_*` columns on
 `hearing_result_submission` are no longer written. Rows are per share (`correlation_id` = the notification id).
 
-> ⚠️ Until payment terms are mapped (CIMD-4251), or GOB makes `paymentDueDate` optional, the default `PAYMENT_DUE_DATE_FALLBACK=NONE` makes **every** submission `MAPPING_FAILED / PAYMENT_DUE_DATE_UNAVAILABLE`. Don't switch this flow on in production before then (research.md open item 12). Run a **single replica** (open item 13).
+### Payment terms (CIMD-4251, `specs/004-cimd-4251-payment-terms`)
+
+`paymentTerms` is sent only when the share has a payment terms result (INSTL, LUMSI, PDATE, PTFOR); otherwise it is
+left out (contract: optional, as in Libra v0.6.0). The block is read from the result's prompts using
+`cp.hearing-result.payment-terms` in `application.yaml` (prompt references, frequency values → `W`/`F`/`M`, yes/no
+values, date formats). These are CP reference data, the same in every environment, so they are set in
+`application.yaml`, not per environment.
+
+The values come from CP's result definitions and the formats hearing publishes (spec OQ-1, research R3): prompts
+`IAMT`, `PF`, `LSA`, `instalmentStartDate`/`ISTD`, `PBD`, `PAYMENT_CARD_REQUIRED`, `PARENT_GAURDIAN_TO_PAY`; frequency
+`weekly`/`fortnightly`/`monthly`; booleans `Yes`/`No` or `true`/`false`; amounts with `£`; dates `dd/MM/yyyy` (also
+`yyyy-MM-dd`, `dd MMM yyyy`). If any key is left empty, a startup warning names it.
+
+A share whose payment terms cannot be built is not sent (never sent with invented values): a missing value is
+`MAPPING_FAILED / PAYMENT_TERMS_INCOMPLETE`, a value in a format not configured is `PAYMENT_TERMS_UNREADABLE` (add the
+format to `application.yaml`), several payment terms results with different arrangements are
+`PAYMENT_TERMS_CONFLICTING`. `error_detail` names the result code and field, never an amount or date.
+
+> Run a **single replica** (feature 001 research open item 13).
 
 Reshares have no submission row; see `enforcement_notification` (`is_reshare`). Out-of-scope shapes are not stored;
 look for them in the logs by hearing id or `caseUrn`.

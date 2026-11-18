@@ -25,9 +25,6 @@ public class HearingResultProperties {
     /** CP shortCode → GOB resultCode (research.md R5). Codes not listed pass through unchanged. */
     private Map<String, String> resultCodeRenames = new LinkedHashMap<>(Map.of("TFOUT", "TFOOUT", "WC", "DW", "WWDN", "WDN"));
 
-    /** research.md R13. Default NONE; HEARING_DATE only via explicit local/test/simulator config. */
-    private PaymentDueDateFallback paymentDueDateFallback = PaymentDueDateFallback.NONE;
-
     /** CP shortCode → GOB NowsDataItemName values (research.md R7). Rows come from the updated Confluence page. */
     private Map<String, List<String>> nowsDataItemsByShortCode = new LinkedHashMap<>();
 

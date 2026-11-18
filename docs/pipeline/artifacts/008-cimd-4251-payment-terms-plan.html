@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- claude-artifact: created=2026-11-16 project=service-cp-crime-results-enforcementworkflow kind=report -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Terms Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#071210; --panel:#0c1c19; --panel-2:#103029; --edge:#1d4038;
+    --txt:#9fc7bd; --txt-hi:#e8fff7; --muted:#7fa59b;
+    --teal:#2fe6b6; --teal-dim:#179e7c; --cyan:#46d6ff; --gold:#ffce5c; --done:#2fe6b6; --rose:#ff6b8a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:radial-gradient(1000px 500px at 90% -10%,rgba(47,230,182,.07),transparent),var(--bg);
+    color:var(--txt);font-family:'Manrope',system-ui,sans-serif;font-size:15px;line-height:1.65}
+  .wrap{max-width:960px;margin:0 auto;padding:44px 20px 110px}
+  .mono,code{font-family:'JetBrains Mono',monospace}
+  code{font-size:12.5px;color:var(--txt-hi);background:rgba(70,214,255,.07);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+
+  header{margin-bottom:34px}
+  .kicker{font:700 11px/1.4 'JetBrains Mono',monospace;letter-spacing:3px;text-transform:uppercase;color:var(--teal-dim)}
+  h1{color:var(--txt-hi);font-size:clamp(26px,4.4vw,40px);font-weight:800;letter-spacing:-.5px;margin:12px 0 8px}
+  h2{color:var(--txt-hi);font-size:20px;font-weight:800;margin:38px 0 14px}
+  .sub{color:var(--muted);max-width:70ch}
+  .sub b{color:var(--txt-hi)}
+
+  .overall{margin-top:24px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px 20px}
+  .overall .top{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:13px;margin-bottom:10px}
+  .overall .top b{color:var(--txt-hi)}
+  .track{height:10px;border-radius:6px;background:#0a1714;overflow:hidden;border:1px solid var(--edge)}
+  .fill{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--teal-dim),var(--teal));animation:grow 1.4s ease forwards}
+  @keyframes grow{to{width:var(--w,0%)}}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+  .stat{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:12px 14px}
+  .stat .n{font:800 24px/1.1 'Manrope',sans-serif;color:var(--txt-hi)}
+  .stat .l{font-size:12px;color:var(--muted)}
+
+  .flow{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px 18px;overflow-x:auto}
+  .flow pre{font:12.5px/1.6 'JetBrains Mono',monospace;color:var(--txt);white-space:pre}
+  .flow .w{color:var(--cyan)} .flow .h{color:var(--teal)} .flow .d{color:var(--gold)}
+
+  .phase{position:relative;padding:0 0 14px 46px;margin-bottom:8px}
+  .phase::before{content:"";position:absolute;left:15px;top:6px;bottom:-8px;width:2px;background:var(--edge)}
+  .phase:last-of-type::before{display:none}
+  .phase>.pin{position:absolute;left:0;top:2px;width:32px;height:32px;border-radius:50%;background:var(--panel-2);
+    border:2px solid var(--teal-dim);display:grid;place-items:center;font:700 13px 'JetBrains Mono',monospace;color:var(--teal);z-index:2}
+  .phase.mvp>.pin{border-color:var(--teal);box-shadow:0 0 0 4px rgba(47,230,182,.15)}
+  .phase .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:18px 20px;margin-left:4px}
+  .phase.mvp .card{border-color:var(--teal-dim)}
+  .ph-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .ph-head h3{font-size:17px;color:var(--txt-hi);font-weight:700}
+  .tag{font:600 10.5px/1 'JetBrains Mono',monospace;letter-spacing:.5px;padding:5px 9px;border-radius:20px;border:1px solid currentColor}
+  .tag.t{color:var(--cyan)} .tag.o{color:var(--gold)} .tag.now{color:var(--teal);background:rgba(47,230,182,.1)} .tag.r{color:var(--rose)}
+  .ph-desc{font-size:14px;margin-bottom:12px}
+
+  ul.tasks{list-style:none;margin:6px 0 12px}
+  ul.tasks li{display:flex;align-items:flex-start;gap:10px;padding:5px 0;font-size:14px}
+  ul.tasks .box{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--edge);flex-shrink:0;margin-top:3px}
+  ul.tasks li b{color:var(--txt-hi)}
+  .repo{font:700 10px/1 'JetBrains Mono',monospace;padding:3px 6px;border-radius:4px;margin-right:2px;vertical-align:1px}
+  .repo.w{background:rgba(70,214,255,.15);color:var(--cyan)}
+  .repo.d{background:rgba(255,206,92,.15);color:var(--gold)} .repo.h{background:rgba(47,230,182,.15);color:var(--teal)}
+
+  .milestone{display:inline-flex;align-items:center;gap:8px;margin-top:4px;color:var(--gold);font-size:13px;font-weight:600}
+  .milestone::before{content:"◆";color:var(--gold)}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;overflow:hidden}
+  .tbl{overflow-x:auto;border-radius:12px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--edge);vertical-align:top}
+  th{color:var(--txt-hi);font-size:12px;letter-spacing:.5px;text-transform:uppercase;background:var(--panel-2)}
+  tr:last-child td{border-bottom:none}
+  .sev{font:700 11px 'JetBrains Mono',monospace}
+  .sev.m{color:var(--gold)} .sev.ok{color:var(--teal)} .sev.b{color:var(--rose)}
+
+  .gate{background:linear-gradient(135deg,rgba(255,206,92,.08),transparent);border:1px solid #6b5520;border-radius:12px;padding:18px 20px}
+  .gate h3{color:var(--gold);font-size:16px;margin-bottom:8px}
+  .gate li{margin:4px 0 4px 18px;font-size:14px}
+
+  footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--edge);color:var(--muted);
+    font:500 12px 'JetBrains Mono',monospace;letter-spacing:.5px;overflow-wrap:anywhere}
+  @media (max-width:560px){ .phase{padding-left:38px} .phase>.pin{width:28px;height:28px} .phase::before{left:13px} }
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Implementation Plan · CCT-1222 / CIMD-4251 · feature 004 · implemented, awaiting contract merge</div>
+    <h1>Payment terms in the hearing result sent to GOB</h1>
+    <p class="sub">The <b>enforcement workflow (W)</b> sends GOB the payment arrangement the court made (<b>INSTL, LUMSI, PDATE, PTFOR</b>) as the contract's <code>paymentTerms</code> block, and <b>no block</b> when the court made none. The stand-in due date (hearing day, flags <code>N</code>) and the <code>payment-due-date-fallback</code> setting are removed. Missing, unreadable or conflicting values make the share unsendable with a specific reason; nothing is invented. The CP prompt references and value formats are configuration; their values come from CP reference data and the formats hearing publishes (OQ-1, resolved 2026-11-18).</p>
+    <div class="overall" style="--w:93%">
+      <div class="top"><span>Overall progress</span><b>37 of 40 tasks done · 2026-11-17 · all builds green</b></div>
+      <div class="track"><div class="fill"></div></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n">40</div><div class="l">tasks in 8 phases</div></div>
+      <div class="stat"><div class="n">4</div><div class="l">user stories (US1, US2 = P1)</div></div>
+      <div class="stat"><div class="n">18/18</div><div class="l">requirements with tasks</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">open findings (analysis run 2)</div></div>
+    </div>
+  </header>
+
+  <h2>How it works</h2>
+  <div class="flow" role="img" aria-label="The workflow selects payment terms results, reads their prompts through configuration, and either omits the block, adds the block, or records the share as unsendable with a reason.">
+<pre>hearing result → <span class="w">W</span> resolve results (+ prompts) → offences not yet sent
+  no INSTL/LUMSI/PDATE/PTFOR        → request <span class="h">without</span> paymentTerms → gateway → GOB
+  INSTL / LUMSI                     → paymentTerms {frequency W|F|M, instalmentAmount, start date, [lumpSum], card, parent}
+  PDATE / PTFOR                     → paymentTerms {paymentDueDate, card, parent}
+  missing / unreadable / conflicting / not configured
+                                    → <span class="d">MAPPING_FAILED</span> PAYMENT_TERMS_INCOMPLETE | _UNREADABLE | _CONFLICTING (not sent)
+prompt references, frequency values, yes/no values, date formats ← cp.hearing-result.payment-terms (OQ-1 values, from CP reference data)</pre>
+  </div>
+
+  <h2>Phases</h2>
+
+  <div class="phase mvp"><div class="pin">1</div><div class="card">
+    <div class="ph-head"><h3>Setup · contract</h3><span class="tag now mono">T001–T003</span></div>
+    <div class="ph-desc"><code>paymentTerms</code> optional in <code>HearingResultedRequest</code> (LOCAL AMENDMENT, as Libra v0.6.0). Done locally; the developer merges at the end of the feature. Until then the services build against a local copy of the contract (<code>mavenLocal</code>), replaced by the merged draft version in T002.</div>
+    <ul class="tasks"><li><span class="box"></span><span><span class="repo d">C</span><b>T001</b> · contract change (done 2026-11-15)</span></li><li><span class="box"></span><span><span class="repo d">C</span><b>T002</b> · merge, record and verify the draft version (at the end)</span></li><li><span class="box"></span><span><b>T003</b> · this plan artefact</span></li></ul>
+  </div></div>
+
+  <div class="phase mvp"><div class="pin">2</div><div class="card">
+    <div class="ph-head"><h3>Foundational</h3><span class="tag now mono">T004–T012</span></div>
+    <div class="ph-desc">Contract version, prompts on <code>ResolvedResult</code>, <code>PaymentTermsProperties</code>, <code>PaymentValueParser</code>, <code>PaymentTermsOutcome</code> and three new reasons, test profile with fake <code>test-*</code> references. Behaviour unchanged.</div>
+  </div></div>
+
+  <div class="phase mvp"><div class="pin">3</div><div class="card">
+    <div class="ph-head"><h3>US2 · no payment terms result, no block</h3><span class="tag now mono">T013–T019 · P1 · MVP</span></div>
+    <div class="ph-desc">Stand-in block and fallback setting removed; 7 expected requests lose <code>paymentTerms</code>; new MPSO-only scenario. A temporary guard keeps any payment terms result unsent (<code>PAYMENT_TERMS_UNREADABLE</code>) until US1, so it is never sent without its block.</div>
+    <span class="milestone">Shippable on its own: the stand-in due date is gone</span>
+  </div></div>
+
+  <div class="phase"><div class="pin">4</div><div class="card">
+    <div class="ph-head"><h3>US1 · instalment arrangements</h3><span class="tag t mono">T020–T026 · P1</span></div>
+    <div class="ph-desc"><code>PaymentTermsMapper</code> for INSTL and LUMSI, incomplete / unreadable / conflicting handling, replaces the guard; scenarios 44–47 and 50 (already sent, not repeated).</div>
+  </div></div>
+
+  <div class="phase"><div class="pin">5</div><div class="card">
+    <div class="ph-head"><h3>US3 · pay-by date</h3><span class="tag t mono">T027–T029 · P2</span></div>
+    <div class="ph-desc">PDATE and PTFOR send the due date and flags only; scenario 48.</div>
+  </div></div>
+
+  <div class="phase"><div class="pin">6</div><div class="card">
+    <div class="ph-head"><h3>US4 · payment card and parent-to-pay</h3><span class="tag t mono">T030–T032 · P3</span></div>
+    <div class="ph-desc"><code>Y</code> only when the prompt says yes; other values unreadable; scenario 49.</div>
+  </div></div>
+
+  <div class="phase"><div class="pin">7</div><div class="card">
+    <div class="ph-head"><h3>Gateway</h3><span class="tag t mono">T033–T034</span></div>
+    <div class="ph-desc">Contract version and an integration test: a request without <code>paymentTerms</code> is forwarded unchanged.</div>
+  </div></div>
+
+  <div class="phase"><div class="pin">8</div><div class="card">
+    <div class="ph-head"><h3>Polish</h3><span class="tag r mono">T035–T040 · TEMP DIAGNOSTICS rollback is a release blocker</span></div>
+    <div class="ph-desc">README, feature 001 T066/T069 marked superseded, fixed contract version before release, full builds, no amounts or dates in logs.</div>
+  </div></div>
+
+  <h2>Decisions this plan rests on</h2>
+  <ul class="tasks">
+   <li><span class="box"></span><span><code>paymentTerms</code> optional (2026-11-15, as Libra v0.6.0 and AC2); inside the block <code>paymentDueDate</code>, <code>paymentCardRequested</code>, <code>parentToPay</code> stay required</span></li>
+   <li><span class="box"></span><span>Prompt references and value formats are configuration (R3); <code>application.yaml</code> values taken from CP reference data and hearing's publishing code (OQ-1 resolved 2026-11-18)</span></li>
+   <li><span class="box"></span><span>Several payment terms results: equal blocks collapse, different ones → <code>PAYMENT_TERMS_CONFLICTING</code> (OQ-2 default)</span></li>
+   <li><span class="box"></span><span>No amounts, dates or prompt values in logs or <code>error_detail</code> (FR-014); no DB schema change</span></li>
+  </ul>
+
+  <h2>Open points (not blocking)</h2>
+  <div class="tbl"><table>
+   <tr><th>ID</th><th>Question</th><th>Interim</th><th>Owner</th></tr>
+   <tr><td class="mono">OQ-1</td><td>CP prompt references and value formats (amount, frequency, lump sum, start date, pay-by date, card, parent)</td><td><b>Resolved 2026-11-18</b>: IAMT, PF, LSA, instalmentStartDate/ISTD, PBD, PAYMENT_CARD_REQUIRED, PARENT_GAURDIAN_TO_PAY; £ amounts, dd/MM/yyyy dates, weekly/fortnightly/monthly, Yes/No or true/false (research R3)</td><td>Developer; STE confirms</td></tr>
+   <tr><td class="mono">OQ-2</td><td>Conflicting payment terms results</td><td>Unsendable</td><td>BA, after implementation</td></tr>
+   <tr><td class="mono">OQ-3</td><td>Ticket Example 1 is stale</td><td>Mapping table followed</td><td>BA, after implementation</td></tr>
+  </table></div>
+
+  <h2>Stage 5 gate</h2>
+  <p class="sub">Spec approved and clarified (2026-11-15), plan and tasks analysed with no open findings (run 2, 2026-11-16), constitution 1.2.1. Developer said to continue with implementation on 2026-11-16; contract merge deferred to the end.</p>
+  <footer>specs/004-cimd-4251-payment-terms · synthetic data only</footer>
+</div>
+</body>
+</html>

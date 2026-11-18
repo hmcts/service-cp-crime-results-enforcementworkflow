@@ -1,0 +1,57 @@
+{
+  "description": "Feature 004 (spec edge case): day 1 sends offence 1 with its INSTL block; day 2 results offence 2 and repeats offence 1 with the same INSTL: the INSTL result is already sent, so the day 2 request has no paymentTerms",
+  "events": [
+    "events/hearing-resulted-payment-terms-day1-instl.json",
+    "events/hearing-resulted-payment-terms-day2-instl-repeated.json"
+  ],
+  "referenceData": {
+    "11111111-1111-1111-1111-111111111111": "SC",
+    "22222222-2222-2222-2222-222222222222": "WC",
+    "44444444-4444-4444-4444-444444444444": "NEXH",
+    "55555555-5555-5555-5555-555555555555": "ADJNN",
+    "66666666-6666-6666-6666-666666666666": "COLLO",
+    "99999999-9999-9999-9999-999999999999": "INSTL"
+  },
+  "gateway": {
+    "status": 200,
+    "body": {
+      "caseUrn": "E012345678",
+      "timestamp": "2026-05-03T14:30:00Z",
+      "correlationId": "9f3d2e42-8d30-4d16-9dd6-6d4e26889d5c",
+      "nowsDataItems": {
+        "accountBalance": 125.5
+      }
+    }
+  },
+  "expected": {
+    "gatewayPosts": 2,
+    "resultCodesPerPost": [
+      [
+        "SC",
+        "INSTL"
+      ],
+      [
+        "DW"
+      ]
+    ],
+    "statuses": [
+      "SUCCEEDED",
+      "SUCCEEDED"
+    ],
+    "published": {
+      "events": 2,
+      "gobDataReusedPerEvent": [
+        false,
+        false
+      ],
+      "sharedTimePerEvent": [
+        "2026-05-03T14:30:00Z",
+        "2026-05-10T14:30:00Z"
+      ]
+    },
+    "notificationStatuses": [
+      "PUBLISHED",
+      "PUBLISHED"
+    ]
+  }
+}

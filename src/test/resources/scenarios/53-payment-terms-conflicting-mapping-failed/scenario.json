@@ -1,0 +1,17 @@
+{
+  "description": "Feature 004 (R7, OQ-2 default): INSTL and LUMSI with different arrangements: MAPPING_FAILED PAYMENT_TERMS_CONFLICTING, nothing sent",
+  "event": "events/hearing-resulted-payment-terms-conflicting.json",
+  "referenceData": {
+    "11111111-1111-1111-1111-111111111111": "SC",
+    "99999999-9999-9999-9999-999999999999": "INSTL",
+    "88888888-8888-8888-8888-888888888888": "LUMSI"
+  },
+  "expected": {
+    "gatewayPosts": 0,
+    "status": "MAPPING_FAILED",
+    "notificationStatuses": [
+      "GOB_FAILED"
+    ],
+    "errorDetail": "PAYMENT_TERMS_CONFLICTING: INSTL, LUMSI"
+  }
+}

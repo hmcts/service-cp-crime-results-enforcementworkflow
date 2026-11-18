@@ -10,8 +10,11 @@ import java.util.Set;
  */
 public final class LibraContract {
 
-    /** Test resource copy of the Libra contract (with the documented local amendment: nowsDataRequest optional). */
-    private static final String CONTRACT = "contracts/libra-gateway-hearing-events-openapi-v0.4.0.yml";
+    /**
+     * Libra's published contract v0.8.0, unchanged (copied 2026-11-18 from specs/docs, CIMD-4251). It replaces the amended
+     * v0.4.0 copy: v0.8.0 already has paymentTerms and nowsDataRequest optional and resultCode without an enum.
+     */
+    private static final String CONTRACT = "contracts/libra-gateway-hearing-events-openapi-v0.8.0.yml";
     private static final JsonSchema HEARING_RESULTED_REQUEST = OpenApiSchemas.load(CONTRACT, "HearingResultedRequest");
 
     private LibraContract() {

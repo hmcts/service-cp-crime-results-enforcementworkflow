@@ -69,7 +69,9 @@ class ScenarioIntegrationTest extends EmbeddedBrokerIntegrationTestBase {
      */
     private static final List<String> NEVER_LOGGED = List.of("Edward", "Harrison", "2002-01-10", "QQ123456C", "1 High Street",
             "02079460000", "07700900123", "Tottenham", "ZZTST001101EJ9ZZ", "ZZ25A00001", "PAYROLL0001", "Example Employer Ltd",
-            "hr@example.org", "020 7946 0001", "1234567890", "125.5", "accountBalance");
+            "hr@example.org", "020 7946 0001", "1234567890", "125.5", "accountBalance",
+            // feature 004 (CIMD-4251, FR-014): the payment terms fixtures' amounts and dates (analysis L1)
+            "487.13", "2500.37", "2,500.37", "73.61", "2031-03-07", "2031-04-11", "2031-05-16");
     // strict, so a mistyped field in a scenario fails the test instead of being ignored
     private static final ObjectMapper SCENARIO_MAPPER = JsonMapper.builder()
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)

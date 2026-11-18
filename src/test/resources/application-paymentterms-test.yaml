@@ -1,0 +1,21 @@
+# Feature 004 (CIMD-4251) T012: clearly fake payment terms prompt references and values for the scenario tests, so they
+# do not depend on CP reference data. The real CP references and formats are in application.yaml (spec OQ-1, resolved)
+# and are tested by PaymentTermsApplicationConfigIntegrationTest. Never put real values here.
+cp:
+  hearing-result:
+    payment-terms:
+      prompts:
+        instalment-amount: [test-instalment-amount]
+        frequency: [test-frequency]
+        lump-sum: [test-lump-sum]
+        instalment-start-date: [test-instalment-start-date]
+        pay-by-date: [test-pay-by-date]
+        payment-card-required: [test-payment-card-required]
+        parent-guardian-to-pay: [test-parent-guardian-to-pay]
+      frequency-values:
+        W: [test-weekly]
+        F: [test-fortnightly]
+        M: [test-monthly]
+      yes-values: [test-yes]
+      no-values: [test-no]
+      date-formats: [yyyy-MM-dd]

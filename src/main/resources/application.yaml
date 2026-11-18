@@ -95,8 +95,6 @@ cp:
     connect-timeout: 5s
     read-timeout: 50s   # must exceed the gateway's own total towards APIM (5s + 40s)
   hearing-result:
-    # research.md R13: default NONE (unsendable). HEARING_DATE only via explicit local/test/simulator config.
-    payment-due-date-fallback: ${PAYMENT_DUE_DATE_FALLBACK:NONE}
     result-code-renames:
       TFOUT: TFOOUT
       WC: DW
@@ -108,6 +106,31 @@ cp:
     # research.md R19: stale SENDING -> FAILED (INTERRUPTED), never resent
     stale-sending-threshold: ${STALE_SENDING_THRESHOLD:PT5M}
     stale-sending-sweep-interval: ${STALE_SENDING_SWEEP_INTERVAL:PT1M}
+    payment-terms:
+      # CIMD-4251 OQ-1 (resolved 2026-11-18). CP reference data, the same in every environment: not per environment.
+      # Prompt references: the INSTL, LUMSI, PDATE and PTFOR result definitions primed into CP environments
+      # (cpp-platform-priming criminalCourtsResultDefinitions). PARENT_GAURDIAN_TO_PAY is CP's own spelling. ISTD is
+      # the instalment start date reference of older definitions (cpp-context-hearing test reference data).
+      prompts:
+        instalment-amount: [IAMT]
+        frequency: [PF]
+        lump-sum: [LSA]
+        instalment-start-date: [instalmentStartDate, ISTD]
+        pay-by-date: [PBD]
+        payment-card-required: [PAYMENT_CARD_REQUIRED]
+        parent-guardian-to-pay: [PARENT_GAURDIAN_TO_PAY]
+      # PF fixed list e555e078-5dd8-11e8-9c2d-fa7ae01bbebc (values compared ignoring case)
+      frequency-values:
+        W: [weekly]
+        F: [fortnightly]
+        M: [monthly]
+      # BOOLEAN prompts: hearing publishes Yes/No (TypeUtils.convertBooleanPromptValue) or true/false (older path)
+      yes-values: ["Yes", "true"]
+      no-values: ["No", "false"]
+      # DATE prompts: hearing publishes dd/MM/yyyy (PublishResultUtil, converted from yyyy-MM-dd); dd MMM yyyy is the
+      # third date form hearing itself accepts (restructure Constants.DATE_FORMATS_WITHOUT_TIME). CURR prompts carry a
+      # leading £, which the parser accepts.
+      date-formats: [dd/MM/yyyy, yyyy-MM-dd, dd MMM yyyy]
 
 # cp-task-manager (feature 003, research R10): its tables come from this service's migrations (V1.006, V1.007)
 taskmanager:

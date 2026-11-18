@@ -15,11 +15,6 @@
     "postcode": "ZZ99 9ZZ",
     "nationalInsuranceNumber": "QQ123456C"
   },
-  "paymentTerms": {
-    "paymentDueDate": "2026-05-03",
-    "paymentCardRequested": "N",
-    "parentToPay": "N"
-  },
   "enforcement": {
     "prisonSentenceIndicator": "N"
   },

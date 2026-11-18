@@ -1,0 +1,37 @@
+{
+  "caseUrn": "E012345678",
+  "dateOfHearing": "2026-05-03",
+  "courtHearingLocation": "B01LY00",
+  "defendantDetails": {
+    "prosecutorDefendantId": "1234567890",
+    "forename": "Edward",
+    "surname": "Harrison",
+    "homeTelephoneNumber": "02079460000",
+    "mobileTelephoneNumber": "07700900123",
+    "dateOfBirth": "2002-01-10",
+    "address1": "1 High Street",
+    "address2": "Tottenham",
+    "address3": "London",
+    "postcode": "ZZ99 9ZZ",
+    "nationalInsuranceNumber": "QQ123456C"
+  },
+  "paymentTerms": {
+    "instalmentFrequency": "F",
+    "paymentDueDate": "2031-04-11",
+    "instalmentAmount": 73.61,
+    "lumpSum": 2500.37,
+    "paymentCardRequested": "N",
+    "parentToPay": "N"
+  },
+  "enforcement": {
+    "prisonSentenceIndicator": "N"
+  },
+  "results": [
+    {
+      "resultCode": "FTTP"
+    },
+    {
+      "resultCode": "LUMSI"
+    }
+  ]
+}

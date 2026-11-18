@@ -28,7 +28,7 @@
 "Due Date":               { path: terms.english_firstDate, type: string, default: "31 May 2026" }
 "Instalment Amount":      { path: terms.english_instalment, type: string, default: "20.00" }
 "Lump Sum":               { path: terms.english_lumpsum, type: string,  default: "0.00" }
-"Payment period":         { path: terms.english_instalmetPaymentPeriod, type: string, default: "Monthly" }
+"Payment period":         { path: terms.english_instalmentPaymentPeriod, type: string, default: "Monthly" }
 "Warrant No":             { path: accountWarrantNumber, type: string,  default: "012/26/00123" }
 "Bail Amount":            { path: accountBailAmount,    type: number,  default: 500.00 }
 "Days Before Release of Warrant": { path: daysBeforeReleaseWarrant, type: integer, default: 14 }
