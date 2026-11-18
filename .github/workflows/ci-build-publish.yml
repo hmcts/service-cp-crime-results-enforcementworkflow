@@ -277,6 +277,9 @@ jobs:
           (needs.Build-Docker.result == 'success' || needs.Build-Docker.result == 'skipped') &&
           (needs.Build-Docker-Simulator.result == 'success' || needs.Build-Docker-Simulator.result == 'skipped') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Extract repo name
         run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
@@ -292,30 +295,69 @@ jobs:
               "ARTIFACT_ID": "${{ env.REPO_NAME }}",
               "ARTIFACT_VERSION": "${{ needs.Artefact-Version.outputs.artefact_version }}",
               "TARGET_REPOSITORY": "${{ github.repository }}",
+              "gitRef": "${{ github.event.pull_request.head.sha || github.sha }}",
               "agentDemand": "ubuntu-j25",
               "baseImage": "hmcts/apm-services:25-jre"
             }
 
-      # The simulator image lives at a nested GHCR path (ghcr.io/<repo>/enforcement-workflow-simulator),
-      # not the default ghcr.io/<repo> the pipeline derives from ARTIFACT_ID/TARGET_REPOSITORY alone,
-      # so it needs its own trigger with an explicit imageRepository override to land in ACR — mirroring
-      # the pattern cpp-context-azure-legalaidagency/build-image.yml uses for the same reason.
-      # pushToLive mirrors the service image's own default; adjust if the simulator should only ever
-      # reach the non-live ACR.
-      - name: Trigger ADO pipeline for simulator image
+      # ---- Simulator image: copy the GHCR image to the non-live ACR (no rebuild) -------------------
+      # Non-live ACR only: the simulator must never run in a live environment (LiveEnvironmentGuard).
+      - name: Pull simulator image from GHCR for the ACR relay
+        if: needs.Build-Docker-Simulator.result == 'success'
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}/enforcement-workflow-simulator:${{ needs.Artefact-Version.outputs.artefact_version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          CRANE_ARCHIVE="${RUNNER_TEMP}/go-containerregistry_Linux_x86_64.tar.gz"
+          curl --fail --show-error --location --output "${CRANE_ARCHIVE}" \
+            "https://github.com/google/go-containerregistry/releases/download/v0.21.7/go-containerregistry_Linux_x86_64.tar.gz"
+          echo "1a57bc98207fa1c0d04bf760699099e26f8383499bfd55b99c1b919a928a7230  ${CRANE_ARCHIVE}" | sha256sum -c -
+          sudo tar xz -C /usr/local/bin -f "${CRANE_ARCHIVE}" crane
+          # --password-stdin keeps the token out of argv.
+          printf '%s' "${GH_TOKEN}" | crane auth login ghcr.io -u "${{ github.actor }}" --password-stdin
+          mkdir -p relay
+          echo "Pulling ${IMAGE}"
+          crane pull "${IMAGE}" relay/simulator.tar
+          # Fingerprint the image CONFIG, not the manifest: crane's tarball round-trip re-serialises
+          # the manifest, but the config blob (which pins every layer and setting) is byte-preserved.
+          printf 'simulator %s\n' "$(crane config "${IMAGE}" | sha256sum | awk '{print $1}')" > relay/digests.txt
+          cat relay/digests.txt
+
+      - name: Upload simulator image for the ACR relay
+        if: needs.Build-Docker-Simulator.result == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          # Pipeline 794 looks the artifact up by this exact name.
+          name: relay-images
+          path: relay/
+          retention-days: 1
+
+      - name: Trigger ADO pipeline to publish the simulator image to ACR
+        id: simulator_relay
+        if: needs.Build-Docker-Simulator.result == 'success'
         uses: hmcts/trigger-ado-pipeline@v2
         with:
-          pipeline_id: 460
+          pipeline_id: 794
           ado_pat: ${{ secrets.HMCTS_ADO_PAT }}
           template_parameters: >
             {
-              "GROUP_ID": "uk.gov.hmcts.cp",
-              "ARTIFACT_ID": "${{ env.REPO_NAME }}-enforcement-workflow-simulator",
-              "ARTIFACT_VERSION": "${{ needs.Artefact-Version.outputs.artefact_version }}",
-              "TARGET_REPOSITORY": "${{ github.repository }}",
-              "artifactType": "docker",
-              "dockerfilePath": "enforcement-workflow-simulator/Dockerfile",
-              "imageRepository": "${{ github.repository }}/enforcement-workflow-simulator",
-              "agentDemand": "ubuntu-j25",
-              "baseImage": "eclipse-temurin:25-jre"
+              "version": "${{ needs.Artefact-Version.outputs.artefact_version }}",
+              "target": "nonlive",
+              "gh_run_id": "${{ github.run_id }}",
+              "ghOwner": "${{ github.repository_owner }}",
+              "ghRepo": "${{ env.REPO_NAME }}",
+              "acrRepoPrefix": "hmcts/${{ env.REPO_NAME }}/enforcement-workflow",
+              "services": ["simulator"]
             }
+
+      # trigger-ado-pipeline is fire-and-forget: without this wait a failed ACR publish would still
+      # leave this workflow green. 90 min covers time spent queued for an ADO agent.
+      - name: Wait for the simulator ACR publish to complete
+        if: needs.Build-Docker-Simulator.result == 'success'
+        uses: hmcts/monitor-ado-pipeline@e3b81954f702a5b08cc7104d773de7610eb6f67f
+        with:
+          pipeline_id: 794
+          run_id: ${{ steps.simulator_relay.outputs.run_id }}
+          ado_pat: ${{ secrets.HMCTS_ADO_PAT }}
+          timeout: '5400'
