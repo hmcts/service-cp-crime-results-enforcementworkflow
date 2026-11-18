@@ -348,7 +348,7 @@ jobs:
               "ghOwner": "${{ github.repository_owner }}",
               "ghRepo": "${{ env.REPO_NAME }}",
               "acrRepoPrefix": "hmcts/${{ env.REPO_NAME }}/enforcement-workflow",
-              "services": ["simulator"]
+              "services": "simulator"
             }
 
       # trigger-ado-pipeline is fire-and-forget: without this wait a failed ACR publish would still
