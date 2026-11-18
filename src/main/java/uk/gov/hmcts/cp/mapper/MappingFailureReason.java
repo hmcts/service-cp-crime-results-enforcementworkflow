@@ -7,6 +7,11 @@ public enum MappingFailureReason {
     ADDRESS1_MISSING,
     DATE_OF_HEARING_MISSING,
     COURT_HEARING_LOCATION_INVALID,
-    PAYMENT_DUE_DATE_UNAVAILABLE,
+    /** A required payment terms prompt is missing or blank (feature 004, research R5). */
+    PAYMENT_TERMS_INCOMPLETE,
+    /** A payment terms value cannot be interpreted, or its prompt references are not configured (R5). */
+    PAYMENT_TERMS_UNREADABLE,
+    /** Several payment terms results give different blocks (R7, OQ-2 default). */
+    PAYMENT_TERMS_CONFLICTING,
     ORGANISATION_DEFENDANT_NOT_SUPPORTED_YET
 }

@@ -43,15 +43,24 @@ class NowsDataItemsSerialisationTest {
                 .hasMessageContaining("defendantAccount");
     }
 
+    // Libra v0.8.0 corrected the spelling (was english_instalmetPaymentPeriod up to v0.6.0)
     @Test
-    void preserves_the_contract_spelling_of_the_payment_period_term() throws Exception {
+    void uses_the_v080_spelling_of_the_payment_period_term() throws Exception {
         final NowsDataItems items = mapper.convertValue(
-                Map.of("terms", Map.of("english_instalmetPaymentPeriod", "Monthly")),
+                Map.of("terms", Map.of("english_instalmentPaymentPeriod", "Monthly")),
                 NowsDataItems.class);
 
         assertThat(mapper.writeValueAsString(items))
-                .contains("english_instalmetPaymentPeriod")
-                .doesNotContain("english_instalmentPaymentPeriod");
+                .contains("\"english_instalmentPaymentPeriod\":\"Monthly\"")
+                .doesNotContain("instalmetPaymentPeriod");
+    }
+
+    @Test
+    void rejects_the_old_misspelt_payment_period_term() {
+        assertThatThrownBy(() -> mapper.convertValue(
+                Map.of("terms", Map.of("english_instalmetPaymentPeriod", "Monthly")), NowsDataItems.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("english_instalmetPaymentPeriod");
     }
 
     @Test

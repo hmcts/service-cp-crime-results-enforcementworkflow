@@ -1,0 +1,31 @@
+{
+  "description": "Feature 004 (CIMD-4251 AC1): SC + INSTL weekly: paymentTerms W, instalment amount, start date as due date, flags N, no lump sum; no amount or date logged",
+  "event": "events/hearing-resulted-payment-terms-sc-instl.json",
+  "referenceData": {
+    "11111111-1111-1111-1111-111111111111": "SC",
+    "99999999-9999-9999-9999-999999999999": "INSTL"
+  },
+  "gateway": {
+    "status": 200,
+    "body": {
+      "caseUrn": "E012345678",
+      "timestamp": "2026-05-03T14:30:00Z",
+      "correlationId": "9f3d2e42-8d30-4d16-9dd6-6d4e26889d5c",
+      "nowsDataItems": {
+        "accountBalance": 125.5
+      }
+    }
+  },
+  "expected": {
+    "gatewayPosts": 1,
+    "status": "SUCCEEDED",
+    "httpStatus": 200,
+    "published": {
+      "events": 1,
+      "gobDataReused": false
+    },
+    "notificationStatuses": [
+      "PUBLISHED"
+    ]
+  }
+}

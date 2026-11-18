@@ -376,7 +376,7 @@ Branches: W is on `001-cimd-4246-hearing-resulted-to-libra`. A and G: branch `de
 **Prerequisite**: each task's open point is recorded in `research.md` first (see plan.md §5 and research.md §2).
 
 - [ ] T066 [US6] Record the BA/GOB rulings in `specs/001-cimd-4246-hearing-resulted-to-libra/research.md`:
-  - `paymentDueDate` without PAYT (v0.5.0 optional?);
+  - ~~`paymentDueDate` without PAYT (v0.5.0 optional?);~~ **superseded by `specs/004-cimd-4251-payment-terms`** (2026-11-15: `paymentTerms` optional, as in Libra v0.6.0);
   - 4249 employerReference mandatory vs optional;
   - 4250 name length 35 vs 30;
   - 4252 `nextHearingReason` and multiple ACNOTEs;
@@ -384,7 +384,7 @@ Branches: W is on `001-cimd-4246-hearing-resulted-to-libra`. A and G: branch `de
   - 4256 enforcer codes incl. BWTD/CW.
 - [ ] T067 [P] [US6] Create `src/test/java/uk/gov/hmcts/cp/mapper/EmployerDetailsMapperTest.java` and `src/main/java/uk/gov/hmcts/cp/mapper/EmployerDetailsMapper.java` (4249): only for AEO/AEOC(/PGPAY), from `personDefendant.employerOrganisation` and `employerPayrollReference`. Truncations: name 35, reference 20, address 32, email 76. The block is omitted when there's no employer.
 - [ ] T068 [P] [US6] Create `src/test/java/uk/gov/hmcts/cp/mapper/ParentGuardianDetailsMapperTest.java` and `src/main/java/uk/gov/hmcts/cp/mapper/ParentGuardianDetailsMapper.java` (4250): `address1` is mandatory when a name is present, with the T066 length ruling.
-- [ ] T069 [P] [US6] Create `src/test/java/uk/gov/hmcts/cp/mapper/PaymentTermsMapperTest.java` and `src/main/java/uk/gov/hmcts/cp/mapper/PaymentTermsMapper.java` (4251): the PAYT/INSTL/LUMSI/PDATE/PTFOR prompts → `paymentTerms`, `paymentDueDate`, `instalmentAmount`, `lumpSum`; amounts are parsed from display strings (e.g. "£60" → 60.00). Then apply the T066 `paymentDueDate` ruling. If GOB made it optional, delete `PaymentDueDateFallback` from `HearingResultProperties` and the `HEARING_DATE` branch in `HearingResultedRequestMapper`.
+- [ ] ~~T069~~ **Superseded by `specs/004-cimd-4251-payment-terms` (T020-T032).** [P] [US6] Create `src/test/java/uk/gov/hmcts/cp/mapper/PaymentTermsMapperTest.java` and `src/main/java/uk/gov/hmcts/cp/mapper/PaymentTermsMapper.java` (4251): the PAYT/INSTL/LUMSI/PDATE/PTFOR prompts → `paymentTerms`, `paymentDueDate`, `instalmentAmount`, `lumpSum`; amounts are parsed from display strings (e.g. "£60" → 60.00). Then apply the T066 `paymentDueDate` ruling. If GOB made it optional, delete `PaymentDueDateFallback` from `HearingResultProperties` and the `HEARING_DATE` branch in `HearingResultedRequestMapper`.
 - [ ] T070 [P] [US6] Create `src/test/java/uk/gov/hmcts/cp/mapper/NextHearingMapperTest.java` and `src/main/java/uk/gov/hmcts/cp/mapper/NextHearingMapper.java` (4252): `enforcement.nextHearingDate/CourtCode/Reason` and `accountNotes` (≤ 28 characters), for AEC/BWTD/SUMM/CWN, with the court code as the National Courthouse code per T066.
 - [ ] T071 [P] [US6] Create `src/test/java/uk/gov/hmcts/cp/mapper/TransferLjaMapperTest.java` and `src/main/java/uk/gov/hmcts/cp/mapper/TransferLjaMapper.java` (4254): `enforcement.transferLjaCode` for TFOOUT, from the transfer prompt.
 - [ ] T072 [P] [US6] Create `src/test/java/uk/gov/hmcts/cp/mapper/EnforcerCodeMapperTest.java` and `src/main/java/uk/gov/hmcts/cp/mapper/EnforcerCodeMapper.java` (4256): `results[].enforcerCode` for the warrant codes (the list from T066), from the enforcer prompt (CIMD-4336). ABDC defaults to 500 (CIMD-4335).

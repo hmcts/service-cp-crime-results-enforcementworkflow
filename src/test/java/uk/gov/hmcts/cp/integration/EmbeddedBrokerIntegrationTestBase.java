@@ -37,7 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * timeout is shortened here, for the timeout scenario; the task poll and retry intervals for speed.
  */
 // docker: the diagnostic listener; nowsmapping-test: a shortCode -> NOWS data item mapping, so requests carry nowsDataRequest
-@ActiveProfiles({"docker", "nowsmapping-test"})
+@ActiveProfiles({"docker", "nowsmapping-test", "paymentterms-test"})
 @TestPropertySource(properties = {
     "spring.artemis.mode=embedded",
     "spring.artemis.embedded.persistent=false",

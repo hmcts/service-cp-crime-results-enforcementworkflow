@@ -1,0 +1,16 @@
+{
+  "description": "Feature 004 (FR-011): INSTL without its instalment amount: MAPPING_FAILED PAYMENT_TERMS_INCOMPLETE, nothing sent",
+  "event": "events/hearing-resulted-payment-terms-instl-missing-amount.json",
+  "referenceData": {
+    "11111111-1111-1111-1111-111111111111": "SC",
+    "99999999-9999-9999-9999-999999999999": "INSTL"
+  },
+  "expected": {
+    "gatewayPosts": 0,
+    "status": "MAPPING_FAILED",
+    "notificationStatuses": [
+      "GOB_FAILED"
+    ],
+    "errorDetail": "PAYMENT_TERMS_INCOMPLETE: INSTL instalment-amount missing"
+  }
+}

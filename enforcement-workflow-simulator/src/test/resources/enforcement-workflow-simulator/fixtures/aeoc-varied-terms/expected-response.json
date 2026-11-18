@@ -32,7 +32,7 @@
     "terms": {
       "english_due": "30 Sep 2026",
       "english_instalment": "£80.00",
-      "english_instalmetPaymentPeriod": "Monthly",
+      "english_instalmentPaymentPeriod": "Monthly",
       "english_firstDate": "30 Sep 2026"
     },
     "offences": {

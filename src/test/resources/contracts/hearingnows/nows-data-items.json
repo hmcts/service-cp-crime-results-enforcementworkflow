@@ -541,7 +541,7 @@
           "description": "Notes: Currency Source: NOWS Logical Entities v1.3 table 20, row 4",
           "type": "string"
         },
-        "english_instalmetPaymentPeriod": {
+        "english_instalmentPaymentPeriod": {
           "description": "Notes: ENUM(Weekly, Fortnightly, Monthly) TBC exactly Source: NOWS Logical Entities v1.3 table 20, row 5",
           "type": "string"
         },

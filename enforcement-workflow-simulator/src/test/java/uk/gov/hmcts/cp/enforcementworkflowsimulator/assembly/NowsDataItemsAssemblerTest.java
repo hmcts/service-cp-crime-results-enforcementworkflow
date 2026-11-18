@@ -219,7 +219,7 @@ class NowsDataItemsAssemblerTest {
         if (terms.english_lumpsum() != null) {
             count++;
         }
-        if (terms.english_instalmetPaymentPeriod() != null) {
+        if (terms.english_instalmentPaymentPeriod() != null) {
             count++;
         }
         return count;

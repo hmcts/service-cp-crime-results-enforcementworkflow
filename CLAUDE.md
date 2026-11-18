@@ -101,5 +101,5 @@ Stage 5 — see the Hard rules.
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/003-enforcement-nows-trigger/plan.md`
+`specs/004-cimd-4251-payment-terms/plan.md`
 <!-- SPECKIT END -->

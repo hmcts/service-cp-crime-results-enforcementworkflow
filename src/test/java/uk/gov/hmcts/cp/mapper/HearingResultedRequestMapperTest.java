@@ -4,21 +4,23 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.JsonNode;
-import uk.gov.hmcts.cp.config.HearingResultProperties;
-import uk.gov.hmcts.cp.config.PaymentDueDateFallback;
 import uk.gov.hmcts.cp.config.PayloadJson;
+import uk.gov.hmcts.cp.config.PaymentTermsProperties;
 import uk.gov.hmcts.cp.event.HearingResultedEvent;
 import uk.gov.hmcts.cp.event.HearingResultedEvent.Defendant;
 import uk.gov.hmcts.cp.event.HearingResultedEvent.PersonDetails;
 import uk.gov.hmcts.cp.openapi.model.HearingResultedRequest;
 import uk.gov.hmcts.cp.service.ResolvedCodes;
+import uk.gov.hmcts.cp.service.ResolvedResult;
 import uk.gov.hmcts.cp.service.SelectionResult;
 import uk.gov.hmcts.cp.support.Fixtures;
 import uk.gov.hmcts.cp.support.LibraContract;
 
+import java.time.LocalDate;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,12 +28,10 @@ class HearingResultedRequestMapperTest {
 
     private static final ResolvedCodes SC_AND_WC = new ResolvedCodes(List.of("SC", "WC"),
             new LinkedHashSet<>(List.of("SC", "DW")), List.of());
-    private static final ResolvedCodes INSTL_RESULT = new ResolvedCodes(List.of("INSTL"),
-            new LinkedHashSet<>(List.of("INSTL")), List.of());
 
     @Test
     void enforcement_fixture_should_map_to_the_expected_minimum_payload() {
-        final HearingResultedRequest request = mapped(Fixtures.event("hearing-resulted-enforcement.json"), PaymentDueDateFallback.HEARING_DATE);
+        final HearingResultedRequest request = mapped(Fixtures.event("hearing-resulted-enforcement.json"));
 
         final JsonNode actual = PayloadJson.MAPPER.readTree(PayloadJson.MAPPER.writeValueAsString(request));
         final JsonNode expected = PayloadJson.MAPPER.readTree(Fixtures.json("expected/hearing-resulted-request-minimum.json"));
@@ -41,7 +41,7 @@ class HearingResultedRequestMapperTest {
 
     @Test
     void mapped_payload_should_be_valid_against_the_libra_contract() {
-        final HearingResultedRequest request = mapped(Fixtures.event("hearing-resulted-enforcement.json"), PaymentDueDateFallback.HEARING_DATE);
+        final HearingResultedRequest request = mapped(Fixtures.event("hearing-resulted-enforcement.json"));
 
         assertThat(LibraContract.hearingResultedRequestViolations(PayloadJson.MAPPER.writeValueAsString(request))).isEmpty();
     }
@@ -54,7 +54,7 @@ class HearingResultedRequestMapperTest {
 
     @Test
     void identifiers_should_be_passed_through_unchanged() {
-        final HearingResultedRequest request = mapped(withIdentifiers(" e0123-45678 ", " 12-34567890 "), PaymentDueDateFallback.HEARING_DATE);
+        final HearingResultedRequest request = mapped(withIdentifiers(" e0123-45678 ", " 12-34567890 "));
 
         assertThat(request.getCaseUrn()).isEqualTo(" e0123-45678 ");
         assertThat(request.getDefendantDetails().getProsecutorDefendantId()).isEqualTo(" 12-34567890 ");
@@ -64,7 +64,7 @@ class HearingResultedRequestMapperTest {
     void descriptive_fields_should_be_truncated_to_gob_limits() {
         final HearingResultedEvent event = withPerson("F".repeat(40), "S".repeat(40), "A".repeat(40), "ZZ9 9ZZ XYZ");
 
-        final HearingResultedRequest request = mapped(event, PaymentDueDateFallback.HEARING_DATE);
+        final HearingResultedRequest request = mapped(event);
 
         assertThat(request.getDefendantDetails().getForename()).hasSize(35);
         assertThat(request.getDefendantDetails().getSurname()).hasSize(35);
@@ -74,12 +74,20 @@ class HearingResultedRequestMapperTest {
 
     @Test
     void safe_defaults_should_be_applied() {
-        final HearingResultedRequest request = mapped(Fixtures.event("hearing-resulted-enforcement.json"), PaymentDueDateFallback.HEARING_DATE);
+        final HearingResultedRequest request = mapped(Fixtures.event("hearing-resulted-enforcement.json"));
 
-        assertThat(request.getPaymentTerms().getPaymentCardRequested().getValue()).isEqualTo("N");
-        assertThat(request.getPaymentTerms().getParentToPay().getValue()).isEqualTo("N");
         assertThat(request.getEnforcement().getPrisonSentenceIndicator().getValue()).isEqualTo("N");
-        assertThat(request.getPaymentTerms().getPaymentDueDate()).isEqualTo(request.getDateOfHearing());
+    }
+
+    // feature 004 T013 (CIMD-4251 AC2): no payment terms result -> no paymentTerms, and still a valid request
+    @Test
+    void without_a_payment_terms_result_the_request_should_have_no_payment_terms() {
+        final HearingResultedRequest request = mapped(Fixtures.event("hearing-resulted-enforcement.json"));
+
+        assertThat(request.getPaymentTerms()).isNull();
+        final String json = PayloadJson.MAPPER.writeValueAsString(request);
+        assertThat(json).doesNotContain("paymentTerms");
+        assertThat(LibraContract.hearingResultedRequestViolations(json)).isEmpty();
     }
 
     @Test
@@ -107,31 +115,41 @@ class HearingResultedRequestMapperTest {
         assertFailure(withPerson("Edward", "Harrison", null, "ZZ99 9ZZ"), MappingFailureReason.ADDRESS1_MISSING);
     }
 
+    // feature 004 T024: a payment terms result the PaymentTermsMapper cannot build a block for is never sent
     @ParameterizedTest
     @ValueSource(strings = {"INSTL", "LUMSI", "PDATE", "PTFOR"})
-    void payment_due_date_fallback_none_should_fail_mapping_for_every_payment_terms_result_shortcode(final String shortCode) {
+    void payment_terms_result_without_a_block_should_be_unsendable(final String shortCode) {
         final ResolvedCodes codes = new ResolvedCodes(List.of(shortCode), new LinkedHashSet<>(List.of(shortCode)), List.of());
         final HearingResultedEvent event = Fixtures.event("hearing-resulted-enforcement.json");
 
-        final MappingResult result = mapper(PaymentDueDateFallback.NONE).map(event, select(event), codes, Optional.empty());
+        final MappingResult result = mapper().map(event, select(event), codes, Optional.empty());
 
-        assertThat(result).isInstanceOfSatisfying(MappingResult.Failed.class,
-                f -> assertThat(f.reason()).isEqualTo(MappingFailureReason.PAYMENT_DUE_DATE_UNAVAILABLE));
+        assertThat(result).isInstanceOfSatisfying(MappingResult.Failed.class, f -> {
+            assertThat(f.reason()).isEqualTo(MappingFailureReason.PAYMENT_TERMS_UNREADABLE);
+            assertThat(f.detail()).isEqualTo(shortCode + " result detail missing");
+        });
     }
 
+    // feature 004 T024: the block built by PaymentTermsMapper is sent, and the request stays valid
     @Test
-    void payment_due_date_fallback_none_should_succeed_when_no_payment_terms_result_is_captured() {
-        final HearingResultedRequest request = mapped(Fixtures.event("hearing-resulted-enforcement.json"), PaymentDueDateFallback.NONE);
-
-        assertThat(request.getPaymentTerms().getPaymentDueDate()).isEqualTo(request.getDateOfHearing());
-    }
-
-    @Test
-    void payment_terms_result_should_still_map_when_fallback_is_hearing_date() {
+    void payment_terms_block_should_be_added_to_the_request() {
+        final PaymentTermsProperties properties = new PaymentTermsProperties();
+        properties.getPrompts().setPayByDate(List.of("test-pay-by-date"));
+        properties.getPrompts().setPaymentCardRequired(List.of("test-payment-card-required"));
+        properties.getPrompts().setParentGuardianToPay(List.of("test-parent-guardian-to-pay"));
+        final ResolvedCodes codes = ResolvedCodes.fromResults(List.of(new ResolvedResult(null, UUID.randomUUID(), UUID.randomUUID(),
+                "PDATE", "PDATE", false, LocalDate.of(2026, 5, 3),
+                List.of(new HearingResultedEvent.JudicialResultPrompt("test-pay-by-date", "pay by", "2031-05-16")))), List.of());
         final HearingResultedEvent event = Fixtures.event("hearing-resulted-enforcement.json");
-        final MappingResult result = mapper(PaymentDueDateFallback.HEARING_DATE).map(event, select(event), INSTL_RESULT, Optional.empty());
 
-        assertThat(result).isInstanceOf(MappingResult.Mapped.class);
+        final MappingResult result = new HearingResultedRequestMapper(new PaymentTermsMapper(properties, new PaymentValueParser(properties)))
+                .map(event, select(event), codes, Optional.empty());
+
+        assertThat(result).isInstanceOfSatisfying(MappingResult.Mapped.class, m -> {
+            assertThat(m.request().getPaymentTerms().getPaymentDueDate()).isEqualTo(LocalDate.of(2031, 5, 16));
+            assertThat(m.request().getResults()).extracting(r -> r.getResultCode()).containsExactly("PDATE");
+            assertThat(LibraContract.hearingResultedRequestViolations(PayloadJson.MAPPER.writeValueAsString(m.request()))).isEmpty();
+        });
     }
 
     @Test
@@ -168,7 +186,7 @@ class HearingResultedRequestMapperTest {
                 new HearingResultedEvent.PersonDefendant(person), null, d.defendantCaseJudicialResults(), d.offences());
 
         final HearingResultedRequest request = mapped(replaceCase(base,
-                new HearingResultedEvent.ProsecutionCase(pc.id(), pc.prosecutionCaseIdentifier(), List.of(defendant))), PaymentDueDateFallback.HEARING_DATE);
+                new HearingResultedEvent.ProsecutionCase(pc.id(), pc.prosecutionCaseIdentifier(), List.of(defendant))));
 
         assertThat(request.getDefendantDetails().getHomeTelephoneNumber()).isNull();
         assertThat(request.getDefendantDetails().getMobileTelephoneNumber()).isEqualTo("07700900123");
@@ -182,7 +200,7 @@ class HearingResultedRequestMapperTest {
     }
 
     private static void assertFailure(final HearingResultedEvent event, final MappingFailureReason reason) {
-        final MappingResult result = mapper(PaymentDueDateFallback.HEARING_DATE).map(event, select(event), SC_AND_WC, Optional.empty());
+        final MappingResult result = mapper().map(event, select(event), SC_AND_WC, Optional.empty());
 
         assertThat(result).isInstanceOfSatisfying(MappingResult.Failed.class, f -> {
             assertThat(f.reason()).isEqualTo(reason);
@@ -190,16 +208,15 @@ class HearingResultedRequestMapperTest {
         });
     }
 
-    private static HearingResultedRequest mapped(final HearingResultedEvent event, final PaymentDueDateFallback fallback) {
-        final MappingResult result = mapper(fallback).map(event, select(event), SC_AND_WC, Optional.empty());
+    private static HearingResultedRequest mapped(final HearingResultedEvent event) {
+        final MappingResult result = mapper().map(event, select(event), SC_AND_WC, Optional.empty());
         assertThat(result).isInstanceOf(MappingResult.Mapped.class);
         return ((MappingResult.Mapped) result).request();
     }
 
-    private static HearingResultedRequestMapper mapper(final PaymentDueDateFallback fallback) {
-        final HearingResultProperties properties = new HearingResultProperties();
-        properties.setPaymentDueDateFallback(fallback);
-        return new HearingResultedRequestMapper(properties);
+    private static HearingResultedRequestMapper mapper() {
+        final PaymentTermsProperties properties = new PaymentTermsProperties();
+        return new HearingResultedRequestMapper(new PaymentTermsMapper(properties, new PaymentValueParser(properties)));
     }
 
     private static SelectionResult.Selected select(final HearingResultedEvent event) {

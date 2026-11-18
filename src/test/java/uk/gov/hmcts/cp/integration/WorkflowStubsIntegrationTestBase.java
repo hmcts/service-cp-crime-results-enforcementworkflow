@@ -6,7 +6,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 import uk.gov.hmcts.cp.entity.EnforcementNotificationEntity;
@@ -37,8 +36,6 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
  * 003). The enforcement fixture's results resolve to SC and WC. {@link #process(String)} runs stage 1's processing for a
  * fixture under a new notification, as the notification task does once it has the share's results.
  */
-// local/test stand-in for paymentDueDate (research.md R13); the application default is NONE. Subclasses may override.
-@TestPropertySource(properties = "cp.hearing-result.payment-due-date-fallback=HEARING_DATE")
 public abstract class WorkflowStubsIntegrationTestBase extends IntegrationTestBase {
 
     protected static final WireMockServer STUBS = new WireMockServer(wireMockConfig().dynamicPort());
