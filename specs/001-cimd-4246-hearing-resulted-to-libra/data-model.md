@@ -135,7 +135,7 @@ cp:
   hearing-result:
     payment-due-date-fallback: ${PAYMENT_DUE_DATE_FALLBACK:NONE}   # R13 - default NONE; HEARING_DATE only via explicit local/test/simulator config
     result-code-renames: { TFOUT: TFOOUT, WC: DW, WWDN: WDN }
-    nows-data-items-by-short-code: {}     # R7 - rows from the updated Confluence page (YAML names)
+    nows-data-items-by-short-code: {...} # R7 - the CIMD-4372 table rows (CIMD-4634), YAML names
     stale-sending-threshold: ${STALE_SENDING_THRESHOLD:PT5M}           # R19 - must exceed the total call budget
     stale-sending-sweep-interval: ${STALE_SENDING_SWEEP_INTERVAL:PT1M} # R19 - worst case to a final outcome = threshold + interval, about 6 min
 ```

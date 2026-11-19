@@ -58,7 +58,7 @@ For scenario 8, add a higher-priority WireMock mapping for `POST /hearingResulte
 | 6 | Only codes outside the enum (e.g. PGPAY) | `SKIPPED_NO_RESULT_CODE` row, no POST |
 | 7 | Blank `prosecutionAuthorityReference` / `caseURN` longer than 36 | `MAPPING_FAILED` row, no POST |
 | 8 | Gateway returns 502 | `FAILED` row with `http_status` and `error_detail` |
-| 9 | No NOWS mapping configured | Request has **no** `nowsDataRequest` |
+| 9 | Only codes with no NOWS row (e.g. NOENF, WWDN) | Request has **no** `nowsDataRequest` |
 | 10 | A `SENDING` row older than the stale threshold (simulated restart mid-call), then the same event again, or the sweep runs | The row becomes `FAILED` with "INTERRUPTED – outcome at GOB unknown"; **no** new POST (R19) |
 | 11 | The gateway stub delays longer than the workflow's read timeout | `FAILED` with "TIMEOUT – outcome at GOB unknown"; the same event again → **no** new POST (R20) |
 
@@ -96,7 +96,7 @@ and the Libra contract, and every stubbed 2xx reply against the gateway `Hearing
 - `expected-request.json` (optional): the exact request the gateway must receive (array order ignored).
 
 `request_payload` is asserted to be stored exactly when the request was sent. The profiles in use are
-`docker` (listeners) and `nowsmapping-test` (SC and WC mapped to NOWS data items), and
+`docker` (listeners) and `paymentterms-test`; NOWS data items come from the `application.yaml` mapping (CIMD-4634), and
 `payment-due-date-fallback` is `HEARING_DATE`. Later stories (US5/US6, contract v0.5.0) add folders
 and fixtures here rather than new test methods.
 

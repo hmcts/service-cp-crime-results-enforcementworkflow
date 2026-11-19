@@ -342,8 +342,14 @@ Unseeded case URNs resolve to deterministic defaults so smoke tests are stable w
 | Days Before Release of Warrant | `14` | |
 | Warrant No | `012/26/00123` | **not** AC8's `W000012345` — see OQ-4 |
 | Date Imposed | `15 Jan 2026` | **not** AC8's `2026-01-15` — see OQ-5 |
+| Payment Terms (`terms.english_due`) | `31 May 2026` | a `DD Mon YYYY` date in the contract; was `Monthly` until 2026-11-19 |
+| Due Date (`terms.english_firstDate`) | `31 May 2026` | |
+| Instalment Amount / Lump Sum | `£20.00` / `£0.00` | currency text with `£`, as the CIMD-4372 example (`£80.00`); no `£` until 2026-11-19 |
+| Payment period | `Monthly` | one of Weekly, Fortnightly, Monthly |
 
 No default contains real PII, case data, or court reference numbers.
+
+`FieldPathDefaultFormatTest` checks every default against the format its contract property declares (`x-date-format`, `pattern`, "Notes: Currency", the payment period list): the OpenAPI conformance check covers types and patterns only.
 
 ---
 

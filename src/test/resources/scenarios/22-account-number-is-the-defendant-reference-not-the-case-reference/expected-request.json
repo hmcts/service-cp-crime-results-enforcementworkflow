@@ -29,13 +29,25 @@
   "nowsDataRequest": {
     "nowsDataItems": [
       {
+        "name": "Defendant Account"
+      },
+      {
         "name": "Account Balance"
       },
       {
-        "name": "Account Number"
+        "name": "Account Offences and Penalties"
+      },
+      {
+        "name": "Account Date Imposed"
+      },
+      {
+        "name": "Account Terms to Pay"
       },
       {
         "name": "Account Warrant Number"
+      },
+      {
+        "name": "Warrant Contact Details"
       }
     ]
   }

@@ -36,8 +36,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * context, because a second cached context would start a second in-VM broker with the same server id. The gateway read
  * timeout is shortened here, for the timeout scenario; the task poll and retry intervals for speed.
  */
-// docker: the diagnostic listener; nowsmapping-test: a shortCode -> NOWS data item mapping, so requests carry nowsDataRequest
-@ActiveProfiles({"docker", "nowsmapping-test", "paymentterms-test"})
+// docker: the diagnostic listener. NOWS data items: the application.yaml mapping (CIMD-4372 table, CIMD-4634).
+@ActiveProfiles({"docker", "paymentterms-test"})
 @TestPropertySource(properties = {
     "spring.artemis.mode=embedded",
     "spring.artemis.embedded.persistent=false",

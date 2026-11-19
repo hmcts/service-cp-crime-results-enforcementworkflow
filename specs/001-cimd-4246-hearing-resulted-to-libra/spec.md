@@ -198,7 +198,7 @@ GOB receives the other optional blocks when the results call for them:
 - **Delivery is iterative**: later iterations absorb GOB contract updates (v0.5.0+) and product-owner change requests.
 - **GOB contract**: v0.4.0 with the agreed change that the data request is optional. GOB is formalising this in v0.5.0.
 - **Payment due date**: GOB currently requires it on every submission. With no payment result there is no source for it, and a pending BA/GOB ruling will decide it (the preferred outcome is that GOB makes it optional). Until then, the default everywhere is to treat such a submission as unsendable. The hearing date may be used as a stand-in only where it is explicitly switched on (local, test, simulator), and it is never on by default.
-- **Data item names**: GOB's twelve item names are authoritative. The Confluence page will be updated to match and will supply the short-code-to-item mapping rows. Until then the mapping is empty, so no data request is sent.
+- **Data item names**: GOB's twelve item names are authoritative. The short-code-to-item mapping rows are the CIMD-4372 "Result vs Required Field" table (delivered 2026-11-19, CIMD-4634; before that the mapping was empty and no data request was sent). A short code with no row asks for nothing.
 - **Result-code filtering**: only codes GOB lists are sent. The final rule is pending the CIMD-4246 vs CIMD-4255 decision.
 - **Enforcer code**: warrant results may be rejected by GOB until the enforcer code (CIMD-4256 / CIMD-4336) is delivered.
 - **The BA has confirmed** that multi-defendant, multi-case and linked-application cases won't be sent for Enforcement. The guard (FR-004) is defensive only.

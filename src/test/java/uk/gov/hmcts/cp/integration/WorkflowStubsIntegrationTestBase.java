@@ -22,6 +22,8 @@ import uk.gov.hmcts.cp.taskmanager.persistence.repository.JobsRepository;
 
 import java.time.LocalDate;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
@@ -48,6 +50,8 @@ public abstract class WorkflowStubsIntegrationTestBase extends IntegrationTestBa
     /** The master defendant id of the enforcement fixture's defendant (distinct from its defendant id, so a mix-up fails). */
     protected static final UUID FIXTURE_MASTER_DEFENDANT_ID = UUID.fromString("5a7d2c91-6e3b-4f0a-8c4d-2b9e1f6a3d70");
     private static final JsonMapper RESULTS_MAPPER = JsonMapper.builder().build();
+    /** A fixture's {@code "${definitionId.<SHORT CODE>}"}: see {@link #processWithFreshDefinitionIds(String)}. */
+    private static final Pattern DEFINITION_ID_PLACEHOLDER = Pattern.compile("\\$\\{definitionId\\.([A-Z0-9]+)}");
 
     static {
         STUBS.start();
@@ -106,7 +110,28 @@ public abstract class WorkflowStubsIntegrationTestBase extends IntegrationTestBa
 
     /** Stage 1's processing of a fixture under a new notification (one NOW request for the fixture's defendant). */
     protected UUID process(final String fixture) {
-        final HearingResultedEvent event = Fixtures.event(fixture);
+        return process(Fixtures.event(fixture));
+    }
+
+    /**
+     * {@link #process(String)} for a fixture whose result definition ids are {@code "${definitionId.<SHORT CODE>}"}
+     * placeholders: each becomes a new random id, stubbed in reference data to that short code. The reference data
+     * client caches short codes per definition id for the whole Spring context, so a fresh id cannot pick up a code
+     * another test stubbed. A placeholder left unreplaced is not a UUID, so the fixture fails to parse.
+     */
+    protected UUID processWithFreshDefinitionIds(final String fixture) {
+        final Matcher placeholder = DEFINITION_ID_PLACEHOLDER.matcher(Fixtures.json("events/" + fixture));
+        final StringBuilder json = new StringBuilder();
+        while (placeholder.find()) {
+            final String definitionId = UUID.randomUUID().toString();
+            stubShortCode(definitionId, placeholder.group(1));
+            placeholder.appendReplacement(json, definitionId);
+        }
+        placeholder.appendTail(json);
+        return process(Fixtures.MAPPER.readValue(json.toString(), HearingResultedEvent.class));
+    }
+
+    private UUID process(final HearingResultedEvent event) {
         final UUID notificationId = newNotification(event.hearing() == null ? UUID.randomUUID() : event.hearing().id(),
                 event.hearingDay() == null ? LocalDate.parse("2026-05-03") : event.hearingDay());
         processor.process(event, notificationId);

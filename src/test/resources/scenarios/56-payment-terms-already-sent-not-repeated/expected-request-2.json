@@ -26,10 +26,19 @@
   "nowsDataRequest": {
     "nowsDataItems": [
       {
-        "name": "Account Number"
+        "name": "Account Warrant Number"
       },
       {
-        "name": "Account Warrant Number"
+        "name": "Warrant Contact Details"
+      },
+      {
+        "name": "Account Balance"
+      },
+      {
+        "name": "Account Offences and Penalties"
+      },
+      {
+        "name": "Account Date Imposed"
       }
     ]
   }

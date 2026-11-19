@@ -22,5 +22,21 @@
     {
       "resultCode": "MPSO"
     }
-  ]
+  ],
+  "nowsDataRequest": {
+    "nowsDataItems": [
+      {
+        "name": "Defendant Account"
+      },
+      {
+        "name": "Account Balance"
+      },
+      {
+        "name": "Account Terms to Pay"
+      },
+      {
+        "name": "Account History"
+      }
+    ]
+  }
 }

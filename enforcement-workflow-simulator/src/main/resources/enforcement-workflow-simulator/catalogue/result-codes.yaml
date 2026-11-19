@@ -89,7 +89,8 @@ FTTP:   { fields: ["Account No.", "Total Balance"] }
 PTNV:   { fields: ["Account No.", "Total Balance", "Amount Imposed",
                    "Amount Paid or Cancelled", "Date Imposed", "Payment Terms"] }
 
-# Still absent from the v0.4.0 resultCode enum — remain unpostable.
+# Absent from GOB's published resultCode list (v0.4.0-v0.6.0), so postable: false (CatalogueCoverageTest). Since
+# CIMD-4530 (2026-10-22) CP sends them anyway and the simulator answers them with these fields like any other code.
 CLAMPS: { postable: false, fields: ["Account No.", "Warrant No", "Vehicle Reg. No.",
                    "Vehicle Make", "Total Balance", "Clamping Contractor name",
                    "Contractor's Name", "Contractor's Address"] }
