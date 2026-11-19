@@ -100,7 +100,9 @@ Contract consumed: [`api-cp-crime-results-enforcementgateway`](https://github.co
 Timeouts follow a budget where each hop gives up before its caller (research.md R20): reference data
 5s + 10s; gateway 5s + 50s (the gateway itself uses 5s + 40s towards APIM, and APIM 35s towards Libra).
 The shortCode → NOWS data item mapping lives in `cp.hearing-result.nows-data-items-by-short-code` and
-takes GOB's `NowsDataItemName` values; an unknown name stops the service at startup.
+takes GOB's `NowsDataItemName` values; an unknown name stops the service at startup. The rows are the CIMD-4372
+"Result vs Required Field" table (CIMD-4634), keyed by the CP shortCode before the renames; a code with no row
+requests nothing, so `nowsDataRequest` is left out.
 
 ## Running locally
 

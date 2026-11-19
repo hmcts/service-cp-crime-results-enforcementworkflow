@@ -24,10 +24,13 @@
 "Vehicle Make":           { path: defendant.assetVehicleMake, type: string, default: "Ford" }
 "NTO issued on <date> & <time>":
   { path: "offences.offence[0].noticeToOwnerNoticeToHirer", type: string, default: "2026-02-01 09:15" }
-"Payment Terms":          { path: terms.english_due,    type: string,  default: "Monthly", baseline: true }
+# terms (v0.8.0): english_due and english_firstDate are dates (DD Mon YYYY), english_instalment and english_lumpsum
+# currency text with the pound sign, as GOB writes them (CIMD-4372 example 3: "30 Sep 2026", "£80.00"; hearing-nows
+# sample "£150.00"). english_due was "Monthly" and the amounts had no "£" until 2026-11-19.
+"Payment Terms":          { path: terms.english_due,    type: string,  default: "31 May 2026", baseline: true }
 "Due Date":               { path: terms.english_firstDate, type: string, default: "31 May 2026" }
-"Instalment Amount":      { path: terms.english_instalment, type: string, default: "20.00" }
-"Lump Sum":               { path: terms.english_lumpsum, type: string,  default: "0.00" }
+"Instalment Amount":      { path: terms.english_instalment, type: string, default: "£20.00" }
+"Lump Sum":               { path: terms.english_lumpsum, type: string,  default: "£0.00" }
 "Payment period":         { path: terms.english_instalmentPaymentPeriod, type: string, default: "Monthly" }
 "Warrant No":             { path: accountWarrantNumber, type: string,  default: "012/26/00123" }
 "Bail Amount":            { path: accountBailAmount,    type: number,  default: 500.00 }

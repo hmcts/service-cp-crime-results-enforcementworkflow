@@ -1,5 +1,5 @@
 {
-  "description": "TFOUT and WWDN reach GOB as TFOOUT and WDN (US1 scenario 4, FR-008); neither needs a NOWS item, so nowsDataRequest is left out rather than sent empty (US3 scenario 2, story scenario 2)",
+  "description": "TFOUT and WWDN reach GOB as TFOOUT and WDN (US1 scenario 4, FR-008); the NOWS items are looked up by the CP code: TFOUT asks for its CIMD-4372 row (Account Balance), WWDN has no row (CIMD-4634)",
   "event": "events/hearing-resulted-enforcement.json",
   "referenceData": {
     "11111111-1111-1111-1111-111111111111": "TFOUT",

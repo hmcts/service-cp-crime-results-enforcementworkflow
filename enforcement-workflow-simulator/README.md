@@ -207,6 +207,10 @@ and — because every catalogue path is pinned to index `[0]` — additional arr
 second and third `imposition`. Before this existed a seed could only ever override a value the
 catalogue already reached, and anything else in the file was silently dropped.
 
+**Write `terms` the way GOB does**: `english_due` and `english_firstDate` as `DD Mon YYYY` dates, `english_instalment`
+and `english_lumpsum` as currency text with the pound sign (`£80.00`). hearing-nows prints them on the notice as they are;
+`FieldPathDefaultFormatTest` holds the catalogue defaults to these formats.
+
 **Write monetary values at two decimal places** (`220.00`, not `220`). AC4 requires amounts at two
 decimal places. `ValueResolver` coerces to that scale, but only for values it resolves from a
 catalogue row — an amount the seed alone contributes reaches the response exactly as authored.

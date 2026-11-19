@@ -201,7 +201,7 @@ Decision ids (R#) are in [research.md](research.md). Field, table and config det
 |---|---|---|
 | Iteration 1 end-to-end run | APIM/platform team | Operation `libra-hearingresulted` under `cppi-v4`, response body passed through, `forward-request timeout="35"`, mock with a body (T007 raises the request); or the CIMD-4372 GoB simulator |
 | Before go-live | Platform team | `NetworkPolicy` / no-ingress for the gateway (T085); prd/prp/prx APIM URLs; the real subscription key; the deploy repo |
-| Iteration 2/3 | BA | The US5/US6 rulings (T059, T066); the shortCode → NOWS mapping rows in YAML names (gap #1); the result-filter rule (4246 vs 4255); story wording ("empty array" → "omit" in 4246; CIMD-4251 AC2 and the Example 1 date) |
+| Iteration 2/3 | BA | The US5/US6 rulings (T059, T066); the shortCode → NOWS mapping rows in YAML names (gap #1; delivered 2026-11-19 via CIMD-4372, CIMD-4634); the result-filter rule (4246 vs 4255); story wording ("empty array" → "omit" in 4246; CIMD-4251 AC2 and the Example 1 date) |
 | Any time | BA → GOB/Libra | v0.5.0: `nowsDataRequest` optional (agreed), `paymentTerms`/`paymentDueDate` optional (asked); the invalid response example; whether repeated submissions are safe (R19) |
 | Later iteration | Tech lead | The bearer-auth step of R21 (T086); PII ADR sign-off (T020) |
 

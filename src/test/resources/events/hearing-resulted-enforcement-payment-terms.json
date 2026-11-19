@@ -111,7 +111,7 @@
                     "category": "FINANCIAL",
                     "judicialResultPrompts": [],
                     "judicialResultId": "aaaaaaa1-0000-0000-0000-000000000099",
-                    "judicialResultTypeId": "99999999-9999-9999-9999-999999999999"
+                    "judicialResultTypeId": "${definitionId.INSTL}"
                   }
                 ]
               }

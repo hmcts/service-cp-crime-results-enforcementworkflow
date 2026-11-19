@@ -24,8 +24,8 @@ import static uk.gov.hmcts.cp.support.TempDiagnosticsLogFilter.withoutTempDiagno
 
 /**
  * Stage 1 end to end (features 001, 003): a share's results → selection → reference-data shortCode lookup (WireMock)
- * → minimum payload → gateway (WireMock) → persisted SUCCEEDED row with GOB's reply, keyed by the notification, and the
- * notification ready to publish GOB's data, against a real local Postgres. It also asserts no PII reaches the logs
+ * → minimum payload with the configured NOWS data items → gateway (WireMock) → persisted SUCCEEDED row with GOB's
+ * reply, keyed by the notification, and the notification ready to publish GOB's data, against a real local Postgres. It also asserts no PII reaches the logs
  * (FR-017, constitution Principle IV).
  */
 @ExtendWith(OutputCaptureExtension.class)
@@ -35,7 +35,8 @@ class HearingResultedFlowIntegrationTest extends WorkflowStubsIntegrationTestBas
     void enforcement_first_share_should_be_submitted_once_and_reply_stored(final CapturedOutput output) {
         final UUID notificationId = process("hearing-resulted-enforcement.json");
 
-        final String expectedRequest = Fixtures.json("expected/hearing-resulted-request-minimum.json");
+        // the minimum payload plus the NOWS data items application.yaml configures for SC and WC (CIMD-4634)
+        final String expectedRequest = Fixtures.json("expected/hearing-resulted-request-application-config.json");
         STUBS.verify(1, postRequestedFor(urlEqualTo(GATEWAY_PATH))
                 .withRequestBody(equalToJson(expectedRequest, true, false)));
         assertThat(LibraContract.hearingResultedRequestViolations(expectedRequest)).isEmpty();
@@ -97,14 +98,5 @@ class HearingResultedFlowIntegrationTest extends WorkflowStubsIntegrationTestBas
 
         STUBS.verify(0, postRequestedFor(urlEqualTo(GATEWAY_PATH)));
         assertThat(repository.count()).isZero();
-    }
-
-    @Test
-    void without_a_nows_mapping_the_request_should_have_no_nows_data_request() {
-        process("hearing-resulted-enforcement.json");
-
-        assertThat(STUBS.findAll(postRequestedFor(urlEqualTo(GATEWAY_PATH))))
-                .singleElement()
-                .satisfies(post -> assertThat(post.getBodyAsString()).doesNotContain("nowsDataRequest"));
     }
 }

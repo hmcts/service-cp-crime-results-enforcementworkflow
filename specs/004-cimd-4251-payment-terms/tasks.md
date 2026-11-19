@@ -199,8 +199,9 @@ requires; `./gradlew build` (PMD included) must pass at each checkpoint.
   no payment terms result → sent without block; LUMSI with CP-shaped prompts (`£2500.37`, `£73.61`, `monthly`,
   `11/04/2031`, `true`, `No`) → block M / 73.61 / 2500.37 / 2031-04-11 / Y / N; PDATE (`16/05/2031`, `Yes`) →
   2031-05-16 / N / Y; INSTL without prompts → `PAYMENT_TERMS_INCOMPLETE: INSTL instalment-amount missing`. New
-  fixtures `events/hearing-resulted-enforcement-payment-terms-cp-{lumsi,pdate}.json` (own definition ids: the
-  reference data client caches short codes per Spring context).
+  fixtures `events/hearing-resulted-enforcement-payment-terms-cp-{lumsi,pdate}.json`. Their payment terms result
+  definition ids are `${definitionId.<CODE>}` placeholders, given a fresh random id per test by
+  `processWithFreshDefinitionIds` (the reference data client caches short codes per Spring context).
 - Final review: CP puts payment terms results of a case share in `hearing.defendantJudicialResults` (real samples
   in `cpp-context-results` tests: INSTL there with `£455.00`, `fortnightly`, `11/11/2025`); the resolver already read
   that level, now tested too (fixture `…-cp-instl-hearing-level.json`, block F / 487.13 / 2031-03-07 / N / N).

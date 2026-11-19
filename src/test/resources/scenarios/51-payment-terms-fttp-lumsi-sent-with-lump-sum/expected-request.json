@@ -33,5 +33,15 @@
     {
       "resultCode": "LUMSI"
     }
-  ]
+  ],
+  "nowsDataRequest": {
+    "nowsDataItems": [
+      {
+        "name": "Defendant Account"
+      },
+      {
+        "name": "Account Balance"
+      }
+    ]
+  }
 }

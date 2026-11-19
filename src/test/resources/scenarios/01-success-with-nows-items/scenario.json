@@ -1,5 +1,5 @@
 {
-  "description": "First share of an enforcement case: one POST (the expected request, with the NOWS items for SC and WC), SUCCEEDED with GOB's reply stored, no PII in the logs (US1, US3)",
+  "description": "First share of an enforcement case: one POST (the expected request, with the NOWS items for SC and WC from the CIMD-4372 table), SUCCEEDED with GOB's reply stored, no PII in the logs (US1, US3)",
   "event": "events/hearing-resulted-enforcement.json",
   "referenceData": {
     "11111111-1111-1111-1111-111111111111": "SC",

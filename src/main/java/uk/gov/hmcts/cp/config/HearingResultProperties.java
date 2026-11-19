@@ -25,7 +25,7 @@ public class HearingResultProperties {
     /** CP shortCode → GOB resultCode (research.md R5). Codes not listed pass through unchanged. */
     private Map<String, String> resultCodeRenames = new LinkedHashMap<>(Map.of("TFOUT", "TFOOUT", "WC", "DW", "WWDN", "WDN"));
 
-    /** CP shortCode → GOB NowsDataItemName values (research.md R7). Rows come from the updated Confluence page. */
+    /** CP shortCode → GOB NowsDataItemName values (research.md R7). Rows in application.yaml: the CIMD-4372 table (CIMD-4634). */
     private Map<String, List<String>> nowsDataItemsByShortCode = new LinkedHashMap<>();
 
     /**

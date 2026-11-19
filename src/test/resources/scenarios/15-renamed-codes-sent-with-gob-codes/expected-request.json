@@ -25,5 +25,12 @@
     {
       "resultCode": "WDN"
     }
-  ]
+  ],
+  "nowsDataRequest": {
+    "nowsDataItems": [
+      {
+        "name": "Account Balance"
+      }
+    ]
+  }
 }

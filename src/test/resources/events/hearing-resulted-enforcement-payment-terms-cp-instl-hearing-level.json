@@ -214,7 +214,7 @@
             }
           ],
           "judicialResultId": "aaaaaaa1-0000-0000-0000-000000000099",
-          "judicialResultTypeId": "99999999-9999-9999-9999-0000000000a3"
+          "judicialResultTypeId": "${definitionId.INSTL}"
         }
       }
     ]

@@ -1,0 +1,56 @@
+{
+  "caseUrn": "E012345678",
+  "timestamp": "2026-11-19T11:45:23Z",
+  "correlationId": "4634a2b1-0000-4000-8000-000000000001",
+  "nowsDataItems": {
+    "defendant": {
+      "defName": "Edward Harrison",
+      "nationalInsuranceNumber": "QQ123456C",
+      "DoB": "10 Jan 2002",
+      "homeTelNo": "02079460000",
+      "mobileTelNo": "07700900123",
+      "assetVehicleMake": "Ford",
+      "defAddress": {
+        "defAddressLine1": "1 High Street",
+        "defAddressLine2": "Tottenham",
+        "defAddressLine3": "London",
+        "defPostcode": "ZZ99 9ZZ"
+      }
+    },
+    "offences": {
+      "offence": [
+        {
+          "dateImposed": "15 Jan 2026",
+          "offenceCode": "SIM0001",
+          "offenceTitle": "Simulated Offence",
+          "ticketNumber": "TKT0042",
+          "vehicleReg": "AB12CDE",
+          "timeOfOffence": "14:00",
+          "placeOfOffence": "High Street",
+          "impositions": {
+            "imposition": [
+              {
+                "amountImposed": 1250.00,
+                "amountPaid": 375.00,
+                "impositionBalance": 875.50
+              }
+            ]
+          },
+          "offenceTotal": 1250.00
+        }
+      ],
+      "accountTotal": 875.50,
+      "accountPaid": 375.00
+    },
+    "terms": {
+      "english_due": "31 May 2026",
+      "english_firstDate": "31 May 2026"
+    },
+    "accountBalance": 1250.00,
+    "accountWarrantNumber": "012/26/00123",
+    "warrantContactDetails": {
+      "warrantContactDetailsLine1": "Process Server Ltd"
+    },
+    "accountDateImposed": "15 Jan 2026"
+  }
+}
