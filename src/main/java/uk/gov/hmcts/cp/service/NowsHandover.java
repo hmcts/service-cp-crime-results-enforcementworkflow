@@ -11,7 +11,9 @@ import java.util.UUID;
  * Marks a notification's GOB data ready for the GOB data event (feature 003, FR-012; replaces feature 002's direct
  * hand-over call). The key's correlation id is the notification id. Stage 2 builds the event from the source
  * submission, so publishing (and replaying it) never contacts GOB. Without a master defendant or an account number
- * nothing can be published: the notification ends {@link NotificationStatus#PUBLISH_REJECTED}. Logs carry ids only.
+ * nothing can be published: the notification ends {@link NotificationStatus#PUBLISH_REJECTED}. Otherwise the accounting
+ * division code of the defendant's enforcement area is resolved and kept with the notification, so stage 2 (and a replay
+ * of it) publishes it with GOB's data (CIMD-4640). Logs carry ids only.
  */
 @Slf4j
 @Component
@@ -19,6 +21,7 @@ import java.util.UUID;
 public class NowsHandover {
 
     private final NotificationStore notificationStore;
+    private final AccountingDivisionCodeResolver accountingDivisionCodeResolver;
 
     /**
      * A reshare waits while a first-time share of the hearing is still on its way to GOB (feature 003 FR-009): that share
@@ -41,18 +44,24 @@ public class NowsHandover {
     /**
      * @param sourceSubmissionId the submission GOB accepted whose reply is published (new, or reused)
      * @param gobDataReused      true when GOB was not contacted for this share (FR-009)
+     * @param enforcementArea    what the defendant's enforcement area is found by (CIMD-4640)
+     * @throws uk.gov.hmcts.cp.client.EnforcementAreaUnavailableException when reference data can't answer: nothing is
+     *                                                                     marked, so stage 1 is retried
      */
     public void handOver(final UUID sourceSubmissionId, final SubmissionKey key, final UUID masterDefendantId, final String accountNumber,
-                         final boolean gobDataReused) {
+                         final boolean gobDataReused, final EnforcementAreaQuery enforcementArea) {
         final UUID notificationId = key.correlationId();
         if (masterDefendantId == null || accountNumber == null) {
             final String reason = masterDefendantId == null ? "NO_MASTER_DEFENDANT_ID" : "NO_ACCOUNT_NUMBER";
             notificationStore.markFinal(notificationId, NotificationStatus.PUBLISH_REJECTED, reason);
             log.warn("Notification {} caseUrn {}: GOB data not publishable ({})", notificationId, key.caseUrn(), reason);
         } else {
-            notificationStore.markReadyToPublish(notificationId, sourceSubmissionId, masterDefendantId, gobDataReused);
-            log.info("Notification {} caseUrn {}: GOB data of submission {} ready to publish (reused {})", notificationId,
-                    key.caseUrn(), sourceSubmissionId, gobDataReused);
+            final Integer accountingDivisionCode = accountingDivisionCodeResolver.resolve(enforcementArea).orElse(null);
+            notificationStore.markReadyToPublish(notificationId, sourceSubmissionId, masterDefendantId, gobDataReused,
+                    accountingDivisionCode);
+            log.info("Notification {} caseUrn {}: GOB data of submission {} ready to publish (reused {}, accounting division code {})",
+                    notificationId, key.caseUrn(), sourceSubmissionId, gobDataReused,
+                    accountingDivisionCode == null ? "not found" : "found");
         }
     }
 }

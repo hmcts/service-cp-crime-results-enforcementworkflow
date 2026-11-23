@@ -46,6 +46,7 @@ public abstract class WorkflowStubsIntegrationTestBase extends IntegrationTestBa
             {"caseUrn":"E012345678","timestamp":"2026-05-03T14:30:00Z","correlationId":"9f3d2e42-8d30-4d16-9dd6-6d4e26889d5c",\
             "nowsDataItems":{"accountBalance":125.5}}""";
     protected static final String DEFINITIONS = "/referencedata-query-api/query/api/rest/referencedata/result-definitions/";
+    protected static final String ENFORCEMENT_AREA = "/referencedata-query-api/query/api/rest/referencedata/enforcement-area";
     protected static final String RESULTS_PATH = "/results-query-api/query/api/rest/results/hearingDetails/internal/";
     /** The master defendant id of the enforcement fixture's defendant (distinct from its defendant id, so a mix-up fails). */
     protected static final UUID FIXTURE_MASTER_DEFENDANT_ID = UUID.fromString("5a7d2c91-6e3b-4f0a-8c4d-2b9e1f6a3d70");
@@ -195,5 +196,18 @@ public abstract class WorkflowStubsIntegrationTestBase extends IntegrationTestBa
                 .willReturn(aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/vnd.referencedata.get-result-definition+json")
                         .withBody("{\"id\":\"" + definitionId + "\",\"shortCode\":\"" + shortCode + "\"}")));
+    }
+
+    /**
+     * CIMD-4640: reference data's enforcement area for a query parameter ({@code postcode} or
+     * {@code localJusticeAreaNationalCourtCode}). Without a stub WireMock answers 404: no enforcement area.
+     */
+    protected static void stubEnforcementArea(final String parameter, final String value, final int accountDivisionCode) {
+        STUBS.stubFor(get(urlPathEqualTo(ENFORCEMENT_AREA))
+                .withQueryParam(parameter, equalTo(value))
+                .withHeader("Accept", equalTo("application/vnd.referencedata.query.enforcement-area+json"))
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/vnd.referencedata.query.enforcement-area+json")
+                        .withBody("{\"enforcingCourtCode\":2222,\"accountDivisionCode\":" + accountDivisionCode + "}")));
     }
 }

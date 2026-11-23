@@ -57,7 +57,10 @@ Feature 003 (**CIMD-4530**, triggering NOWS generation for enforcement hearings;
     GOB data when there is nothing to send; with none, nothing is published (a reshare is retried while the hearing's
     first share is still in progress) and the NOWS stay held in hearing-nows without a time limit. A first-time share with no result that has a code sends nothing to GOB or hearing-nows.
 11. **GOB data event**: stage 2 publishes `public.enforcementworkflow.enforcement-nows-data-ready` (request ids, GOB
-    account number and NOWS data items) to `public.event`; hearing-nows completes the held NOWS by request id.
+    account number, NOWS data items and, when reference data has one, the accounting division code of the defendant's
+    enforcement area) to `public.event`; hearing-nows completes the held NOWS by request id. The division code is found
+    when GOB's data is ready (stage 1): reference data's enforcement area by the defendant's postcode, else by the hearing
+    court's LJA (CIMD-4640); reference data unavailable retries stage 1 without contacting GOB again.
 12. **Retries**: each stage is retried (`NOTIFICATION_RETRY_DURATIONS`), then stored as `STORED_FAILURE` for a
     replay (`NOTIFICATION_REPLAY_SCHEDULE`; the replay sweep is still to come, CIMD-4530 iteration 3).
 
@@ -102,7 +105,8 @@ Timeouts follow a budget where each hop gives up before its caller (research.md 
 The shortCode → NOWS data item mapping lives in `cp.hearing-result.nows-data-items-by-short-code` and
 takes GOB's `NowsDataItemName` values; an unknown name stops the service at startup. The rows are the CIMD-4372
 "Result vs Required Field" table (CIMD-4634), keyed by the CP shortCode before the renames; a code with no row
-requests nothing, so `nowsDataRequest` is left out.
+requests nothing, so `nowsDataRequest` is left out. The table's "Defendant Account" is the account number, so it is
+requested as "Account Number", also by the warrant rows (BA, 2026-11-20); LATG and LATR are descoped.
 
 ## Running locally
 

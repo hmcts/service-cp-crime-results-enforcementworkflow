@@ -39,7 +39,7 @@
   "nowsDataRequest": {
     "nowsDataItems": [
       {
-        "name": "Defendant Account"
+        "name": "Account Number"
       },
       {
         "name": "Account Balance"

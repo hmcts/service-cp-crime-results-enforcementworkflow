@@ -1,4 +1,6 @@
-ABDC:   { fields: ["Account No.", "Total Balance", "Balance Outstanding"] }
+# ABDC: the account number and balance only (BA 2026-11-20; "Balance Outstanding" was a typo in the CIMD-4372 row:
+# accountBalance is both the Total Balance and the Balance Outstanding).
+ABDC:   { fields: ["Account No.", "Total Balance"] }
 AEO:    { fields: ["Account No.", "Total Balance", "Payment Terms", "Due Date",
                    "Instalment Amount", "Payment period", "Reserve Terms"] }
 AEOC:   { fields: ["Account No.", "Total Balance", "Payment Terms"] }
@@ -48,14 +50,14 @@ TFOOUT: { fields: ["Total Balance"] }
 # enum. v0.4.0 dropped the CP spelling from each pair (WC, TFOUT, WWDN are no longer enum
 # values) and kept only the GOB spelling (DW, TFOOUT, WDN). All three CP spellings are
 # marked postable: false below, per the same "absent from the enum -> not postable"
-# convention used for CLAMPS/LATG/LATR/PGPAY.
+# convention used for CLAMPS/PGPAY.
 #
 # WC is the one load-bearing row of the three: DW (still a live enum value) aliases to
 # it, so WC's field list must stay even though WC itself can never arrive as a
 # resultCode — Catalogue.resolve() only follows entry.alias(), never entry.postable(), so
 # marking WC unpostable cannot break DW's resolution. TFOUT and WWDN are the opposite
 # shape: they are alias *keys*, not alias *targets* — nothing points at them — so they
-# are simply inert/unreachable rows now, the same as CLAMPS/LATG/LATR/PGPAY, not
+# are simply inert/unreachable rows now, the same as CLAMPS/PGPAY, not
 # something another chain depends on.
 WC:     { postable: false, fields: ["Account No.", "Warrant No", "Total Balance",
                    "Amount Imposed", "Amount Paid or Cancelled", "Date Imposed",
@@ -91,11 +93,10 @@ PTNV:   { fields: ["Account No.", "Total Balance", "Amount Imposed",
 
 # Absent from GOB's published resultCode list (v0.4.0-v0.6.0), so postable: false (CatalogueCoverageTest). Since
 # CIMD-4530 (2026-10-22) CP sends them anyway and the simulator answers them with these fields like any other code.
+# LATG / LATR were descoped (2026-11-20) and removed.
 CLAMPS: { postable: false, fields: ["Account No.", "Warrant No", "Vehicle Reg. No.",
                    "Vehicle Make", "Total Balance", "Clamping Contractor name",
                    "Contractor's Name", "Contractor's Address"] }
-LATG:   { postable: false, fields: ["Account No."] }
-LATR:   { postable: false, alias: LATG }
 PGPAY:  { postable: false, fields: ["Account No.", "Total Balance", "Amount Imposed",
                    "Amount Paid or Cancelled", "Date Imposed", "Date of Offence",
                    "Time of Offence", "Payment Terms", "Due Date", "Instalment Amount",

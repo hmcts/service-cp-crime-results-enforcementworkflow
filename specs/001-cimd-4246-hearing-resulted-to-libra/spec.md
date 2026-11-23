@@ -20,6 +20,14 @@
 - Q: How long may one submission take, end to end, and what happens if the service gives up waiting? → A: At most 60 seconds end to end (SC-006). Each step in the chain gives up before the step that called it, so the real outcome is normally reported back. The per-step limits are recorded in research.md R20. If the workflow's own wait expires, the attempt is recorded as failed with "TIMEOUT – outcome at GOB unknown" and is not resent, the same as an interrupted submission.
 - Q: Who may call the enforcement gateway's hearing-result endpoint, and how is that enforced? → A: Only the enforcement workflow. In iteration 1 this is enforced by keeping the endpoint reachable only from the enforcement workflow inside the platform network. Token-based service-to-service authentication follows in a later iteration, subject to tech lead confirmation. The mechanism is recorded in research.md R21.
 
+### Session 2026-11-20 (BA, after CIMD-4634)
+
+- Q: What does "Defendant Account" mean in the CIMD-4372 table's "Response entity(s)" column? → A: The GOB account number. It is requested as GOB's "Account Number" (`accountNumber`); GOB's "Defendant Account" is the debtor details entity (`defendant`), which no row requests.
+- Q: ABDC's row? → A: A typo: the account number and the account balance only (`accountBalance` is both the Total Balance and the Balance Outstanding, the same value).
+- Q: LATG / LATR? → A: Descoped: no rows, nothing requested for them.
+- Q: Is "Balance Outstanding" (COLLO, MPSO) also `accountBalance`? → A: Yes, for every row.
+- Q: Do the warrant rows (BWTD, BWTU, CLAMPO, CLAMPS, CW, NBWT, S136, DW) request the account number? → A: Yes, "Account Number".
+
 ## User Scenarios & Testing *(mandatory)*
 
 **Actors**:
@@ -138,7 +146,7 @@ GOB receives the other optional blocks when the results call for them:
 
 - **Reshare**: never sent (US2), including the case where the first share failed. *(Feature 002: still never sent to GOB; the GOB data already received for the case and defendant is handed to the NOWS service again, so the reshare's enforcement NOWS can be generated.)*
 - **Same share delivered twice**, for example after a service restart: sent at most once (US2).
-- **Codes CP uses but GOB doesn't list** (e.g. PGPAY, LATG): dropped and logged. If no codes remain, nothing is sent (US4).
+- **Codes CP uses but GOB doesn't list** (e.g. PGPAY): dropped and logged. If no codes remain, nothing is sent (US4).
 - **`BPOCRFSD` (BPOC refused)**: a genuine, distinct code, sent as-is.
 - **Case reference longer than 36 characters, or GOB account number missing**: not sent and not truncated (US4).
 - **Defendant names or addresses longer than GOB allows**: shortened to GOB's limits. Identifiers are never shortened.

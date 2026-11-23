@@ -24,9 +24,9 @@ import static uk.gov.hmcts.cp.service.NotificationTasks.PUBLISH_GOB_DATA;
 
 /**
  * Stage 2 of a notification (feature 003, US1, FR-012, research R12): builds the GOB data event from the source
- * submission (GOB's {@code nowsDataItems} verbatim, the account number sent to GOB) and the notification's NOW requests
- * of the selected defendant, and publishes it. GOB is never contacted here, so a retry or replay is safe; hearing-nows
- * ignores a repeated request id (constitution V 1.2.1). Nothing publishable (no NOW request for the selected defendant,
+ * submission (GOB's {@code nowsDataItems} verbatim, the account number sent to GOB), the accounting division code
+ * stage 1 resolved (CIMD-4640) and the notification's NOW requests of the selected defendant, and publishes it. GOB is
+ * never contacted here, so a retry or replay is safe; hearing-nows ignores a repeated request id (constitution V 1.2.1). Nothing publishable (no NOW request for the selected defendant,
  * no readable GOB data) ends {@link NotificationStatus#PUBLISH_REJECTED}. Logs carry ids only.
  */
 @Slf4j
@@ -95,7 +95,8 @@ public class PublishGobDataTask implements ExecutableTask {
         } else {
             try {
                 final UUID messageId = publisher.publish(payloadBuilder.build(notification.getHearingId(), nows, accountNumber.get(),
-                        nowsDataItems.get(), Boolean.TRUE.equals(notification.getGobDataReused()), source.get().getSharedTime()));
+                        notification.getAccountingDivisionCode(), nowsDataItems.get(), Boolean.TRUE.equals(notification.getGobDataReused()),
+                        source.get().getSharedTime()));
                 store.markFinal(id, NotificationStatus.PUBLISHED, null);
                 log.info("Notification {}: GOB data published for {} NOW request(s) (message {}, reused {})", id, nows.size(),
                         messageId, notification.getGobDataReused());

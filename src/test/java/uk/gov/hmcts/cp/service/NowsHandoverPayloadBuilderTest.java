@@ -30,13 +30,14 @@ class NowsHandoverPayloadBuilderTest {
     void payload_should_carry_request_ids_account_number_and_gob_data_verbatim() {
         final JsonNode items = NowsHandoverPayloadBuilder.nowsDataItemsOf(REPLY).orElseThrow();
 
-        final ObjectNode payload = builder.build(HEARING_ID, NOWS, "26000123A", items, false, Instant.parse("2026-05-03T14:30:00Z"));
+        final ObjectNode payload = builder.build(HEARING_ID, NOWS, "26000123A", 26, items, false, Instant.parse("2026-05-03T14:30:00Z"));
 
         final String json = NowsHandoverPayloadBuilder.write(payload);
         assertThat(payload.path("hearingId").asString()).isEqualTo(HEARING_ID.toString());
         assertThat(payload.path("nows").get(1).path("requestId").asString()).isEqualTo("1d2c3b4a-0000-4000-8000-0000000000a2");
         assertThat(payload.path("nows").get(0).path("masterDefendantId").asString()).isEqualTo(MASTER_DEFENDANT_ID.toString());
         assertThat(payload.path("accountNumber").asString()).isEqualTo("26000123A");
+        assertThat(payload.path("accountingDivisionCode").asInt()).isEqualTo(26);
         assertThat(payload.path("gobDataReused").asBoolean()).isFalse();
         assertThat(payload.path("sharedTime").asString()).isEqualTo("2026-05-03T14:30:00Z");
         assertThat(json).contains("\"nowsDataItems\":{\"accountBalance\":125.50,\"accountNumber\":\"26000123A\"}");
@@ -47,10 +48,12 @@ class NowsHandoverPayloadBuilderTest {
     void reply_without_nows_data_items_should_publish_an_empty_object() {
         final JsonNode items = NowsHandoverPayloadBuilder.nowsDataItemsOf("{\"caseUrn\":\"E012345678\"}").orElseThrow();
 
-        final ObjectNode payload = builder.build(HEARING_ID, NOWS, "26000123A", items, true, null);
+        final ObjectNode payload = builder.build(HEARING_ID, NOWS, "26000123A", null, items, true, null);
 
         assertThat(payload.path("nowsDataItems").isEmpty()).isTrue();
         assertThat(payload.has("sharedTime")).isFalse();
+        // CIMD-4640: no enforcement area found, so no accounting division code
+        assertThat(payload.has("accountingDivisionCode")).isFalse();
         assertThat(GobDataEventContract.violations(NowsHandoverPayloadBuilder.write(payload))).isEmpty();
     }
 

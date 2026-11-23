@@ -93,6 +93,15 @@ others still apply.
   the same request id are completed meanwhile). Supersedes "released after the retention period, recorded as
   unclaimed" (FR-013, research R30).
 
+### Session 2026-11-23 (CIMD-4640: tech lead)
+
+- Q: Which service resolves the accounting division code shown on enforcement NOWS? → A: The enforcement workflow, so all
+  the NOW's source data is resolved here: when GOB's data is ready it finds the defendant's enforcement area in
+  reference data (by the defendant's postcode, else by the hearing court's local justice area, as the NOWS functions do)
+  and sends its accounting division code with GOB's data (FR-012); none is sent when reference data has no enforcement
+  area for either. Reference data being unavailable is retried like any other stage failure (FR-015), without
+  contacting GOB again.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Enforcement NOWS generated with GOB data, triggered by the results-processing app (Priority: P1)
@@ -301,7 +310,8 @@ findable by hearing and request id.
 **GOB data to the NOWS service (public event)**
 
 - **FR-012**: After GOB accepts a submission, the enforcement workflow MUST send GOB's NOWS data items exactly as GOB
-  returned them (no field added, removed, renamed or reformatted), with the GOB account number and the request ids from
+  returned them (no field added, removed, renamed or reformatted), with the GOB account number, the accounting division
+  code of the defendant's enforcement area when reference data has one (clarified 2026-11-23) and the request ids from
   the notification, to the NOWS service as a new public event on the platform's messaging system (not a direct call).
 - **FR-013**: The NOWS service MUST find the held NOWS by request id, place GOB's data unchanged into each NOW's
   document data (as feature 002 FR-009) and resume their generation. Each NOW MUST be completed exactly once, also when

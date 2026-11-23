@@ -3,20 +3,7 @@
   "timestamp": "2026-11-19T11:45:23Z",
   "correlationId": "4634a2b1-0000-4000-8000-000000000001",
   "nowsDataItems": {
-    "defendant": {
-      "defName": "Edward Harrison",
-      "nationalInsuranceNumber": "QQ123456C",
-      "DoB": "10 Jan 2002",
-      "homeTelNo": "02079460000",
-      "mobileTelNo": "07700900123",
-      "assetVehicleMake": "Ford",
-      "defAddress": {
-        "defAddressLine1": "1 High Street",
-        "defAddressLine2": "Tottenham",
-        "defAddressLine3": "London",
-        "defPostcode": "ZZ99 9ZZ"
-      }
-    },
+    "accountNumber": "1234567890",
     "offences": {
       "offence": [
         {
