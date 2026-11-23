@@ -15,7 +15,11 @@
         "address2": "London",
         "postcode": "ZZ99 9ZZ"
       },
-      "code": "B01LY00"
+      "code": "B01LY00",
+      "lja": {
+        "ljaCode": "9999",
+        "ljaName": "Test Local Justice Area"
+      }
     },
     "hearingLanguage": "ENGLISH",
     "prosecutionCases": [

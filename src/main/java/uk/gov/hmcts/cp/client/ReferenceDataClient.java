@@ -23,6 +23,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@code (id, on)} in memory. A 404 is not cached, so a definition added later is picked up. Any
  * other failure throws {@link ReferenceDataUnavailableException}. The bulk {@code cacheable} load
  * comes later (research.md R4b).
+ * <p>
+ * It also finds the accounting division code of an enforcement area ({@code GET /enforcement-area}, CIMD-4640), by a
+ * postcode or by an LJA's national court code, as the NOWS functions do. Those lookups are not cached and never log the
+ * url, the query or the reply: the query carries the defendant's postcode (FR-017).
  */
 @Slf4j
 @Component
@@ -30,6 +34,10 @@ public class ReferenceDataClient {
 
     /* default */ static final String RESULT_DEFINITION_PATH = "/referencedata-query-api/query/api/rest/referencedata/result-definitions/{id}";
     private static final String ACCEPT_RESULT_DEFINITION = "application/vnd.referencedata.get-result-definition+json";
+    /* default */ static final String ENFORCEMENT_AREA_PATH = "/referencedata-query-api/query/api/rest/referencedata/enforcement-area";
+    private static final String ACCEPT_ENFORCEMENT_AREA = "application/vnd.referencedata.query.enforcement-area+json";
+    private static final String BY_POSTCODE = "postcode";
+    private static final String BY_LJA_CODE = "localJusticeAreaNationalCourtCode";
 
     private final RestClient restClient;
     private final String cjscppuid;
@@ -56,6 +64,42 @@ public class ReferenceDataClient {
         final Optional<String> shortCode = cached != null ? cached : fetch(resultDefinitionId, on);
         shortCode.ifPresent(code -> cache.putIfAbsent(key, shortCode));
         return shortCode;
+    }
+
+    /**
+     * The accounting division code ({@code accountDivisionCode}) of the postcode's enforcement area, or empty when
+     * reference data has none for it (404, or 400 for a postcode it does not accept).
+     *
+     * @throws EnforcementAreaUnavailableException when reference data fails or can't be reached
+     */
+    public Optional<Integer> findAccountDivisionCodeByPostcode(final String postcode) {
+        return findAccountDivisionCode(BY_POSTCODE, postcode);
+    }
+
+    /** As {@link #findAccountDivisionCodeByPostcode}, by the national court code of a local justice area. */
+    public Optional<Integer> findAccountDivisionCodeByLjaCode(final String ljaCode) {
+        return findAccountDivisionCode(BY_LJA_CODE, ljaCode);
+    }
+
+    private Optional<Integer> findAccountDivisionCode(final String parameter, final String value) {
+        Optional<Integer> code;
+        try {
+            final EnforcementArea area = restClient.get()
+                    .uri(uri -> uri.path(ENFORCEMENT_AREA_PATH).queryParam(parameter, "{value}").build(value))
+                    .header("Accept", ACCEPT_ENFORCEMENT_AREA)
+                    .header("CJSCPPUID", cjscppuid)
+                    .retrieve()
+                    .body(EnforcementArea.class);
+            code = Optional.ofNullable(area).map(EnforcementArea::accountDivisionCode);
+        } catch (HttpClientErrorException.NotFound | HttpClientErrorException.BadRequest e) {
+            log.info("No enforcement area in reference data by {} (HTTP {})", parameter, e.getStatusCode().value());
+            code = Optional.empty();
+        } catch (RestClientException e) {
+            // the exception class only: its message can quote the url, which carries the postcode
+            log.warn("Enforcement area lookup by {} failed ({})", parameter, e.getClass().getSimpleName());
+            throw new EnforcementAreaUnavailableException(parameter, e);
+        }
+        return code;
     }
 
     /** Drops every cached shortCode. Used by the scenario integration tests, and the hook for T081's scheduled refresh. */

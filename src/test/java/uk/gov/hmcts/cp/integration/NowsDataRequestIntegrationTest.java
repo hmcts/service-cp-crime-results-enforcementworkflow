@@ -28,7 +28,7 @@ class NowsDataRequestIntegrationTest extends WorkflowStubsIntegrationTestBase {
         final JsonNode items = PayloadJson.MAPPER.readTree(body).path("nowsDataRequest").path("nowsDataItems");
         assertThat(items.valueStream().map(item -> item.path("name").asString()).toList()).containsExactly(
                 // SC
-                "Defendant Account", "Account Balance", "Account Offences and Penalties", "Account Date Imposed",
+                "Account Number", "Account Balance", "Account Offences and Penalties", "Account Date Imposed",
                 "Account Terms to Pay",
                 // WC (the table's DW row), without the items SC already asked for
                 "Account Warrant Number", "Warrant Contact Details");

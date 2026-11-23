@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>"In the published v0.6.0 enum" and "postable" are meant to be the same set: postable marks a
  * row for a code GOB curated, and postable: false marks a row kept only as an alias target or a
- * historic spelling (WC/TFOUT/WWDN, CLAMPS/LATG/LATR/PGPAY). Since CIMD-4530 CP may still send a
+ * historic spelling (WC/TFOUT/WWDN, CLAMPS/PGPAY). Since CIMD-4530 CP may still send a
  * postable: false code and the simulator accepts it like any other. That is a biconditional — E(c) &lt;=&gt; P(c) — and catching a regression in it requires
  * asserting both of its two independent directions, not the same implication and its
  * contrapositive relabelled:

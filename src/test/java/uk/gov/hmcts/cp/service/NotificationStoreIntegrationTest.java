@@ -72,12 +72,13 @@ class NotificationStoreIntegrationTest extends WorkflowStubsIntegrationTestBase 
         final UUID submissionId = insertSucceeded(id);
         store.markStoredFailure(id, FailedStage.PROCESS, "X", null);
 
-        store.markReadyToPublish(id, submissionId, FIXTURE_MASTER_DEFENDANT_ID, true);
+        store.markReadyToPublish(id, submissionId, FIXTURE_MASTER_DEFENDANT_ID, true, 26);
 
         final EnforcementNotificationEntity notification = notification(id);
         assertThat(notification.getStatus()).isEqualTo(NotificationStatus.SKIPPED_NOTHING_NEW);
         assertThat(notification.getSubmissionId()).isEqualTo(submissionId);
         assertThat(notification.getGobDataReused()).isTrue();
+        assertThat(notification.getAccountingDivisionCode()).isEqualTo(26);
         assertThat(notification.getFailedStage()).isNull();
         assertThat(notification.getLastError()).isNull();
         assertThat(store.submission(submissionId)).isPresent();

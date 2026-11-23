@@ -22,6 +22,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static uk.gov.hmcts.cp.support.TempDiagnosticsLogFilter.onlyTempDiagnostics;
@@ -53,6 +54,7 @@ class NotificationFlowIntegrationTest extends EmbeddedBrokerIntegrationTestBase 
     @Test
     void notification_should_be_sent_to_gob_once_and_published_to_hearing_nows(final CapturedOutput output) {
         publishedGobDataEvents();
+        stubEnforcementArea("postcode", "ZZ99 9ZZ", 26);
 
         final UUID notificationId = notifyShare(ENFORCEMENT, "flow-it");
         final EnforcementNotificationEntity notification = awaitFinal(notificationId);
@@ -69,11 +71,15 @@ class NotificationFlowIntegrationTest extends EmbeddedBrokerIntegrationTestBase 
             assertThat(json.path("nows").get(0).path("masterDefendantId").asString()).isEqualTo(FIXTURE_MASTER_DEFENDANT_ID.toString());
             assertThat(json.path("accountNumber").asString()).isEqualTo("1234567890");
             assertThat(json.path("gobDataReused").asBoolean()).isFalse();
+            // CIMD-4640: the defendant's enforcement area's accounting division code, found by their postcode
+            assertThat(json.path("accountingDivisionCode").asInt()).isEqualTo(26);
             assertThat(event).contains("\"nowsDataItems\":{\"accountBalance\":125.5}");
         });
+        assertThat(notification.getAccountingDivisionCode()).isEqualTo(26);
         // no defendant PII and no GOB account data (account number, GOB's balance) outside the TEMP diagnostics
         assertThat(withoutTempDiagnostics(output.getAll())).contains(notificationId.toString())
                 .doesNotContain("Edward", "Harrison", "2002-01-10", "QQ123456C", "1 High Street", "02079460000", "07700900123")
+                .doesNotContain("ZZ99 9ZZ", "ZZ99%209ZZ")
                 .doesNotContain("1234567890", "125.5", "accountBalance", "Example Employer Ltd", "hr@example.org");
         // TEMP DIAGNOSTICS (T090): QA sees every connection point with its payload; remove with TempPayloadLog
         assertThat(onlyTempDiagnostics(output.getAll()))
@@ -137,6 +143,48 @@ class NotificationFlowIntegrationTest extends EmbeddedBrokerIntegrationTestBase 
         assertThat(notification.getNextReplayAt()).isNotNull();
         assertThat(STUBS.findAll(getRequestedFor(urlEqualTo(RESULTS_PATH + HEARING_ID)))).hasSize(4); // first attempt + 3 retries
         STUBS.verify(0, postRequestedFor(urlEqualTo(GATEWAY_PATH)));
+        assertThat(publishedGobDataEvents()).isEmpty();
+    }
+
+    // CIMD-4640: no enforcement area for the defendant's postcode: the hearing court's LJA finds it
+    @Test
+    void postcode_without_an_enforcement_area_should_publish_the_code_of_the_courts_lja() {
+        publishedGobDataEvents();
+        stubEnforcementArea("localJusticeAreaNationalCourtCode", "9999", 31);
+
+        awaitFinal(notifyShare(ENFORCEMENT, "flow-it-lja"));
+
+        assertThat(publishedGobDataEvents()).singleElement()
+                .satisfies(event -> assertThat(Fixtures.MAPPER.readTree(event).path("accountingDivisionCode").asInt()).isEqualTo(31));
+    }
+
+    // CIMD-4640: no enforcement area for either: GOB's data is still published, without a code
+    @Test
+    void no_enforcement_area_should_publish_without_a_code() {
+        publishedGobDataEvents();
+
+        assertThat(awaitFinal(notifyShare(ENFORCEMENT, "flow-it-no-area")).getStatus()).isEqualTo(NotificationStatus.PUBLISHED);
+
+        assertThat(publishedGobDataEvents()).singleElement().satisfies(event -> {
+            assertThat(GobDataEventContract.violations(event)).isEmpty();
+            assertThat(Fixtures.MAPPER.readTree(event).has("accountingDivisionCode")).isFalse();
+        });
+    }
+
+    // CIMD-4640: reference data down after GOB replied: stage 1 is retried and then stored for a replay; GOB is contacted
+    // once (the retries resume the hand-over from the recorded reply) and nothing is published without the code
+    @Test
+    void reference_data_unavailable_for_the_enforcement_area_should_retry_without_resending_to_gob() {
+        publishedGobDataEvents();
+        STUBS.stubFor(get(urlPathEqualTo(ENFORCEMENT_AREA)).willReturn(aResponse().withStatus(503)));
+
+        final EnforcementNotificationEntity notification = awaitFinal(notifyShare(ENFORCEMENT, "flow-it-area-down"));
+
+        assertThat(notification.getStatus()).isEqualTo(NotificationStatus.STORED_FAILURE);
+        assertThat(notification.getFailedStage()).isEqualTo(FailedStage.PROCESS);
+        assertThat(notification.getLastError()).isEqualTo("EnforcementAreaUnavailableException");
+        STUBS.verify(1, postRequestedFor(urlEqualTo(GATEWAY_PATH)));
+        assertThat(STUBS.findAll(getRequestedFor(urlPathEqualTo(ENFORCEMENT_AREA)))).hasSize(4); // first attempt + 3 retries
         assertThat(publishedGobDataEvents()).isEmpty();
     }
 

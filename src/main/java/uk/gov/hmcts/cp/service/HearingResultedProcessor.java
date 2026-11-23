@@ -24,7 +24,10 @@ import java.util.UUID;
  * once), choose the NOWS data items, build the request, record it as SENDING with the items it sends, call the
  * gateway, record the outcome, and mark GOB's data ready for the GOB data event (feature 003). A first-time share with
  * nothing new, and every amend &amp; reshare (never sent to GOB, feature 003 FR-008), reuses the most recent GOB data
- * instead of contacting GOB. Logs carry ids, {@code caseUrn}, codes, counts and outcomes, never payloads (FR-017).
+ * instead of contacting GOB. GOB's data is handed over with what the defendant's enforcement area is found by
+ * (CIMD-4640); a reference data failure there is thrown, so stage 1 is retried and the hand-over resumed from the
+ * recorded outcome, never resending to GOB. Logs carry ids, {@code caseUrn}, codes, counts and outcomes, never payloads
+ * (FR-017).
  */
 @Slf4j
 @Component
@@ -75,14 +78,16 @@ public class HearingResultedProcessor {
                 key.caseUrn(), RESHARE);
         // checked first: a first share committing its GOB data between the two reads must not leave the reshare without it
         nowsHandover.awaitFirstShare(key);
-        if (!gobDataReuseHandover.handOver(key, reshare.defendant().masterDefendantId())) {
+        if (!gobDataReuseHandover.handOver(key, reshare.defendant().masterDefendantId(),
+                EnforcementAreaQuery.from(event, reshare.defendant()))) {
             nowsHandover.noGobData(key, "RESHARE_NO_GOB_DATA");
         }
     }
 
     private void processShare(final HearingResultedEvent event, final SelectionResult.Selected selected, final SubmissionKey key) {
         store.findExisting(key.correlationId(), key.caseId(), key.defendantId())
-                .ifPresentOrElse(existing -> onExisting(key, existing, selected.defendant().masterDefendantId()),
+                .ifPresentOrElse(existing -> onExisting(key, existing, selected.defendant().masterDefendantId(),
+                                EnforcementAreaQuery.from(event, selected.defendant())),
                         () -> processSelected(event, selected, key));
     }
 
@@ -91,7 +96,8 @@ public class HearingResultedProcessor {
      * SENDING row is marked interrupted (R19; open point with the BA/GOB). Otherwise the hand-over the earlier run
      * may not have reached is resumed from the recorded outcome, so GOB data already received is still published.
      */
-    private void onExisting(final SubmissionKey key, final ExistingSubmission existing, final UUID masterDefendantId) {
+    private void onExisting(final SubmissionKey key, final ExistingSubmission existing, final UUID masterDefendantId,
+                            final EnforcementAreaQuery enforcementArea) {
         // only one job runs a notification, so its own SENDING row found by a later attempt was interrupted, however recent
         if (existing.status() == SubmissionStatus.SENDING) {
             store.markInterrupted(existing.id());
@@ -106,8 +112,8 @@ public class HearingResultedProcessor {
                         .filter(s -> NowsHandoverPayloadBuilder.nowsDataItemsOf(s.responsePayload()).isPresent())
                         .findFirst()
                         .ifPresent(s -> nowsHandover.handOver(s.id(), key, masterDefendantId,
-                                GobReplies.accountNumberOf(s.requestPayload()).orElse(null), false));
-                case SKIPPED_NOTHING_NEW -> gobDataReuseHandover.handOver(key, masterDefendantId);
+                                GobReplies.accountNumberOf(s.requestPayload()).orElse(null), false, enforcementArea));
+                case SKIPPED_NOTHING_NEW -> gobDataReuseHandover.handOver(key, masterDefendantId, enforcementArea);
                 default -> {
                     // SENDING (not stale), FAILED, MAPPING_FAILED, SKIPPED_NO_RESULT_CODE (FR-010): nothing to hand over
                 }
@@ -143,7 +149,7 @@ public class HearingResultedProcessor {
                                  final ResolvedCodes codes, final boolean refiltered) {
         final OffenceFilterResult filtered = offenceResultFilter.filter(key.caseId(), key.hearingDay(), codes);
         if (filtered.nothingToSend()) {
-            nothingNew(selected, key, filtered);
+            nothingNew(event, selected, key, filtered);
         } else {
             final ResolvedCodes toSend = filtered.toSend();
             switch (mapper.map(event, selected, toSend, nowsDataItemSelector.select(toSend.cpShortCodes()))) {
@@ -158,10 +164,12 @@ public class HearingResultedProcessor {
     }
 
     /** Feature 002 FR-020, feature 003 FR-009: GOB is not contacted; the most recent GOB data is reused, as for a reshare. */
-    private void nothingNew(final SelectionResult.Selected selected, final SubmissionKey key, final OffenceFilterResult filtered) {
+    private void nothingNew(final HearingResultedEvent event, final SelectionResult.Selected selected, final SubmissionKey key,
+                            final OffenceFilterResult filtered) {
         store.recordSkippedNothingNew(key, "nothing new to send to GOB: " + filtered.summary()).ifPresent(id -> {
             log.info("Hearing {} caseUrn {} not submitted to GOB: nothing new ({})", key.hearingId(), key.caseUrn(), filtered.summary());
-            gobDataReuseHandover.handOver(key, selected.defendant().masterDefendantId());
+            gobDataReuseHandover.handOver(key, selected.defendant().masterDefendantId(),
+                    EnforcementAreaQuery.from(event, selected.defendant()));
         });
     }
 
@@ -169,7 +177,7 @@ public class HearingResultedProcessor {
                         final ResolvedCodes codes, final OffenceFilterResult filtered, final HearingResultedRequest request,
                         final boolean refiltered) {
         switch (store.recordSending(key, PayloadJson.MAPPER.writeValueAsString(request), filtered.sentItems())) {
-            case SendingRecord.Recorded recorded -> send(selected, key, recorded.submissionId(), request);
+            case SendingRecord.Recorded recorded -> send(event, selected, key, recorded.submissionId(), request);
             case SendingRecord.AlreadyRecorded _ ->
                     log.info("Hearing {} caseUrn {} already recorded by a concurrent delivery; not sent again", key.hearingId(),
                             key.caseUrn());
@@ -184,8 +192,8 @@ public class HearingResultedProcessor {
         }
     }
 
-    private void send(final SelectionResult.Selected selected, final SubmissionKey key, final UUID submissionId,
-                      final HearingResultedRequest request) {
+    private void send(final HearingResultedEvent event, final SelectionResult.Selected selected, final SubmissionKey key,
+                      final UUID submissionId, final HearingResultedRequest request) {
         // codes and a count only: the request itself carries defendant PII (FR-017)
         log.info("Submission {} caseUrn {}: sending to the enforcement gateway (results {}, NOWS data items {})", submissionId,
                 request.getCaseUrn(), request.getResults().stream().map(result -> String.valueOf(result.getResultCode())).toList(),
@@ -202,7 +210,7 @@ public class HearingResultedProcessor {
                                 request.getCaseUrn());
                     }
                     log.info("Submission {} caseUrn {} accepted by GOB", submissionId, request.getCaseUrn());
-                    handOverNew(selected, key, submissionId, request);
+                    handOverNew(event, selected, key, submissionId, request);
                 }
             }
             case GatewayResult.Failure failure -> {
@@ -212,10 +220,11 @@ public class HearingResultedProcessor {
         }
     }
 
-    private void handOverNew(final SelectionResult.Selected selected, final SubmissionKey key, final UUID submissionId,
-                             final HearingResultedRequest request) {
+    private void handOverNew(final HearingResultedEvent event, final SelectionResult.Selected selected, final SubmissionKey key,
+                             final UUID submissionId, final HearingResultedRequest request) {
         final String accountNumber = request.getDefendantDetails() == null ? null : request.getDefendantDetails().getProsecutorDefendantId();
-        nowsHandover.handOver(submissionId, key, selected.defendant().masterDefendantId(), accountNumber, false);
+        nowsHandover.handOver(submissionId, key, selected.defendant().masterDefendantId(), accountNumber, false,
+                EnforcementAreaQuery.from(event, selected.defendant()));
     }
 
     private static SkipReason missingShareAttribute(final HearingResultedEvent event) {

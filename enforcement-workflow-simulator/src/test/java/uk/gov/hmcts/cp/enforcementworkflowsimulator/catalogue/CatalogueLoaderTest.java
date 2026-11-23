@@ -42,7 +42,10 @@ class CatalogueLoaderTest {
 
     @Test
     void exposes_the_root_property_of_a_nested_path() {
-        assertThat(catalogue.fieldPath("Balance Outstanding").rootProperty()).isEqualTo("offences");
+        // BA 2026-11-20: Balance Outstanding is GOB's accountBalance, like Total Balance
+        assertThat(catalogue.fieldPath("Balance Outstanding").rootProperty()).isEqualTo("accountBalance");
+        assertThat(catalogue.fieldPath("Account Total").rootProperty()).isEqualTo("offences");
+        assertThat(catalogue.fieldPath("Account Total").baseline()).isTrue();
         assertThat(catalogue.fieldPath("Payment Terms").rootProperty()).isEqualTo("terms");
         assertThat(catalogue.fieldPath("Total Balance").rootProperty()).isEqualTo("accountBalance");
     }

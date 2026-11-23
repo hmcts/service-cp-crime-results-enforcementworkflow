@@ -55,7 +55,7 @@ class ValueResolverTest {
     // seed read nor a missing coercion would produce this.
     @Test
     void reads_a_seeded_value_from_a_nested_path() {
-        assertThat(resolver.resolve("E011122334", catalogue.fieldPath("Balance Outstanding")))
+        assertThat(resolver.resolve("E011122334", catalogue.fieldPath("Account Total")))
                 .isEqualTo(new BigDecimal("360.00"));
     }
 }

@@ -24,6 +24,8 @@ class GobDataReuseHandoverTest {
     private static final SubmissionKey KEY = new SubmissionKey(UUID.randomUUID(), UUID.randomUUID(), LocalDate.parse("2026-05-10"),
             CASE_ID, DEFENDANT_ID, "E012345678", Instant.parse("2026-05-10T10:00:00Z"));
 
+    private static final EnforcementAreaQuery AREA = new EnforcementAreaQuery("XX1 1XX", "1234");
+
     private final SubmissionStore store = mock(SubmissionStore.class);
     private final NowsHandover nowsHandover = mock(NowsHandover.class);
     private final GobDataReuseHandover reuse = new GobDataReuseHandover(store, nowsHandover);
@@ -36,9 +38,9 @@ class GobDataReuseHandoverTest {
                 new SucceededSubmission(newer, request("26000123A", "SUMM"), "{\"nowsDataItems\":{\"accountBalance\":2}}"),
                 new SucceededSubmission(older, request("26000123A", "SC"), "{\"nowsDataItems\":{\"accountBalance\":1}}")));
 
-        assertThat(reuse.handOver(KEY, MASTER_DEFENDANT_ID)).isTrue();
+        assertThat(reuse.handOver(KEY, MASTER_DEFENDANT_ID, AREA)).isTrue();
 
-        verify(nowsHandover).handOver(newer, KEY, MASTER_DEFENDANT_ID, "26000123A", true);
+        verify(nowsHandover).handOver(newer, KEY, MASTER_DEFENDANT_ID, "26000123A", true, AREA);
     }
 
     @Test
@@ -48,16 +50,16 @@ class GobDataReuseHandoverTest {
                 new SucceededSubmission(UUID.randomUUID(), request("26000123A", "SUMM"), "\"not json\""),
                 new SucceededSubmission(older, request("26000123A", "SC"), "{\"nowsDataItems\":{}}")));
 
-        reuse.handOver(KEY, MASTER_DEFENDANT_ID);
+        reuse.handOver(KEY, MASTER_DEFENDANT_ID, AREA);
 
-        verify(nowsHandover).handOver(eq(older), eq(KEY), eq(MASTER_DEFENDANT_ID), eq("26000123A"), anyBoolean());
+        verify(nowsHandover).handOver(eq(older), eq(KEY), eq(MASTER_DEFENDANT_ID), eq("26000123A"), anyBoolean(), eq(AREA));
     }
 
     @Test
     void no_accepted_submission_should_hand_over_nothing() {
         when(store.findSucceeded(CASE_ID, DEFENDANT_ID)).thenReturn(List.of());
 
-        assertThat(reuse.handOver(KEY, MASTER_DEFENDANT_ID)).isFalse();
+        assertThat(reuse.handOver(KEY, MASTER_DEFENDANT_ID, AREA)).isFalse();
 
         verifyNoInteractions(nowsHandover);
     }

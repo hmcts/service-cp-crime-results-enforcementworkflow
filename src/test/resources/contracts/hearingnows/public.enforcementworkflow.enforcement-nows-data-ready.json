@@ -29,6 +29,10 @@
       "minLength": 1,
       "maxLength": 36
     },
+    "accountingDivisionCode": {
+      "description": "CIMD-4640: accountDivisionCode of the defendant's enforcement area, resolved by the enforcement workflow from reference data (referencedata.query.enforcement-area) by the defendant's postcode, else by the hearing court's LJA, as the NOWS functions do for financialOrderDetails. Absent when reference data has no enforcement area for either. hearing-nows renders it as nowContent.enforcementFinancialOrderDetails.accountingDivisionCode",
+      "type": "integer"
+    },
     "gobDataReused": {
       "type": "boolean"
     },
