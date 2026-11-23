@@ -102,7 +102,8 @@ Timeouts follow a budget where each hop gives up before its caller (research.md 
 The shortCode → NOWS data item mapping lives in `cp.hearing-result.nows-data-items-by-short-code` and
 takes GOB's `NowsDataItemName` values; an unknown name stops the service at startup. The rows are the CIMD-4372
 "Result vs Required Field" table (CIMD-4634), keyed by the CP shortCode before the renames; a code with no row
-requests nothing, so `nowsDataRequest` is left out.
+requests nothing, so `nowsDataRequest` is left out. The table's "Defendant Account" is the account number, so it is
+requested as "Account Number", also by the warrant rows (BA, 2026-11-20); LATG and LATR are descoped.
 
 ## Running locally
 

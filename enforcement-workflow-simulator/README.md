@@ -143,11 +143,12 @@ It means one, or both, of:
    schema-required backfill; it exists purely to keep those two entities from ever being emitted
    empty.
 
-There are **14** `baseline: true` entries in `field-paths.yaml`. Nine of them (`Defendant Name`,
-`Offence Date Imposed`, `Offence Code`, `Offence Title`, `Offence Total`, `Imposition Amount Paid`,
-`Imposition Balance`, `CT Account Number`, `CT Sort Code`) have no CIMD-4372 result-code row of
-their own and exist purely for reason 1. Three more (`Balance Outstanding`,
-`Amount Paid or Cancelled`, `Amount Imposed`) **do** have result-code rows in the CIMD-4372 table
+There are **14** `baseline: true` entries in `field-paths.yaml`. Ten of them (`Account Total`,
+`Defendant Name`, `Offence Date Imposed`, `Offence Code`, `Offence Title`, `Offence Total`,
+`Imposition Amount Paid`, `Imposition Balance`, `CT Account Number`, `CT Sort Code`) have no CIMD-4372
+result-code row of their own and exist purely for reason 1 (`Account Total` is `offences.accountTotal`;
+"Balance Outstanding" is `accountBalance`, BA 2026-11-20). Two more (`Amount Paid or Cancelled`,
+`Amount Imposed`) **do** have result-code rows in the CIMD-4372 table
 **and** are schema-required — both facts are true at once, for unrelated reasons, but the flag is
 still there for reason 1. The remaining two (`Payment Terms`, `Clamping Contractor name`) exist
 purely for reason 2, as described above.

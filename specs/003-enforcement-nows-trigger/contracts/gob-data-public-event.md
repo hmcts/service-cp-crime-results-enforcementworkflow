@@ -21,8 +21,9 @@ Schema: [public.enforcementworkflow.enforcement-nows-data-ready.json](public.enf
 
 **H behaviour per `{requestId, masterDefendantId}`** (FR-013, R13)
 
-1. NOWs with `request_id` in `WAITING_FOR_GOB` and the same master defendant → write `nowsDataItems` into
-   `financialOrderDetails.enfNowsDataItems` and the account number (feature 002 merger) → `ENFORCEMENT_DATA_ADDED`
+1. NOWs with `request_id` in `WAITING_FOR_GOB` and the same master defendant → write `nowsDataItems`, the account number
+   and the enforcement area's accounting division code into `nowContent.enforcementFinancialOrderDetails` (feature 002
+   merger; was `financialOrderDetails.enfNowsDataItems` before CIMD-4640) → `ENFORCEMENT_DATA_ADDED`
    (conditional update; a NOW is completed once) → `PROCESS_NOW_DOCUMENT_REQUEST_TASK`.
 2. No such NOW → keep in `enforcement_nows_data` (status `KEPT`, no `release_at`) until a NOW claims it, without a time
    limit; a NOW arriving later with that request id is completed at once. The first claim sets `release_at` = claim +

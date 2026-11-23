@@ -26,6 +26,9 @@
   "nowsDataRequest": {
     "nowsDataItems": [
       {
+        "name": "Account Number"
+      },
+      {
         "name": "Account Warrant Number"
       },
       {

@@ -31,7 +31,7 @@ export CPP_DOCKER_DIR=/path/to/cpp-developers-docker
 
 | # | Scenario | Expected |
 |---|---|---|
-| 1 | NOW first: DF posts an enforcement NOW, then W hands over | NOW `WAITING_FOR_ENFORCEMENT_DATA` → `ENFORCEMENT_DATA_ADDED` → `DOCUMENT_REQUESTED`; payload `financialOrderDetails.enfNowsDataItems` equals GOB's items; W row `HANDED_OVER` |
+| 1 | NOW first: DF posts an enforcement NOW, then W hands over | NOW `WAITING_FOR_ENFORCEMENT_DATA` → `ENFORCEMENT_DATA_ADDED` → `DOCUMENT_REQUESTED`; payload `enforcementFinancialOrderDetails.enfNowsDataItems` equals GOB's items, with the account number and the enforcement area's `accountingDivisionCode` (CIMD-4640); W row `HANDED_OVER` |
 | 2 | Hand-over first: W hands over, then DF posts the NOW | Kept data `KEPT` → NOW completed on arrival (no waiting) → `DOCUMENT_REQUESTED`; data `CLAIMED` |
 | 3 | Two enforcement NOWs for one defendant, hand-over between them | Both completed with the same data, each once |
 | 4 | Same hand-over twice | Second has no effect |
@@ -79,6 +79,6 @@ about 30 s), well inside 10 minutes.
 | 22 | H `EnforcementNowsIT` (`laterHandOverOfTheSameShareShouldReplaceTheKeptData`, amended NOW either order), `EnforcementNowsDataServiceTest` (replace, covered ids accumulated), `CompleteEnforcementNowTaskTest`; W scenario 30 (reshare `sharedTime` later) |
 | 23 | H `EnforcementNowsIT` short-period case (skipped, never run) |
 | 24 (new) | Later share with no GOB-recognised result: W scenario 39 (`SKIPPED_NO_RESULT_CODE`, reuse hand-over) |
-| 25 (new) | Enforcement NOW event on the public topic has no `enfNowsDataItems`; NOW without `financialOrderDetails` and GOB without totals → `FAILED` "GOB data missing totals": H `EnforcementNowsIT`, `ProcessNowDocumentRequestTaskTest`, `CompleteEnforcementNowTaskTest`, `EnforcementFinancialOrderDetailsMergerTest` |
+| 25 (new) | Enforcement NOW event on the public topic and query API payload have no `enforcementFinancialOrderDetails`; the document has it, with `accountingDivisionCode` of the defendant postcode's enforcement area, else the court LJA's (also when the postcode query fails); `financialOrderDetails` not created or changed (CIMD-4640; was `FAILED` "GOB data missing totals"): H `EnforcementNowsIT`, `ProcessNowDocumentRequestTaskTest`, `CompleteEnforcementNowTaskTest`, `EnforcementFinancialOrderDetailsMergerTest`, `EnforcementAccountingDivisionCodeLookupTest`, `StorePayloadToFileServiceTaskEnforcementTest` |
 
 Local end-to-end (optional): run W with `SPRING_PROFILES_ACTIVE=docker` against a local Artemis and a WireMock standing in for H (`docker compose --profile stubs up -d wiremock`; `wiremock/mappings/hearing-nows-enforcement-nows-data.json` answers `POST /hearingnows-command-api/command/api/rest/hearingnows/enforcement-nows-data` with 202, and compose points `HEARING_NOWS_URL` at it), publish an enforcement hearing-resulted event, and check `nows_handover_status = 'HANDED_OVER'`.
