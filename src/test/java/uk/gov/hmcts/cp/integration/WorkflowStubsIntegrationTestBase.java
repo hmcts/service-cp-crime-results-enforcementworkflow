@@ -14,6 +14,7 @@ import uk.gov.hmcts.cp.entity.NotificationStatus;
 import uk.gov.hmcts.cp.event.HearingResultedEvent;
 import uk.gov.hmcts.cp.repository.EnforcementNotificationNowRepository;
 import uk.gov.hmcts.cp.repository.EnforcementNotificationRepository;
+import uk.gov.hmcts.cp.repository.EnforcementResultNotificationRepository;
 import uk.gov.hmcts.cp.repository.GobSentOffenceRepository;
 import uk.gov.hmcts.cp.repository.HearingResultSubmissionRepository;
 import uk.gov.hmcts.cp.service.HearingResultedProcessor;
@@ -76,11 +77,18 @@ public abstract class WorkflowStubsIntegrationTestBase extends IntegrationTestBa
     @Autowired
     protected JobsRepository jobsRepository;
 
+    /** Feature 005's own rows - not cleared by feature 003's {@link #deleteRows()} unless added here too. */
+    @Autowired
+    protected EnforcementResultNotificationRepository resultNotificationRepository;
+
     @DynamicPropertySource
     static void stubProperties(final DynamicPropertyRegistry registry) {
         registry.add("cp.reference-data.base-url", STUBS::baseUrl);
         registry.add("cp.enforcement-gateway.base-url", STUBS::baseUrl);
         registry.add("cp.results.base-url", STUBS::baseUrl);
+        // feature 005: same WireMock server, new paths (contracts/enforcement-area.md, system-doc-generator-byo-fs.md)
+        registry.add("cp.enforcement-area.base-url", STUBS::baseUrl);
+        registry.add("cp.doc-generator.base-url", STUBS::baseUrl);
     }
 
     @BeforeEach
@@ -106,6 +114,7 @@ public abstract class WorkflowStubsIntegrationTestBase extends IntegrationTestBa
         notificationRepository.deleteAll();
         sentOffenceRepository.deleteAll();
         repository.deleteAll();
+        resultNotificationRepository.deleteAll();
     }
 
     /** Stage 1's processing of a fixture under a new notification (one NOW request for the fixture's defendant). */

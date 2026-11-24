@@ -44,6 +44,22 @@ public class RestClientConfig {
         return builderWithTimeouts(results.getConnectTimeout(), results.getReadTimeout());
     }
 
+    /** Feature 005: {@code enforcement_area} team-inbox lookup (contracts/enforcement-area.md). */
+    @Bean(name = "enforcementAreaRestClientBuilder")
+    @Scope("prototype")
+    public RestClient.Builder enforcementAreaRestClientBuilder(final ClientProperties properties) {
+        final ClientProperties.EnforcementArea enforcementArea = properties.getEnforcementArea();
+        return builderWithTimeouts(enforcementArea.getConnectTimeout(), enforcementArea.getReadTimeout());
+    }
+
+    /** Feature 005: System Doc Generator BYO-FS {@code generate-document} command (contracts/system-doc-generator-byo-fs.md). */
+    @Bean(name = "docGeneratorRestClientBuilder")
+    @Scope("prototype")
+    public RestClient.Builder docGeneratorRestClientBuilder(final ClientProperties properties) {
+        final ClientProperties.DocGenerator docGenerator = properties.getDocGenerator();
+        return builderWithTimeouts(docGenerator.getConnectTimeout(), docGenerator.getReadTimeout());
+    }
+
     /* default */ static RestClient.Builder builderWithTimeouts(final Duration connectTimeout, final Duration readTimeout) {
         @SuppressWarnings("PMD.CloseResource") // wrapped into requestFactory below and kept open for the bean's lifetime, not closed here
         final HttpClient httpClient = HttpClient.newBuilder()

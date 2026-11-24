@@ -20,6 +20,7 @@ import java.util.UUID;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.moreThanOrExactly;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,7 +45,10 @@ class NotificationFlowIntegrationTest extends EmbeddedBrokerIntegrationTestBase 
 
     @Test
     void diagnostic_listener_should_be_the_only_listener_and_connected_to_the_broker() {
-        // the hearing-resulted listener is gone (feature 003): only the docker profile's public-event logger remains
+        // the hearing-resulted listener is gone (feature 003): only the docker profile's public-event logger
+        // remains - feature 005 (research.md R2, plan.md D8) broadens this SAME subscription's selector rather than
+        // adding a second one (a second @JmsListener container needing the same spring.jms.client-id fails with
+        // InvalidClientIDException, confirmed empirically)
         assertThat(listenerRegistry.getListenerContainers()).singleElement().satisfies(container -> await()
                 .atMost(PROCESSING_TIMEOUT)
                 .untilAsserted(() -> assertThat(((DefaultMessageListenerContainer) container).isRegisteredWithDestination()).isTrue()));
@@ -58,7 +62,10 @@ class NotificationFlowIntegrationTest extends EmbeddedBrokerIntegrationTestBase 
         final EnforcementNotificationEntity notification = awaitFinal(notificationId);
 
         assertThat(notification.getStatus()).isEqualTo(NotificationStatus.PUBLISHED);
-        STUBS.verify(1, getRequestedFor(urlEqualTo(RESULTS_PATH + HEARING_ID)));
+        // feature 005 (research.md R4, FR-010) independently calls the same Results query from its own task chain
+        // (ResolveResultNotificationTask, MatchResultNotificationTask), so this is no longer exactly 1 - only that
+        // stage 1 itself didn't loop; GOB (line below) is the assertion that still must be exactly 1
+        STUBS.verify(moreThanOrExactly(1), getRequestedFor(urlEqualTo(RESULTS_PATH + HEARING_ID)));
         STUBS.verify(1, postRequestedFor(urlEqualTo(GATEWAY_PATH)));
         final List<String> events = publishedGobDataEvents();
         assertThat(events).singleElement().satisfies(event -> {
@@ -135,7 +142,10 @@ class NotificationFlowIntegrationTest extends EmbeddedBrokerIntegrationTestBase 
         assertThat(notification.getFailedStage()).isEqualTo(FailedStage.PROCESS);
         assertThat(notification.getLastError()).isEqualTo("RESULTS_UNAVAILABLE");
         assertThat(notification.getNextReplayAt()).isNotNull();
-        assertThat(STUBS.findAll(getRequestedFor(urlEqualTo(RESULTS_PATH + HEARING_ID)))).hasSize(4); // first attempt + 3 retries
+        // feature 005's own independent task chain (research.md R4, FR-010) also calls this same endpoint and
+        // retries independently against the same always-503 stub, so the exact total is no longer deterministic
+        // here - only that stage 1 itself made its own first attempt + 3 retries, never fewer
+        assertThat(STUBS.findAll(getRequestedFor(urlEqualTo(RESULTS_PATH + HEARING_ID)))).hasSizeGreaterThanOrEqualTo(4);
         STUBS.verify(0, postRequestedFor(urlEqualTo(GATEWAY_PATH)));
         assertThat(publishedGobDataEvents()).isEmpty();
     }

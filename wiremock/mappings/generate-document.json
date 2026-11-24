@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "name": "generate-document BYO-FS command: accepted (completion is event-driven, not in this response - contracts/system-doc-generator-byo-fs.md; path assumed pending plan.md D4 re-check against team/CHD-2786 HEAD)",
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/systemdocgenerator-command-api/command/api/rest/systemdocgenerator/documents/generate-document"
+      },
+      "response": {
+        "status": 202
+      }
+    }
+  ]
+}

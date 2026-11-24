@@ -40,8 +40,10 @@ class EnforcementNotificationApiIntegrationTest extends EmbeddedBrokerIntegratio
 
         final UUID notificationId = UUID.fromString(Fixtures.MAPPER.readTree(response).path("notificationId").asString());
         assertThat(notification(notificationId).getHearingId()).isEqualTo(HEARING_ID);
-        // stage 1 is queued in the same transaction; it keeps retrying (results unavailable: 404), so its job is still there
-        assertThat(jobsRepository.count()).isEqualTo(jobsBefore + 1);
+        // stage 1 is queued in the same transaction; it keeps retrying (results unavailable: 404), so its job is still
+        // there - feature 005 (research.md R4, FR-010) queues a second, fully independent job for the same
+        // notification in that same transaction, so a valid notification now always queues exactly two jobs
+        assertThat(jobsRepository.count()).isEqualTo(jobsBefore + 2);
         assertThat(notification(notificationId).getStatus()).isIn(NotificationStatus.RECEIVED, NotificationStatus.PROCESSING);
         assertThat(notificationNowRepository.findByNotificationId(notificationId)).singleElement()
                 .satisfies(now -> assertThat(now.getRequestId()).isEqualTo(requestId));

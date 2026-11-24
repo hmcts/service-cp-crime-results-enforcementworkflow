@@ -121,7 +121,7 @@ class ResultCodeResolverTest {
     @Test
     void lookup_should_fall_back_to_hearing_day_when_ordered_date_is_missing() {
         final HearingResultedEvent.JudicialResult undated =
-                new HearingResultedEvent.JudicialResult(UUID.randomUUID(), SC_TYPE, "label", null, List.of(), null, null);
+                new HearingResultedEvent.JudicialResult(UUID.randomUUID(), SC_TYPE, "label", null, List.of(), null, null, null);
         final HearingResultedEvent event = withResults(List.of(undated), List.of(), List.of());
 
         assertThat(resolver.resolve(event, defendantOf(event)).gobCodes()).containsExactly("SC");
@@ -132,7 +132,7 @@ class ResultCodeResolverTest {
     @Test
     void lookup_should_use_the_ordered_date_of_the_result() {
         final HearingResultedEvent.JudicialResult earlier =
-                new HearingResultedEvent.JudicialResult(UUID.randomUUID(), SC_TYPE, "label", LocalDate.parse("2026-04-20"), List.of(), null, null);
+                new HearingResultedEvent.JudicialResult(UUID.randomUUID(), SC_TYPE, "label", LocalDate.parse("2026-04-20"), List.of(), null, null, null);
         final HearingResultedEvent event = withResults(List.of(earlier), List.of(), List.of());
 
         assertThat(resolver.resolve(event, defendantOf(event)).gobCodes()).containsExactly("SC");
@@ -161,7 +161,7 @@ class ResultCodeResolverTest {
     @Test
     void each_result_should_keep_its_offence_ids_codes_and_adjournment_marker() {
         final HearingResultedEvent.JudicialResult adjournment = new HearingResultedEvent.JudicialResult(UUID.randomUUID(), PGPAY_TYPE,
-                "next hearing", LocalDate.parse("2026-05-03"), List.of(), null, Map.of("listedStartDateTime", "x"));
+                "next hearing", LocalDate.parse("2026-05-03"), List.of(), null, Map.of("listedStartDateTime", "x"), null);
         final HearingResultedEvent.JudicialResult offenceResult = result(SC_TYPE);
         final HearingResultedEvent.JudicialResult caseResult = result(WC_TYPE);
         final HearingResultedEvent event = withResults(List.of(offenceResult, adjournment), List.of(caseResult), List.of());
@@ -192,11 +192,11 @@ class ResultCodeResolverTest {
                 new HearingResultedEvent.JudicialResultPrompt("test-ref-a", "label a", "value a"),
                 new HearingResultedEvent.JudicialResultPrompt("test-ref-b", "label b", "value b"));
         final HearingResultedEvent.JudicialResult withPrompts = new HearingResultedEvent.JudicialResult(UUID.randomUUID(), SC_TYPE,
-                "sc", LocalDate.parse("2026-05-03"), prompts, null, null);
+                "sc", LocalDate.parse("2026-05-03"), prompts, null, null, null);
         final HearingResultedEvent.JudicialResult caseWithPrompts = new HearingResultedEvent.JudicialResult(UUID.randomUUID(), WC_TYPE,
-                "wc", LocalDate.parse("2026-05-03"), prompts, null, null);
+                "wc", LocalDate.parse("2026-05-03"), prompts, null, null, null);
         final HearingResultedEvent.JudicialResult noPrompts = new HearingResultedEvent.JudicialResult(UUID.randomUUID(), PGPAY_TYPE,
-                "pgpay", LocalDate.parse("2026-05-03"), null, null, null);
+                "pgpay", LocalDate.parse("2026-05-03"), null, null, null, null);
         final HearingResultedEvent event = withResults(List.of(withPrompts, noPrompts), List.of(caseWithPrompts), List.of());
 
         final List<ResolvedResult> results = resolver.resolve(event, defendantOf(event)).results();

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hmcts:cp:cp-gov-uk-notify-gateway.notification-sent",
+  "title": "notification-sent",
+  "description": "Golden-master result-event contract ported verbatim from cpp-context-notification-notify (see docs/pipeline/legacy-result-event-contract.md). Additive-only evolution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "notificationId",
+    "sentTime"
+  ],
+  "properties": {
+    "notificationId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sentTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sendToAddress": {
+      "type": "string"
+    },
+    "replyToAddress": {
+      "type": "string",
+      "format": "email"
+    },
+    "emailSubject": {
+      "type": "string"
+    },
+    "emailBody": {
+      "type": "string"
+    },
+    "clientContext": {
+      "type": "string"
+    }
+  }
+}

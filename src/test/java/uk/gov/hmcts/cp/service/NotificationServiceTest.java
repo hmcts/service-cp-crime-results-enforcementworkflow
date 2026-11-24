@@ -38,13 +38,15 @@ class NotificationServiceTest {
     private final EnforcementNotificationRepository notifications = mock(EnforcementNotificationRepository.class);
     private final EnforcementNotificationNowRepository nows = mock(EnforcementNotificationNowRepository.class);
     private final NotificationTasks tasks = mock(NotificationTasks.class);
+    private final ResultNotificationTasks resultNotificationTasks = mock(ResultNotificationTasks.class);
     private final PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
     private final NotificationService service;
 
     NotificationServiceTest() {
         properties.setAllowedSystemUsers(new ArrayList<>(List.of(CALLER.toString())));
         when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
-        service = new NotificationService(properties, notifications, nows, tasks, new TransactionTemplate(transactionManager));
+        service = new NotificationService(properties, notifications, nows, tasks, resultNotificationTasks,
+                new TransactionTemplate(transactionManager));
     }
 
     @Test
@@ -60,6 +62,8 @@ class NotificationServiceTest {
         verify(nows).saveAndFlush(new EnforcementNotificationNowEntityMatcher(r1, id).matcher());
         verify(nows).saveAndFlush(new EnforcementNotificationNowEntityMatcher(r2, id).matcher());
         verify(tasks).queueProcess(id);
+        // feature 005 (research.md R4, FR-010): a second, fully independent task chain is always queued too
+        verify(resultNotificationTasks).queueResolve(id);
     }
 
     @Test

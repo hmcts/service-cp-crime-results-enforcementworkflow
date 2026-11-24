@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hmcts:cp:cp-gov-uk-notify-gateway.notification-failed",
+  "title": "notification-failed",
+  "description": "Golden-master result-event contract ported verbatim from cpp-context-notification-notify (see docs/pipeline/legacy-result-event-contract.md). Hand-built field-by-field; failedTask is deliberately dropped. Additive-only evolution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "notificationId",
+    "failedTime",
+    "errorMessage"
+  ],
+  "properties": {
+    "notificationId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "failedTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "errorMessage": {
+      "type": "string"
+    },
+    "statusCode": {
+      "type": "integer"
+    },
+    "clientContext": {
+      "type": "string"
+    }
+  }
+}

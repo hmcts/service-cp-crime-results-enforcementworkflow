@@ -21,7 +21,7 @@ public final class TestEvents {
     }
 
     public static JudicialResult result(final UUID typeId) {
-        return new JudicialResult(UUID.randomUUID(), typeId, "label", LocalDate.parse("2026-05-03"), List.of(), null, null);
+        return new JudicialResult(UUID.randomUUID(), typeId, "label", LocalDate.parse("2026-05-03"), List.of(), null, null, null);
     }
 
     /** The enforcement fixture with the defendant's results replaced at each of the three levels. */
@@ -31,7 +31,8 @@ public final class TestEvents {
         final HearingResultedEvent base = Fixtures.event("hearing-resulted-enforcement.json");
         final ProsecutionCase prosecutionCase = base.hearing().prosecutionCases().getFirst();
         final Defendant d = prosecutionCase.defendants().getFirst();
-        final Offence offence = new Offence(d.offences().getFirst().id(), offenceResults);
+        final Offence offence = new Offence(d.offences().getFirst().id(), offenceResults,
+                d.offences().getFirst().offenceTitle(), d.offences().getFirst().offenceDetails());
         final Defendant defendant = new Defendant(d.id(), d.masterDefendantId(), d.prosecutionAuthorityReference(),
                 d.personDefendant(), d.legalEntityDefendant(), defendantCaseResults, List.of(offence));
         final List<DefendantJudicialResult> hearingLevel = hearingDefendantResults.stream()

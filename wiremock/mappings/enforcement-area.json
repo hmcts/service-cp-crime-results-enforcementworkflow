@@ -1,0 +1,38 @@
+{
+  "mappings": [
+    {
+      "name": "Division Code 010 (Enforcement): resolves to a team inbox",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/reference-data-query-api/query/api/rest/enforcement-area/internal/10"
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "divisionCode": "010", "teamEmail": "enforcement-team@example.gov.uk" }
+      }
+    },
+    {
+      "name": "Division Code 045 (Confiscation): resolves to a team inbox",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/reference-data-query-api/query/api/rest/enforcement-area/internal/45"
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "divisionCode": "045", "teamEmail": "confiscation-team@example.gov.uk" }
+      }
+    },
+    {
+      "name": "Division Code 999: no match (contracts/enforcement-area.md - assumed shape, CIMD-4389 unconfirmed)",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/reference-data-query-api/query/api/rest/enforcement-area/internal/999"
+      },
+      "response": {
+        "status": 404
+      }
+    }
+  ]
+}
