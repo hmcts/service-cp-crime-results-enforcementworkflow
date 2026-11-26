@@ -7,6 +7,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import uk.gov.hmcts.cp.entity.Area;
+import uk.gov.hmcts.cp.entity.CaseMaterialStatus;
 import uk.gov.hmcts.cp.entity.EnforcementResultNotificationEntity;
 import uk.gov.hmcts.cp.entity.NotificationType;
 import uk.gov.hmcts.cp.entity.ResultNotificationStatus;
@@ -32,6 +33,7 @@ class ResultNotificationStoreTest {
     private static final UUID ID = UUID.randomUUID();
     private static final UUID TRIGGER_ID = UUID.randomUUID();
     private static final UUID HEARING_ID = UUID.randomUUID();
+    private static final UUID PROSECUTION_CASE_ID = UUID.randomUUID();
     private static final LocalDate HEARING_DATE = LocalDate.parse("2026-11-24");
     private static final Instant NOW = Instant.parse("2026-11-24T10:00:00Z");
 
@@ -64,7 +66,7 @@ class ResultNotificationStoreTest {
     @Test
     void create_requested_should_build_a_row_with_the_requested_status() {
         final Optional<EnforcementResultNotificationEntity> created = store.createRequested(TRIGGER_ID, HEARING_ID,
-                HEARING_DATE, "REF1", NotificationType.FIRST_SHARE, "URN1", "010", Area.ENFORCEMENT);
+                HEARING_DATE, "REF1", NotificationType.FIRST_SHARE, "URN1", "010", Area.ENFORCEMENT, PROSECUTION_CASE_ID);
 
         assertThat(created).isPresent();
         final EnforcementResultNotificationEntity entity = created.orElseThrow();
@@ -78,6 +80,9 @@ class ResultNotificationStoreTest {
         assertThat(entity.getArea()).isEqualTo(Area.ENFORCEMENT);
         assertThat(entity.getStatus()).isEqualTo(ResultNotificationStatus.REQUESTED);
         assertThat(entity.getId()).isNotNull();
+        // FR-020
+        assertThat(entity.getProsecutionCaseId()).isEqualTo(PROSECUTION_CASE_ID);
+        assertThat(entity.getCaseMaterialStatus()).isEqualTo(CaseMaterialStatus.NOT_STARTED);
     }
 
     // FR-015 / research.md R10: a duplicate/retried fan-out of the same trigger call is not a new row
@@ -86,7 +91,7 @@ class ResultNotificationStoreTest {
         when(repository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("duplicate key"));
 
         assertThat(store.createRequested(TRIGGER_ID, HEARING_ID, HEARING_DATE, "REF1", NotificationType.FIRST_SHARE, "URN1",
-                "010", Area.ENFORCEMENT)).isEmpty();
+                "010", Area.ENFORCEMENT, PROSECUTION_CASE_ID)).isEmpty();
     }
 
     // constitution IV: relatedReferenceNumber is this row's GOB account number - never logged on the duplicate path
@@ -96,7 +101,7 @@ class ResultNotificationStoreTest {
         when(repository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("duplicate key"));
 
         store.createRequested(TRIGGER_ID, HEARING_ID, HEARING_DATE, "9999999999", NotificationType.FIRST_SHARE, "URN1",
-                "010", Area.ENFORCEMENT);
+                "010", Area.ENFORCEMENT, PROSECUTION_CASE_ID);
 
         assertThat(output.getAll()).doesNotContain("9999999999");
     }
@@ -214,6 +219,67 @@ class ResultNotificationStoreTest {
         store.markDocFailed(ID, tooLong);
 
         assertThat(saved().getLastError()).hasSize(255);
+    }
+
+    // FR-020
+    @Test
+    void allocate_material_id_should_generate_and_persist_one_and_set_uploading() {
+        givenStoredEntity();
+
+        final UUID materialId = store.allocateMaterialId(ID);
+
+        assertThat(materialId).isNotNull();
+        final EnforcementResultNotificationEntity entity = saved();
+        assertThat(entity.getMaterialId()).isEqualTo(materialId);
+        assertThat(entity.getCaseMaterialStatus()).isEqualTo(CaseMaterialStatus.UPLOADING);
+    }
+
+    @Test
+    void allocate_material_id_should_reuse_an_existing_one_on_retry() {
+        final EnforcementResultNotificationEntity existing = entity();
+        final UUID existingMaterialId = UUID.randomUUID();
+        existing.setMaterialId(existingMaterialId);
+        when(repository.findById(ID)).thenReturn(Optional.of(existing));
+
+        final UUID materialId = store.allocateMaterialId(ID);
+
+        assertThat(materialId).isEqualTo(existingMaterialId);
+    }
+
+    @Test
+    void mark_case_material_uploaded_should_update_the_status() {
+        givenStoredEntity();
+
+        store.markCaseMaterialUploaded(ID);
+
+        assertThat(saved().getCaseMaterialStatus()).isEqualTo(CaseMaterialStatus.UPLOADED);
+    }
+
+    @Test
+    void mark_case_material_attached_should_update_the_status() {
+        givenStoredEntity();
+
+        store.markCaseMaterialAttached(ID);
+
+        assertThat(saved().getCaseMaterialStatus()).isEqualTo(CaseMaterialStatus.ATTACHED);
+    }
+
+    @Test
+    void mark_case_material_upload_failed_should_update_the_status() {
+        givenStoredEntity();
+
+        store.markCaseMaterialUploadFailed(ID, "ProgressionUnavailableException");
+
+        assertThat(saved().getCaseMaterialStatus()).isEqualTo(CaseMaterialStatus.UPLOAD_FAILED);
+    }
+
+    @Test
+    void mark_case_material_attach_failed_should_update_the_status() {
+        givenStoredEntity();
+
+        store.markCaseMaterialAttachFailed(ID, "ProgressionUnavailableException");
+
+        assertThat(saved().getCaseMaterialStatus()).isEqualTo(CaseMaterialStatus.ATTACH_FAILED);
     }
 
     private void givenStoredEntity() {

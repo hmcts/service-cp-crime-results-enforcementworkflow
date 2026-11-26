@@ -318,6 +318,12 @@ deliberately made to fail, and vice versa — the two outcomes never block or de
       Call 1 and Call 2, success + failure) and write `contracts/progression-court-document.md` documenting the
       confirmed two-call sequence (data-model.md already has the detail; this file is the contract-doc copy per
       Principle II convention)
+- [X] T069 [US3] **Found during implementation (plan.md D15), not originally planned**: `DOC_READY` fanning out
+      to two independent tasks writing the same row concurrently has no conflict detection, causing a confirmed
+      lost update (`material_id` silently overwritten) in the positive-path integration test. Fixed: migration
+      `V1.013__add_version_to_enforcement_result_notification.sql` + `@Version` on
+      `EnforcementResultNotificationEntity` - a conflict now throws an exception every task's existing generic
+      `catch (RuntimeException e)` already retries, so no task code changed
 
 **Checkpoint**: User Stories 1, 2, AND 3 (CIMD-4548, CIMD-4543, FR-020) all work independently and together.
 
@@ -325,21 +331,21 @@ deliberately made to fail, and vice versa — the two outcomes never block or de
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T069 [P] Run `quickstart.md`'s full validation sequence (all smoke tests, including Case Material
+- [ ] T070 [P] Run `quickstart.md`'s full validation sequence (all smoke tests, including Case Material
       attachment) against a local stack
-- [X] T070 [P] Confirm 100% unit test coverage across every new class listed in plan.md's Source Code tree
+- [X] T071 [P] Confirm 100% unit test coverage across every new class listed in plan.md's Source Code tree
       (constitution Principle VII) — close any gap found
-- [ ] T071 [P] `./gradlew build` including PMD (`pmdMain`, `pmdTest`) clean, no suppressions without an inline
+- [ ] T072 [P] `./gradlew build` including PMD (`pmdMain`, `pmdTest`) clean, no suppressions without an inline
       justification
-- [ ] T072 Re-verify plan.md's D1 (`enforcement_area` contract), D4 (`team/CHD-2786` current HEAD), D8 (Artemis
+- [ ] T073 Re-verify plan.md's D1 (`enforcement_area` contract), D4 (`team/CHD-2786` current HEAD), D8 (Artemis
       selector), and D13 (Progression system-user registration) against their real-world state immediately before
       this feature's go-live
-- [ ] T073 Write the ADR required by constitution Principle IV / plan.md D2 (data-at-rest treatment for
+- [ ] T074 Write the ADR required by constitution Principle IV / plan.md D2 (data-at-rest treatment for
       `result_short_codes`) before this table is first written in any real environment
-- [ ] T074 Confirm Workload Identity RBAC (plan.md D3) is granted on the new Blob container and the
+- [ ] T075 Confirm Workload Identity RBAC (plan.md D3) is granted on the new Blob container and the
       `ng-send-email`/`enforcementworkflow-notification-result` Service Bus queues before deployment to any real
       environment
-- [ ] T075 `mvn clean && ./runIntegrationTests.sh` (or this repo's documented IT command) green, per CLAUDE.md's
+- [ ] T076 `mvn clean && ./runIntegrationTests.sh` (or this repo's documented IT command) green, per CLAUDE.md's
       hard rule
 
 ---
@@ -372,7 +378,7 @@ deliberately made to fail, and vice versa — the two outcomes never block or de
 - Within US1: T038–T043 (all test tasks) in parallel.
 - Within US2: T046–T051 (all test tasks) in parallel.
 - Within US3: T056–T059 (all test tasks) in parallel; US3 as a whole can run in parallel with US2.
-- T069–T071 (Polish) in parallel.
+- T070–T072 (Polish) in parallel.
 
 ---
 

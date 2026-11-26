@@ -1,5 +1,6 @@
 package uk.gov.hmcts.cp.integration;
 
+import com.azure.core.util.BinaryData;
 import com.azure.messaging.servicebus.ServiceBusSenderClient;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
@@ -30,6 +31,8 @@ public class ResultNotificationTestFakesConfig {
             final BlobClient blobClient = mock(BlobClient.class);
             when(blobClient.getBlobUrl()).thenReturn("https://fake-storage.blob.core.windows.net/result-notification/" + blobName);
             when(blobClient.deleteIfExists()).thenReturn(true);
+            // FR-020: UploadCaseMaterialTask reads the rendered PDF back out via downloadDocument(...)
+            when(blobClient.downloadContent()).thenReturn(BinaryData.fromBytes("fake-pdf-bytes".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
             return blobClient;
         });
         return containerClient;

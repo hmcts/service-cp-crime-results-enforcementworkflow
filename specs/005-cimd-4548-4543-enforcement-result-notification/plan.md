@@ -93,7 +93,7 @@ existing trigger endpoint verbatim (no new inbound endpoint, no Function App cha
 | Architecture constraints | New `client`/`config`/`service`/`entity`/`repository` files follow the existing template package layout. Azure Blob/Service Bus SDKs are ordinary new dependencies, not changes to a `cpp-context-*` repository. `cp-task-manager`'s `jobs` table is already workflow-owned (feature 003's migrations) — no new DDL needed for the task-manager itself, only this feature's own new table. | Pass |
 | Dev workflow | Branch `dev/cct1222-email-notification` does not follow the `005-…` naming convention — same situation feature 003 already hit and justified (see Complexity Tracking). `/speckit-analyze` must report no CRITICAL/HIGH findings before `/speckit-implement`, consistent with this file's Dependencies table. | Pass (justified) |
 
-**Gate result**: passes, with fourteen open dependencies (D1–D14) tracked below — none blocks `/speckit-tasks`,
+**Gate result**: passes, with fifteen open dependencies (D1–D15) tracked below — none blocks `/speckit-tasks`,
 each has a named owner and a safe interim per constitution IX. D9 (FR-008 amendment-reason source) was added
 after `/speckit-analyze` flagged it as a coverage gap and should be resolved before `/speckit-implement` closes
 out FR-008. D10 (Docmosis templates) is confirmed to be entirely `cpp-context-system-doc-generator`'s own scope,
@@ -147,7 +147,8 @@ src/main/java/uk/gov/hmcts/cp/
 └── event/    HearingResultedEvent  # changed: Offence gains offenceTitle/offenceDetails; JudicialResult gains resultLabel (additive)
 
 src/main/resources/db/migration/V1.011__create_enforcement_result_notification.sql
-src/main/resources/db/migration/V1.012__add_case_material_to_enforcement_result_notification.sql  # material_id, case_material_status (FR-020)
+src/main/resources/db/migration/V1.012__add_case_material_to_enforcement_result_notification.sql  # material_id, case_material_status, prosecution_case_id (FR-020)
+src/main/resources/db/migration/V1.013__add_version_to_enforcement_result_notification.sql  # @Version optimistic locking - found during implementation, see D15
 src/main/resources/application.yaml                   # new cp.* sections, + cp.progression.*
 
 src/test/java/uk/gov/hmcts/cp/ (unit tests per new class, 100% coverage target)
@@ -179,6 +180,7 @@ introduced beyond what the template already defines); this feature only adds fil
 | D12 | **Traceability**: the Session 2026-11-24 clarification reversed FR-011/FR-012 to gate the amend-reshare path by the same trigger-shortCode list as first-share, reasoning only from an internal consistency concern (Acceptance Scenario 3's "no previous share to diff against" case) — without checking the real Jira ACs, which had not yet been fetched. That reversal is now confirmed wrong: CIMD-4543's actual acceptance criteria (fetched directly 2026-11-26) state explicitly that no shortCode gate applies to the A&R path (AC4/AC5/AC7). The original "no filter on reshare" design was correct all along; the concern that motivated the reversal was already independently handled by `ResultNotificationPayloadBuilder`'s existing `previous: null, changed: true` handling for a reshare with no prior SENT row. Corrected via Clarification 2026-11-26 across spec.md/plan.md/data-model.md/tasks.md | Avoiding repeat of this error; a reminder to ground clarifications in source tickets, not just internal consistency | Developer — closed, no further action needed beyond the correction itself |
 | D13 | FR-020 (Case Material attachment) needs a new CJSCPPUID system user registered and allow-listed on `cpp-context-progression`'s `progression-command-api`, the same shape as D1's existing `enforcement_area` dependency — no self-service path for this | `ProgressionClient` finalisation / go-live | Progression team, cross-team registration request |
 | D14 | `team/CHD-2786`-rendered PDF is read back out of this service's own Blob container (`destination_file_uri`) and re-uploaded as multipart bytes to Progression — an extra read this feature did not previously need; confirm the blob read pattern (`ResultNotificationBlobClient` extension) before coding `UploadCaseMaterialTask` | `ProgressionClient`'s Call 1 (multipart upload) | Developer, low-risk — straightforward blob download, same container already in use |
+| D15 | **Found and fixed during implementation**: `DOC_READY` fanning out to two fully independent tasks writing to the same row concurrently (FR-020) has no precedent anywhere else in this feature's design - every prior stage ran strictly sequentially. Confirmed via the integration test: a plain read-modify-save lost a concurrently-committed `material_id`. Fixed by adding `@Version` optimistic locking (`V1.013`) - a conflict now throws an exception every task's existing generic retry path already handles, no task code changed | Any future stage this feature (or a similar one) adds that writes to the same row from more than one independent task | Developer — closed, fixed via V1.013; flagging for awareness since this class of bug has no other guard in this codebase (no other entity here uses `@Version`) |
 
 Suggested iteration order (constitution IX): (1) data model + `ResolveResultNotificationTask`/
 `MatchResultNotificationTask` against WireMock stubs (positive path, FIRST_SHARE) → (2) `DocGeneratorEventListener`

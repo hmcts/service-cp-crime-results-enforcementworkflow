@@ -36,6 +36,16 @@ class DocGeneratorEventListenerTest {
         verify(tasks).queueDispatchEmail(ID);
     }
 
+    // FR-020: queued alongside, never instead of, the email dispatch
+    @Test
+    void document_available_should_also_queue_the_case_material_upload() {
+        when(store.find(ID)).thenReturn(Optional.of(new EnforcementResultNotificationEntity()));
+
+        listener.handle("public.systemdocgenerator.events.document-available", body(ID));
+
+        verify(tasks).queueUploadCaseMaterial(ID);
+    }
+
     @Test
     void generation_failed_should_mark_doc_failed_with_the_reason() {
         when(store.find(ID)).thenReturn(Optional.of(new EnforcementResultNotificationEntity()));
@@ -71,6 +81,7 @@ class DocGeneratorEventListenerTest {
 
         verify(store, never()).markDocReady(any());
         verify(tasks, never()).queueDispatchEmail(any());
+        verify(tasks, never()).queueUploadCaseMaterial(any());
     }
 
     @Test

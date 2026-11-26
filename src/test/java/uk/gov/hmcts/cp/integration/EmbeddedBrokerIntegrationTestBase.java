@@ -47,6 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "cp.enforcement-gateway.read-timeout=1s",
     "cp.notification.allowed-system-users=" + EmbeddedBrokerIntegrationTestBase.FUNCTION_APP_USER,
     "cp.notification.retry-durations=1s,1s,1s",
+    "cp.result-notification.retry-durations=1s,1s,1s",
     "job.executor.poll-interval=200"
 })
 @Import(ResultNotificationTestFakesConfig.class)

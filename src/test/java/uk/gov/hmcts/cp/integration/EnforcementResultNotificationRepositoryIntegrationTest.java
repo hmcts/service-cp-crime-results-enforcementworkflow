@@ -4,6 +4,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import uk.gov.hmcts.cp.entity.Area;
+import uk.gov.hmcts.cp.entity.CaseMaterialStatus;
 import uk.gov.hmcts.cp.entity.EnforcementResultNotificationEntity;
 import uk.gov.hmcts.cp.entity.NotificationType;
 import uk.gov.hmcts.cp.entity.ResultNotificationStatus;
@@ -77,6 +78,7 @@ class EnforcementResultNotificationRepositoryIntegrationTest extends Integration
         entity.setCaseUrn("URN-OTHER");
         entity.setStatus(ResultNotificationStatus.SENT);
         entity.setResultShortCodes("[\"other-hearing\"]");
+        entity.setCaseMaterialStatus(CaseMaterialStatus.NOT_STARTED);
         repository.saveAndFlush(entity);
 
         assertThat(repository.findPreviousShareSnapshot(HEARING_ID, REFERENCE).orElseThrow().getResultShortCodes())
@@ -104,6 +106,7 @@ class EnforcementResultNotificationRepositoryIntegrationTest extends Integration
         entity.setCaseUrn("URN123");
         entity.setStatus(status);
         entity.setResultShortCodes(resultShortCodes);
+        entity.setCaseMaterialStatus(CaseMaterialStatus.NOT_STARTED);
         return repository.saveAndFlush(entity);
     }
 }

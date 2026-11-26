@@ -15,7 +15,9 @@ import java.util.UUID;
  * of its own - two containers each needing the service-wide {@code spring.jms.client-id} fails with
  * {@code InvalidClientIDException}). Matches {@code sourceCorrelationId} against this feature's own row id and
  * {@code originatingSource} against this service's own identifier; anything else is ignored (another service's
- * correlation id could coincidentally share the topic).
+ * correlation id could coincidentally share the topic). On {@code document-available}, queues both
+ * {@code DISPATCH_RESULT_NOTIFICATION_EMAIL} and (FR-020) {@code UPLOAD_CASE_MATERIAL} - two fully independent
+ * branches off the same {@code DOC_READY} state (FR-010 extended to FR-020).
  */
 @Slf4j
 @Component
@@ -41,6 +43,8 @@ public class DocGeneratorEventListener {
             if (CPPNAME_DOCUMENT_AVAILABLE.equals(cppname)) {
                 store.markDocReady(rowId);
                 tasks.queueDispatchEmail(rowId);
+                // FR-020: independent of the email path (FR-010) - queued alongside, not nested inside, dispatch
+                tasks.queueUploadCaseMaterial(rowId);
             } else if (CPPNAME_GENERATION_FAILED.equals(cppname)) {
                 store.markDocFailed(rowId, event.reason());
             } else {

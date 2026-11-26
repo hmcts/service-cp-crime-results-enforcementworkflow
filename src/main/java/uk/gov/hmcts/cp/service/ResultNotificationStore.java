@@ -7,6 +7,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 import uk.gov.hmcts.cp.entity.Area;
+import uk.gov.hmcts.cp.entity.CaseMaterialStatus;
 import uk.gov.hmcts.cp.entity.EnforcementResultNotificationEntity;
 import uk.gov.hmcts.cp.entity.NotificationType;
 import uk.gov.hmcts.cp.entity.ResultNotificationStatus;
@@ -59,7 +60,8 @@ public class ResultNotificationStore {
     public Optional<EnforcementResultNotificationEntity> createRequested(final UUID triggerNotificationId, final UUID hearingId,
                                                                          final LocalDate hearingDate, final String relatedReferenceNumber,
                                                                          final NotificationType notificationType, final String caseUrn,
-                                                                         final String divisionCode, final Area area) {
+                                                                         final String divisionCode, final Area area,
+                                                                         final UUID prosecutionCaseId) {
         final EnforcementResultNotificationEntity entity = new EnforcementResultNotificationEntity();
         entity.setId(UUID.randomUUID());
         entity.setTriggerNotificationId(triggerNotificationId);
@@ -73,6 +75,10 @@ public class ResultNotificationStore {
         entity.setDivisionCode(divisionCode);
         entity.setArea(area);
         entity.setStatus(ResultNotificationStatus.REQUESTED);
+        // FR-020: prosecutionCaseId is available here alongside caseUrn; persisting it now lets UploadCaseMaterialTask
+        // read it from the row later without re-fetching the hearing event (independence principle, FR-010)
+        entity.setProsecutionCaseId(prosecutionCaseId);
+        entity.setCaseMaterialStatus(CaseMaterialStatus.NOT_STARTED);
         Optional<EnforcementResultNotificationEntity> created;
         try {
             created = requiresNew.execute(status -> Optional.of(repository.saveAndFlush(entity)));
@@ -138,6 +144,38 @@ public class ResultNotificationStore {
     /** FR-018: only after {@code notification-sent} confirms delivery - never before. */
     public void markPurged(final UUID id) {
         update(id, n -> n.setPurgedAt(Instant.now(clock)));
+    }
+
+    /** FR-020: generates and persists {@code material_id} once; a retry must reuse it, never re-generate. */
+    public UUID allocateMaterialId(final UUID id) {
+        return requiresNew.execute(status -> {
+            final EnforcementResultNotificationEntity entity = repository.findById(id).orElseThrow();
+            if (entity.getMaterialId() == null) {
+                entity.setMaterialId(UUID.randomUUID());
+            }
+            entity.setCaseMaterialStatus(CaseMaterialStatus.UPLOADING);
+            return repository.saveAndFlush(entity).getMaterialId();
+        });
+    }
+
+    public void markCaseMaterialUploaded(final UUID id) {
+        update(id, n -> n.setCaseMaterialStatus(CaseMaterialStatus.UPLOADED));
+    }
+
+    public void markCaseMaterialAttached(final UUID id) {
+        update(id, n -> n.setCaseMaterialStatus(CaseMaterialStatus.ATTACHED));
+    }
+
+    // error is logged, not persisted - case_material_status has no dedicated error column of its own, unlike the
+    // email path's shared last_error
+    public void markCaseMaterialUploadFailed(final UUID id, final String error) {
+        log.info("Enforcement result notification {} UPLOAD_FAILED: error={}", id, error);
+        update(id, n -> n.setCaseMaterialStatus(CaseMaterialStatus.UPLOAD_FAILED));
+    }
+
+    public void markCaseMaterialAttachFailed(final UUID id, final String error) {
+        log.info("Enforcement result notification {} ATTACH_FAILED: error={}", id, error);
+        update(id, n -> n.setCaseMaterialStatus(CaseMaterialStatus.ATTACH_FAILED));
     }
 
     private void update(final UUID id, final Consumer<EnforcementResultNotificationEntity> change) {

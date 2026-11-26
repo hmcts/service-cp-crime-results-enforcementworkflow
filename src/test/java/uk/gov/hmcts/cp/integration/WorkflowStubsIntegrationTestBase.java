@@ -90,6 +90,8 @@ public abstract class WorkflowStubsIntegrationTestBase extends IntegrationTestBa
         // feature 005: same WireMock server, new paths (contracts/enforcement-area.md, system-doc-generator-byo-fs.md)
         registry.add("cp.enforcement-area.base-url", STUBS::baseUrl);
         registry.add("cp.doc-generator.base-url", STUBS::baseUrl);
+        // feature 005 FR-020: contracts/progression-court-document.md
+        registry.add("cp.progression.base-url", STUBS::baseUrl);
     }
 
     @BeforeEach

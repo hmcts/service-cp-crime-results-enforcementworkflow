@@ -2,9 +2,9 @@ package uk.gov.hmcts.cp.entity;
 
 /**
  * States of an {@code enforcement_result_notification} row (feature 005, data-model.md). {@link #SUPPRESSED} is
- * reachable from both {@link NotificationType#FIRST_SHARE} and {@link NotificationType#AMEND_RESHARE} (research.md
- * R9, Clarification 2026-11-24: the FR-011 trigger-shortCode gate is re-evaluated fresh on every reshare, not only
- * on a first share).
+ * reachable from {@link NotificationType#FIRST_SHARE} only (corrected 2026-11-26 against CIMD-4543's real Jira
+ * acceptance criteria - AMEND_RESHARE has no shortCode gate at all, see plan.md D12, and so can never reach this
+ * state).
  */
 public enum ResultNotificationStatus {
     REQUESTED,

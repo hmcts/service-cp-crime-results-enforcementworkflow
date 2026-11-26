@@ -55,6 +55,12 @@ public class ResultNotificationBlobClient {
         return containerClient.getBlobClient(ResultNotificationBlobProperties.documentBlobName(notificationId)).getBlobUrl();
     }
 
+    /** FR-020: reads the rendered PDF back out, to re-upload it to {@code cpp-context-progression}'s File Store. */
+    public byte[] downloadDocument(final UUID notificationId) {
+        return containerClient.getBlobClient(ResultNotificationBlobProperties.documentBlobName(notificationId))
+                .downloadContent().toBytes();
+    }
+
     /** Deletes both blobs for a row that reached {@code SENT} (FR-018); a blob that was never uploaded is a no-op. */
     public void purge(final UUID notificationId) {
         containerClient.getBlobClient(ResultNotificationBlobProperties.payloadBlobName(notificationId)).deleteIfExists();

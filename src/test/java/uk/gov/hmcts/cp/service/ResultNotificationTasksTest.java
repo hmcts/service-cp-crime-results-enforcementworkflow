@@ -54,6 +54,16 @@ class ResultNotificationTasksTest {
         assertThat(ResultNotificationTasks.resultNotificationIdOf(queued.getJobData())).isEqualTo(ID);
     }
 
+    // FR-020
+    @Test
+    void upload_case_material_should_queue_with_the_result_notification_id() {
+        tasks.queueUploadCaseMaterial(ID);
+
+        final ExecutionInfo queued = queued();
+        assertThat(queued.getAssignedTaskName()).isEqualTo(ResultNotificationTasks.UPLOAD_CASE_MATERIAL);
+        assertThat(ResultNotificationTasks.resultNotificationIdOf(queued.getJobData())).isEqualTo(ID);
+    }
+
     private ExecutionInfo queued() {
         final ArgumentCaptor<ExecutionInfo> captor = ArgumentCaptor.forClass(ExecutionInfo.class);
         verify(executionService).executeWith(captor.capture());

@@ -112,6 +112,14 @@ cp:
     base-url: ${DOC_GENERATOR_URL:http://localhost:8089}
     connect-timeout: 5s
     read-timeout: 10s
+  # Feature 005 FR-020: Case Material attachment via cpp-context-progression's progression-command-api
+  # (contracts/progression-court-document.md). cjscppuid must be registered/allow-listed on Progression's side
+  # before go-live (plan.md D13).
+  progression:
+    base-url: ${PROGRESSION_URL:http://localhost:8090}
+    cjscppuid: ${PROGRESSION_CJSCPPUID:}
+    connect-timeout: 5s
+    read-timeout: 10s
   hearing-result:
     result-code-renames:
       TFOUT: TFOOUT

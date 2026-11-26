@@ -62,6 +62,27 @@ public class RestClientConfig {
         return builderWithTimeouts(docGenerator.getConnectTimeout(), docGenerator.getReadTimeout());
     }
 
+    /**
+     * Feature 005 FR-020: Case Material attachment via {@code cpp-context-progression}'s command-api. Forces
+     * HTTP/1.1 (unlike {@link #builderWithTimeouts}'s default H2 negotiation) - the multipart upload call was found
+     * to intermittently receive an {@code RST_STREAM} reset over H2 against a test HTTP/2 server; HTTP/1.1 is also
+     * the better match for a traditional servlet-based command-api, so this is scoped to this one client only, not
+     * a blanket change to every other client sharing {@link #builderWithTimeouts}.
+     */
+    @Bean(name = "progressionRestClientBuilder")
+    @Scope(PROTOTYPE)
+    public RestClient.Builder progressionRestClientBuilder(final ClientProperties properties) {
+        final ClientProperties.Progression progression = properties.getProgression();
+        @SuppressWarnings("PMD.CloseResource") // wrapped into requestFactory below and kept open for the bean's lifetime, not closed here
+        final HttpClient httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(progression.getConnectTimeout())
+                .build();
+        final JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(progression.getReadTimeout());
+        return RestClient.builder().requestFactory(requestFactory);
+    }
+
     /* default */ static RestClient.Builder builderWithTimeouts(final Duration connectTimeout, final Duration readTimeout) {
         @SuppressWarnings("PMD.CloseResource") // wrapped into requestFactory below and kept open for the bean's lifetime, not closed here
         final HttpClient httpClient = HttpClient.newBuilder()

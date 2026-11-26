@@ -103,7 +103,8 @@ public class ResolveResultNotificationTask implements ExecutableTask {
             final String relatedReferenceNumber = defendant.get().prosecutionAuthorityReference();
             final DivisionCode divisionCode = DivisionCode.from(relatedReferenceNumber);
             store.createRequested(trigger.getId(), trigger.getHearingId(), trigger.getHearingDate(),
-                    relatedReferenceNumber, notificationType, caseUrn, divisionCode.value(), divisionCode.areaFor(properties))
+                    relatedReferenceNumber, notificationType, caseUrn, divisionCode.value(), divisionCode.areaFor(properties),
+                    prosecutionCase.get().id())
                     .ifPresent(this::queueMatch);
         } else {
             log.info("Enforcement result notification resolve: hearing {} out of scope, no row created", event.hearing().id());

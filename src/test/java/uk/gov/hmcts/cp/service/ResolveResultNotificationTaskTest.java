@@ -48,7 +48,7 @@ class ResolveResultNotificationTaskTest {
         when(notificationStore.find(TRIGGER_ID)).thenReturn(Optional.empty());
 
         assertThat(task.execute(info(3)).getExecutionStatus()).isEqualTo(ExecutionStatus.COMPLETED);
-        verify(store, never()).createRequested(any(), any(), any(), any(), any(), any(), any(), any());
+        verify(store, never()).createRequested(any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -68,7 +68,7 @@ class ResolveResultNotificationTaskTest {
         when(resultsSource.sharedResults(HEARING_ID, DAY, false)).thenReturn(Optional.empty());
 
         assertThat(task.execute(info(1)).getExecutionStatus()).isEqualTo(ExecutionStatus.COMPLETED);
-        verify(store, never()).createRequested(any(), any(), any(), any(), any(), any(), any(), any());
+        verify(store, never()).createRequested(any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -82,11 +82,15 @@ class ResolveResultNotificationTaskTest {
         final EnforcementResultNotificationEntity created = new EnforcementResultNotificationEntity();
         created.setId(UUID.randomUUID());
         when(store.createRequested(eq(TRIGGER_ID), eq(HEARING_ID), eq(DAY), eq(defendant.prosecutionAuthorityReference()),
-                eq(NotificationType.FIRST_SHARE), any(), any(), any())).thenReturn(Optional.of(created));
+                eq(NotificationType.FIRST_SHARE), any(), any(), any(), any())).thenReturn(Optional.of(created));
 
         assertThat(task.execute(info(3)).getExecutionStatus()).isEqualTo(ExecutionStatus.COMPLETED);
 
         verify(tasks).queueMatch(created.getId());
+        // FR-020: prosecutionCase.id() is persisted at creation time so UploadCaseMaterialTask can read it later
+        // without re-fetching the hearing event
+        verify(store).createRequested(eq(TRIGGER_ID), eq(HEARING_ID), eq(DAY), eq(defendant.prosecutionAuthorityReference()),
+                eq(NotificationType.FIRST_SHARE), any(), any(), any(), eq(event.hearing().prosecutionCases().getFirst().id()));
     }
 
     @Test
@@ -97,13 +101,13 @@ class ResolveResultNotificationTaskTest {
         when(resultsSource.sharedResults(HEARING_ID, DAY, true)).thenReturn(Optional.of(event));
         when(caseSelector.select(event)).thenReturn(new SelectionResult.Reshare(
                 event.hearing().prosecutionCases().getFirst(), defendant));
-        when(store.createRequested(any(), any(), any(), any(), eq(NotificationType.AMEND_RESHARE), any(), any(), any()))
+        when(store.createRequested(any(), any(), any(), any(), eq(NotificationType.AMEND_RESHARE), any(), any(), any(), any()))
                 .thenReturn(Optional.of(new EnforcementResultNotificationEntity()));
 
         task.execute(info(3));
 
         verify(store).createRequested(eq(TRIGGER_ID), eq(HEARING_ID), eq(DAY), eq(defendant.prosecutionAuthorityReference()),
-                eq(NotificationType.AMEND_RESHARE), any(), any(), any());
+                eq(NotificationType.AMEND_RESHARE), any(), any(), any(), any());
     }
 
     @Test
@@ -115,7 +119,7 @@ class ResolveResultNotificationTaskTest {
 
         task.execute(info(3));
 
-        verify(store, never()).createRequested(any(), any(), any(), any(), any(), any(), any(), any());
+        verify(store, never()).createRequested(any(), any(), any(), any(), any(), any(), any(), any(), any());
         verify(tasks, never()).queueMatch(any());
     }
 
@@ -128,7 +132,7 @@ class ResolveResultNotificationTaskTest {
         when(resultsSource.sharedResults(HEARING_ID, DAY, false)).thenReturn(Optional.of(event));
         when(caseSelector.select(event)).thenReturn(new SelectionResult.Selected(
                 event.hearing().prosecutionCases().getFirst(), defendant));
-        when(store.createRequested(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(Optional.empty());
+        when(store.createRequested(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(Optional.empty());
 
         task.execute(info(3));
 

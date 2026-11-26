@@ -1,5 +1,6 @@
 package uk.gov.hmcts.cp.client;
 
+import com.azure.core.util.BinaryData;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.options.BlobParallelUploadOptions;
@@ -79,6 +80,18 @@ class ResultNotificationBlobClientTest {
         blobClient.uploadPayload(NOTIFICATION_ID, NotificationType.AMEND_RESHARE, "{}");
 
         verify(containerClient, org.mockito.Mockito.times(1)).createIfNotExists();
+    }
+
+    // FR-020: reads the rendered PDF back out, to re-upload it to cpp-context-progression's File Store
+    @Test
+    void download_document_should_return_the_pdf_bytes() {
+        givenBlobClients();
+        final byte[] pdfBytes = "pdf-bytes".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        final BinaryData binaryData = mock(BinaryData.class);
+        when(binaryData.toBytes()).thenReturn(pdfBytes);
+        when(documentBlobClient.downloadContent()).thenReturn(binaryData);
+
+        assertThat(blobClient.downloadDocument(NOTIFICATION_ID)).isEqualTo(pdfBytes);
     }
 
     @Test

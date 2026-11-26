@@ -25,6 +25,7 @@ public class ResultNotificationTasks {
     public static final String RESOLVE_RESULT_NOTIFICATION = "RESOLVE_RESULT_NOTIFICATION";
     public static final String MATCH_RESULT_NOTIFICATION = "MATCH_RESULT_NOTIFICATION";
     public static final String DISPATCH_RESULT_NOTIFICATION_EMAIL = "DISPATCH_RESULT_NOTIFICATION_EMAIL";
+    public static final String UPLOAD_CASE_MATERIAL = "UPLOAD_CASE_MATERIAL";
     private static final String TRIGGER_NOTIFICATION_ID = "triggerNotificationId";
     private static final String RESULT_NOTIFICATION_ID = "resultNotificationId";
 
@@ -42,6 +43,11 @@ public class ResultNotificationTasks {
 
     public void queueDispatchEmail(final UUID resultNotificationId) {
         queue(DISPATCH_RESULT_NOTIFICATION_EMAIL, RESULT_NOTIFICATION_ID, resultNotificationId);
+    }
+
+    /** FR-020: queued alongside, never instead of, {@link #queueDispatchEmail} - the two run fully independently. */
+    public void queueUploadCaseMaterial(final UUID resultNotificationId) {
+        queue(UPLOAD_CASE_MATERIAL, RESULT_NOTIFICATION_ID, resultNotificationId);
     }
 
     public static UUID triggerNotificationIdOf(final JsonObject jobData) {

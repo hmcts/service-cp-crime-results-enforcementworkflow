@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -80,11 +81,34 @@ public class EnforcementResultNotificationEntity {
     @Column(name = "purged_at")
     private Instant purgedAt;
 
+    /** FR-020: generated once by {@code UploadCaseMaterialTask}, then reused on retry (never re-generated). */
+    @Column(name = "material_id")
+    private UUID materialId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "case_material_status", nullable = false, length = 20)
+    private CaseMaterialStatus caseMaterialStatus;
+
+    /** FR-020: {@code ProsecutionCase.id()}, captured at row-creation time alongside {@code caseUrn}. */
+    @Column(name = "prosecution_case_id")
+    private UUID prosecutionCaseId;
+
     @Column(name = "received_at", nullable = false)
     private Instant receivedAt;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /**
+     * FR-020: DOC_READY fans out to two fully independent tasks (email dispatch, case material attachment) that
+     * write to this same row concurrently - without optimistic locking, a read-modify-save from one can silently
+     * overwrite the other's concurrently-committed columns. A conflict here throws
+     * {@link org.springframework.orm.ObjectOptimisticLockingFailureException}, a {@link RuntimeException} every
+     * task already retries generically - no task-level change needed.
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     @PrePersist
     @PreUpdate

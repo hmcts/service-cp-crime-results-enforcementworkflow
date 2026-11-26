@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.jms.core.JmsTemplate;
+import uk.gov.hmcts.cp.entity.CaseMaterialStatus;
 import uk.gov.hmcts.cp.entity.EnforcementResultNotificationEntity;
 import uk.gov.hmcts.cp.entity.ResultNotificationStatus;
 import uk.gov.hmcts.cp.service.ResultNotificationReplyListener;
@@ -20,6 +21,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static uk.gov.hmcts.cp.support.TempDiagnosticsLogFilter.withoutTempDiagnostics;
@@ -30,7 +32,9 @@ import static uk.gov.hmcts.cp.support.TempDiagnosticsLogFilter.withoutTempDiagno
  * single subscription) drives {@code DOC_READY}/{@code DOC_FAILED}, and the gateway's own result event (simulated
  * by calling {@link ResultNotificationReplyListener#handle} directly - research.md R12: no embedded-broker
  * equivalent exists for Azure Service Bus) drives {@code SENT}/{@code EMAIL_FAILED}. Blob and Service Bus SDK
- * clients are faked ({@link ResultNotificationTestFakesConfig}), not real Azure/Azurite.
+ * clients are faked ({@link ResultNotificationTestFakesConfig}), not real Azure/Azurite. FR-020's Case Material
+ * attachment is also exercised here, queued off the same {@code document-available} event, independently of the
+ * email path (FR-010 extended).
  */
 @ExtendWith(OutputCaptureExtension.class)
 class ResultNotificationFlowIntegrationTest extends EmbeddedBrokerIntegrationTestBase {
@@ -43,6 +47,9 @@ class ResultNotificationFlowIntegrationTest extends EmbeddedBrokerIntegrationTes
     private static final String ORIGINATING_SOURCE = "service-cp-crime-results-enforcementworkflow";
     private static final String CPPNAME_DOCUMENT_AVAILABLE = "public.systemdocgenerator.events.document-available";
     private static final String CPPNAME_GENERATION_FAILED = "public.systemdocgenerator.events.generation-failed";
+    // FR-020: materialId is generated at runtime, so the stub matches any UUID in the path
+    private static final String PROGRESSION_COURT_DOCUMENT_PATH_PATTERN =
+            "/progression-command-api/command/api/rest/progression/courtdocument/.*";
 
     @Autowired
     private ResultNotificationReplyListener replyListener;
@@ -60,6 +67,9 @@ class ResultNotificationFlowIntegrationTest extends EmbeddedBrokerIntegrationTes
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
                         .withBody("{\"divisionCode\":\"123\",\"teamEmail\":\"enforcement-team@example.gov.uk\"}")));
         STUBS.stubFor(post(urlEqualTo(DOC_GENERATOR_PATH)).willReturn(aResponse().withStatus(202)));
+        // FR-020: succeeds by default for every test; case_material_failure_should_not_affect_the_independent_email_dispatch
+        // below overrides this to fail only the Case Material path
+        STUBS.stubFor(post(urlPathMatching(PROGRESSION_COURT_DOCUMENT_PATH_PATTERN)).willReturn(aResponse().withStatus(202)));
     }
 
     @Test
@@ -82,6 +92,28 @@ class ResultNotificationFlowIntegrationTest extends EmbeddedBrokerIntegrationTes
         assertThat(withoutTempDiagnostics(output.getAll())).contains(sent.getId().toString())
                 .contains("SENT: caseUrn=E005000501", "divisionCode=123", "teamEmail=enforcement-team@example.gov.uk")
                 .contains("CW");
+        // FR-020: the Case Material attachment reaches ATTACHED independently, alongside the email outcome
+        assertThat(awaitCaseMaterialStatus(triggerNotificationId, CaseMaterialStatus.ATTACHED).getMaterialId()).isNotNull();
+    }
+
+    // FR-010/FR-020: a Case Material failure must never affect email dispatch, and vice versa
+    @Test
+    void case_material_failure_should_not_affect_the_independent_email_dispatch() {
+        STUBS.stubFor(post(urlPathMatching(PROGRESSION_COURT_DOCUMENT_PATH_PATTERN)).willReturn(aResponse().withStatus(503)));
+        final UUID triggerNotificationId = notifyShare(FIXTURE, "result-notif-case-material-failed");
+        final EnforcementResultNotificationEntity docRequested = awaitStatus(triggerNotificationId, ResultNotificationStatus.DOC_REQUESTED);
+
+        publishDocGeneratorEvent(CPPNAME_DOCUMENT_AVAILABLE, docRequested.getId(), null);
+
+        final EnforcementResultNotificationEntity caseMaterialFailed =
+                awaitCaseMaterialStatus(triggerNotificationId, CaseMaterialStatus.UPLOAD_FAILED);
+        assertThat(caseMaterialFailed.getStatus()).isNotEqualTo(ResultNotificationStatus.EMAIL_FAILED);
+
+        replyListener.handle("notification-sent", "{\"notificationId\":\"" + docRequested.getId()
+                + "\",\"sentTime\":\"2026-05-03T14:35:00Z\"}");
+
+        final EnforcementResultNotificationEntity sent = awaitStatus(triggerNotificationId, ResultNotificationStatus.SENT);
+        assertThat(sent.getCaseMaterialStatus()).isEqualTo(CaseMaterialStatus.UPLOAD_FAILED);
     }
 
     @Test
@@ -147,6 +179,14 @@ class ResultNotificationFlowIntegrationTest extends EmbeddedBrokerIntegrationTes
 
     private EnforcementResultNotificationEntity awaitStatus(final UUID triggerNotificationId, final ResultNotificationStatus status) {
         await().atMost(PROCESSING_TIMEOUT).until(() -> rowFor(triggerNotificationId).filter(row -> row.getStatus() == status).isPresent());
+        return rowFor(triggerNotificationId).orElseThrow();
+    }
+
+    // FR-020: polled independently of awaitStatus - the two state machines never gate on each other
+    private EnforcementResultNotificationEntity awaitCaseMaterialStatus(final UUID triggerNotificationId,
+                                                                        final CaseMaterialStatus caseMaterialStatus) {
+        await().atMost(PROCESSING_TIMEOUT)
+                .until(() -> rowFor(triggerNotificationId).filter(row -> row.getCaseMaterialStatus() == caseMaterialStatus).isPresent());
         return rowFor(triggerNotificationId).orElseThrow();
     }
 
