@@ -4,6 +4,7 @@ import com.azure.messaging.servicebus.ServiceBusReceivedMessageContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import uk.gov.hmcts.cp.client.ResultNotificationBlobClient;
 import uk.gov.hmcts.cp.entity.EnforcementResultNotificationEntity;
@@ -80,7 +81,7 @@ public class ResultNotificationReplyListener {
         try {
             final OriginalCommand command = objectMapper.readValue(originalEventPayload, OriginalCommand.class);
             id = command.notificationId() == null ? Optional.empty() : Optional.of(UUID.fromString(command.notificationId()));
-        } catch (RuntimeException e) {
+        } catch (JacksonException | IllegalArgumentException e) {
             log.warn("notification-validation-failed originalEventPayload not readable: {}", e.getClass().getSimpleName());
             id = Optional.empty();
         }

@@ -22,15 +22,17 @@ import java.time.Duration;
 @Configuration
 public class RestClientConfig {
 
+    private static final String PROTOTYPE = "prototype";
+
     @Bean(name = "referenceDataRestClientBuilder")
-    @Scope("prototype")
+    @Scope(PROTOTYPE)
     public RestClient.Builder referenceDataRestClientBuilder(final ClientProperties properties) {
         final ClientProperties.ReferenceData referenceData = properties.getReferenceData();
         return builderWithTimeouts(referenceData.getConnectTimeout(), referenceData.getReadTimeout());
     }
 
     @Bean(name = "enforcementGatewayRestClientBuilder")
-    @Scope("prototype")
+    @Scope(PROTOTYPE)
     public RestClient.Builder enforcementGatewayRestClientBuilder(final ClientProperties properties) {
         final ClientProperties.EnforcementGateway gateway = properties.getEnforcementGateway();
         return builderWithTimeouts(gateway.getConnectTimeout(), gateway.getReadTimeout());
@@ -38,7 +40,7 @@ public class RestClientConfig {
 
     /** Results query (feature 003, research R17): stage 1 reads the share's results. */
     @Bean(name = "resultsRestClientBuilder")
-    @Scope("prototype")
+    @Scope(PROTOTYPE)
     public RestClient.Builder resultsRestClientBuilder(final ResultsProperties properties) {
         final ResultsProperties.Results results = properties.getResults();
         return builderWithTimeouts(results.getConnectTimeout(), results.getReadTimeout());
@@ -46,7 +48,7 @@ public class RestClientConfig {
 
     /** Feature 005: {@code enforcement_area} team-inbox lookup (contracts/enforcement-area.md). */
     @Bean(name = "enforcementAreaRestClientBuilder")
-    @Scope("prototype")
+    @Scope(PROTOTYPE)
     public RestClient.Builder enforcementAreaRestClientBuilder(final ClientProperties properties) {
         final ClientProperties.EnforcementArea enforcementArea = properties.getEnforcementArea();
         return builderWithTimeouts(enforcementArea.getConnectTimeout(), enforcementArea.getReadTimeout());
@@ -54,7 +56,7 @@ public class RestClientConfig {
 
     /** Feature 005: System Doc Generator BYO-FS {@code generate-document} command (contracts/system-doc-generator-byo-fs.md). */
     @Bean(name = "docGeneratorRestClientBuilder")
-    @Scope("prototype")
+    @Scope(PROTOTYPE)
     public RestClient.Builder docGeneratorRestClientBuilder(final ClientProperties properties) {
         final ClientProperties.DocGenerator docGenerator = properties.getDocGenerator();
         return builderWithTimeouts(docGenerator.getConnectTimeout(), docGenerator.getReadTimeout());

@@ -1,5 +1,7 @@
 package uk.gov.hmcts.cp.client;
 
+import com.azure.messaging.servicebus.ServiceBusErrorSource;
+import com.azure.messaging.servicebus.ServiceBusException;
 import com.azure.messaging.servicebus.ServiceBusMessage;
 import com.azure.messaging.servicebus.ServiceBusSenderClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,7 +66,8 @@ class GovUkNotifyEmailSenderTest {
 
     @Test
     void sender_failure_should_throw_unavailable() {
-        doThrow(new RuntimeException("broker down")).when(senderClient).sendMessage(any());
+        doThrow(new ServiceBusException(new RuntimeException("broker down"), ServiceBusErrorSource.SEND))
+                .when(senderClient).sendMessage(any());
 
         assertThatThrownBy(() -> sender.sendEmail(NOTIFICATION_ID, NotificationType.FIRST_SHARE, "team@example.gov.uk", null))
                 .isInstanceOf(GovUkNotifyUnavailableException.class);

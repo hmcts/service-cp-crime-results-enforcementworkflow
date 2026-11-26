@@ -15,11 +15,11 @@ public final class DivisionCode {
     /* default */ static final int PREFIX_LENGTH = 3;
 
     private final String code;
-    private final int asInt;
+    private final int parsedValue;
 
-    private DivisionCode(final String code, final int asInt) {
+    private DivisionCode(final String code, final int parsedValue) {
         this.code = code;
-        this.asInt = asInt;
+        this.parsedValue = parsedValue;
     }
 
     public static DivisionCode from(final String relatedReferenceNumber) {
@@ -44,11 +44,11 @@ public final class DivisionCode {
 
     /** The parsed integer form - the {@code enforcement_area} lookup key. */
     public int asInt() {
-        return asInt;
+        return parsedValue;
     }
 
     /** Enforcement vs. Confiscation (FR-003): computed from the configured Confiscation set, never trusted elsewhere. */
     public Area areaFor(final ResultNotificationProperties properties) {
-        return properties.getConfiscationDivisionCodes().contains(asInt) ? Area.CONFISCATION : Area.ENFORCEMENT;
+        return properties.getConfiscationDivisionCodes().contains(parsedValue) ? Area.CONFISCATION : Area.ENFORCEMENT;
     }
 }

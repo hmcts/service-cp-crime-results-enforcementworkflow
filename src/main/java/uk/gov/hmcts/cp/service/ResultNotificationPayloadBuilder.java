@@ -28,6 +28,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ResultNotificationPayloadBuilder {
 
+    private static final String SHORT_CODES_KEY = "shortCodes";
+
     private final ResultNotificationProperties properties;
     private final ObjectMapper objectMapper;
 
@@ -35,13 +37,14 @@ public class ResultNotificationPayloadBuilder {
      * Groups the defendant's offence-level results by {@code offenceId}, keeping only those whose shortCode is in the
      * trigger list for {@code area} (FR-004), in the order {@link ResolvedCodes#results()} carries them (capture order).
      */
+    @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops") // computeIfAbsent only allocates on a genuinely new offenceId
     public String buildResultShortCodes(final Defendant defendant, final ResolvedCodes resolved, final Area area) {
         final Map<UUID, String> resultLabelsByResultId = resultLabelsByResultId(defendant);
         final Map<UUID, Offence> offencesById = offencesById(defendant);
         final Map<UUID, List<ShortCodeEntry>> byOffence = new LinkedHashMap<>();
         for (final ResolvedResult result : resolved.results()) {
             if (result.offenceId() != null && properties.isTriggerShortCode(area, result.cpShortCode())) {
-                byOffence.computeIfAbsent(result.offenceId(), k -> new ArrayList<>())
+                byOffence.computeIfAbsent(result.offenceId(), key -> new ArrayList<>())
                         .add(new ShortCodeEntry(result.judicialResultId(), result.cpShortCode(),
                                 resultLabelsByResultId.get(result.judicialResultId()), result.orderedDate(), result.prompts()));
             }
@@ -61,7 +64,7 @@ public class ResultNotificationPayloadBuilder {
                     entry.put("offenceId", offence.offenceId().toString());
                     entry.put("offenceTitle", offence.offenceTitle());
                     entry.put("offenceDetails", offence.offenceDetails());
-                    entry.put("current", Map.of("shortCodes", offence.shortCodes()));
+                    entry.put("current", Map.of(SHORT_CODES_KEY, offence.shortCodes()));
                     return entry;
                 })
                 .toList();
@@ -114,8 +117,8 @@ public class ResultNotificationPayloadBuilder {
         entry.put("offenceId", current.offenceId().toString());
         entry.put("offenceTitle", current.offenceTitle());
         entry.put("offenceDetails", current.offenceDetails());
-        entry.put("current", Map.of("shortCodes", current.shortCodes()));
-        entry.put("previous", previous == null ? null : Map.of("shortCodes", previous.shortCodes()));
+        entry.put("current", Map.of(SHORT_CODES_KEY, current.shortCodes()));
+        entry.put("previous", previous == null ? null : Map.of(SHORT_CODES_KEY, previous.shortCodes()));
         entry.put("changed", previous == null || !previous.shortCodes().equals(current.shortCodes()));
         return entry;
     }
@@ -126,7 +129,7 @@ public class ResultNotificationPayloadBuilder {
         entry.put("offenceTitle", previous.offenceTitle());
         entry.put("offenceDetails", previous.offenceDetails());
         entry.put("current", null);
-        entry.put("previous", Map.of("shortCodes", previous.shortCodes()));
+        entry.put("previous", Map.of(SHORT_CODES_KEY, previous.shortCodes()));
         entry.put("changed", true);
         return entry;
     }

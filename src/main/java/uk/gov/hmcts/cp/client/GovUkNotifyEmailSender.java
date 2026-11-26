@@ -1,5 +1,6 @@
 package uk.gov.hmcts.cp.client;
 
+import com.azure.messaging.servicebus.ServiceBusException;
 import com.azure.messaging.servicebus.ServiceBusMessage;
 import com.azure.messaging.servicebus.ServiceBusSenderClient;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +48,7 @@ public class GovUkNotifyEmailSender {
         message.setCorrelationId(notificationId.toString());
         try {
             senderClient.sendMessage(message);
-        } catch (RuntimeException e) {
+        } catch (ServiceBusException e) {
             log.warn("send-email-notification command failed for {}: {}", notificationId, e.getClass().getSimpleName());
             throw new GovUkNotifyUnavailableException("send-email-notification command failed for " + notificationId
                     + ": " + e.getClass().getSimpleName(), e);
