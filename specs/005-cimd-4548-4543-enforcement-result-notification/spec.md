@@ -97,6 +97,24 @@ result.
   applies to **first-share only**. The amend-reshare path has no shortCode gate at all — it fires on every
   amend-and-reshare event on a case already selected as in-scope Enforcement/Confiscation, regardless of which
   shortCodes are present, added, removed, or changed.
+- Q: CIMD-4548/4543's acceptance criteria also require the rendered PDF to appear under the case's **Case
+  Material** section in CP's UI (as "Electronic notification"), not only be emailed — this was missing from the
+  spec entirely (a coverage gap found after initial implementation, not something previously scoped out). What
+  `documentTypeId` does "Electronic notification" correspond to in reference data? → A: Confirmed —
+  `f471eb51-614c-4447-bd8d-28f9c2815c9e` ("Electronic Notifications"), the same reference-data document type
+  already reused platform-wide for this kind of electronic notice (e.g. ordinary hearing notifications in
+  `cpp-context-progression`).
+- Q: Does attaching the document to the case (`progression.command.add-court-document`) require a genuine,
+  logged-in user context, the way a human UI action would? → A: No — this service calls Progression as its own
+  registered system user (the same CJSCPPUID convention already used for every other outbound integration in
+  this feature), not a forwarded human user id.
+- Q: Is this service's own `ProsecutionCase.id()` (already carried on `HearingResultedEvent`) the same UUID
+  identity-space as Progression's `prosecutionCaseId`? → A: Yes, confirmed — used directly, no translation.
+- Q: Who allocates the `materialId` Progression's `add-court-document` command needs? → A: This service generates
+  it itself (`UUID.randomUUID()`, the same convention the CPP reference implementation uses) and passes it on the
+  URL/request; Progression's multipart `upload-court-document` call stores the PDF bytes into its own File Store
+  and derives the file's own internal `fileServiceId` itself — this service never allocates or sees a
+  `fileServiceId`.
 
 ## Terms
 
@@ -206,6 +224,8 @@ is sent with a PDF correctly comparing the original and new results, regardless 
 - A reshare that changes nothing observable from the previous share still produces an amend-reshare email
   (FR-012); this is distinct from a duplicate event (above), which is the same share arriving twice and must not
   double-send.
+- A failure attaching the PDF to Case Material (FR-020) must not affect email dispatch, and a failure sending the
+  email must not affect the Case Material attachment — the two are logged and recovered independently.
 
 ## Requirements *(mandatory)*
 
@@ -273,6 +293,12 @@ is sent with a PDF correctly comparing the original and new results, regardless 
   input FR-009 requires for the next amend-reshare's comparison.
 - **FR-019**: Bulk-print and other existing NOWS handling for the hearing MUST be unaffected by, and run independent
   of, this email-notification capability.
+- **FR-020**: In addition to emailing it, the system MUST attach the rendered notification PDF to the case's
+  **Case Material** section in CP (as "Electronic notification", reference-data `documentTypeId`
+  `f471eb51-614c-4447-bd8d-28f9c2815c9e`) for both the first-share and amend-reshare paths. This attachment MUST
+  run independently of email dispatch (FR-010's independence principle extends to this step too): a case-material
+  attachment failure MUST NOT block, delay, or be implied by the email outcome, and vice versa, and each MUST be
+  logged and recoverable separately (FR-017).
 
 ### Key Entities
 
@@ -292,6 +318,10 @@ is sent with a PDF correctly comparing the original and new results, regardless 
   share (hearingId, hearingDate, relatedReferenceNumber, and the matched results/prompt values used to render that
   share's PDF), kept by this feature so the next amend-reshare's "original" comparison column does not depend on
   the Results cache or Results context still holding that earlier state (see data-model.md).
+- **Case Material Attachment**: the record of attaching the rendered notification PDF to the case's Case Material
+  section in CP (FR-020) — a `materialId` this service itself generates, the `courtDocument` attached via
+  `progression.command.add-court-document` under the "Electronic Notifications" document type, and its own
+  independent outcome/status (see data-model.md).
 
 ## Success Criteria *(mandatory)*
 
@@ -335,3 +365,9 @@ is sent with a PDF correctly comparing the original and new results, regardless 
   documents in this service; no new Welsh-translation or attachment-size logic is introduced here.
 - Multiple-defendant cases, one-hearing-with-multiple-cases, and cases sharing a defendant but differing
   relatedReferenceNumber are out of scope for both stories (explicitly excluded in both source tickets).
+- The Case Material attachment (FR-020) is performed by this service calling `cpp-context-progression`'s own
+  `progression-command-api` REST tier directly (`POST /courtdocument/{materialId}`), authenticating as this
+  service's own registered system user (CJSCPPUID), the same pattern used for every other outbound integration
+  in this feature — not via raw internal JMS commands, which this service has no existing precedent for sending.
+  This requires a new system user to be registered and allow-listed on Progression's side before go-live (see
+  plan.md dependencies), the same shape as the existing `enforcement_area` dependency.

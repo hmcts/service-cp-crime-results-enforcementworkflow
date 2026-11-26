@@ -4,16 +4,19 @@
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md, checklists/
 
 **Tests**: MANDATORY in this project (constitution Principle VII) — 100% unit test coverage of every new class
-(plan.md "Testing"), plus exactly 4 integration tests (1 positive end-to-end + 3 failure-point), per research.md
+(plan.md "Testing"), plus exactly 5 integration tests (1 positive end-to-end + 4 failure-point, including FR-020's
+Case Material path), per research.md
 R12. Every test task is written, and must fail, before its implementation task.
 
-**Organization**: Grouped by user story (US1 = CIMD-4548 first-share, US2 = CIMD-4543 amend-reshare). Both are
-P1. The foundational phase delivers the **full pipeline for the current-state (FIRST_SHARE) shape**, including
-the FR-001/FR-011 trigger-shortCode gate; US2 then **extends** the same
-`MatchResultNotificationTask`/`ResultNotificationPayloadBuilder` files with the Previous Share Snapshot lookup
-and the current+previous diff, explicitly **skipping** that gate for AMEND_RESHARE (corrected 2026-11-26 — see
-plan.md D12) — an additive, same-file extension, not a new component, so US1 remains independently completable
-and testable on its own first.
+**Organization**: Grouped by user story (US1 = CIMD-4548 first-share, US2 = CIMD-4543 amend-reshare, US3 = FR-020
+Case Material attachment). All three are P1. The foundational phase delivers the **full pipeline for the
+current-state (FIRST_SHARE) shape**, including the FR-001/FR-011 trigger-shortCode gate; US2 then **extends** the
+same `MatchResultNotificationTask`/`ResultNotificationPayloadBuilder` files with the Previous Share Snapshot
+lookup and the current+previous diff, explicitly **skipping** that gate for AMEND_RESHARE (corrected 2026-11-26 —
+see plan.md D12) — an additive, same-file extension, not a new component, so US1 remains independently completable
+and testable on its own first. US3 is a **wholly new, independent branch** off the same `DOC_READY` state (new
+client/task/entity columns, no changes to US1/US2's files beyond `DocGeneratorEventListener`'s fan-out), so it can
+be built in parallel with US2 once Foundational is done.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -251,21 +254,92 @@ of which shortCode(s) changed — including a reshare that only ever touched non
 
 ---
 
-## Phase 5: Polish & Cross-Cutting Concerns
+## Phase 5: User Story 3 - Case material attachment (CIMD-4548/4543 FR-020) (Priority: P1)
 
-- [ ] T056 [P] Run `quickstart.md`'s full validation sequence (both smoke tests) against a local stack
-- [X] T057 [P] Confirm 100% unit test coverage across every new class listed in plan.md's Source Code tree
+**Goal**: Attach the rendered notification PDF to the case's Case Material section in CP (as "Electronic
+Notifications") for both first-share and amend-reshare, independently of email dispatch (FR-010/FR-020) — a
+coverage gap against the real Jira ACs found after initial implementation, now unblocked: `documentTypeId`
+(`f471eb51-614c-4447-bd8d-28f9c2815c9e`), system-user auth, and the `prosecutionCaseId` identity match are all
+confirmed (spec.md Clarifications, Session 2026-11-26).
+
+**Independent Test**: Share (or amend-reshare) a hearing result that reaches `DOC_READY`; verify the PDF is
+attached to the case's Case Material section under "Electronic Notifications" even when email dispatch is
+deliberately made to fail, and vice versa — the two outcomes never block or depend on each other.
+
+### Tests for User Story 3
+
+- [ ] T056 [P] [US3] Unit test `client/ProgressionClientTest.java` using `MockRestServiceServer` — Call 1
+      (multipart `upload-court-document` at `POST /courtdocument/{materialId}`, CJSCPPUID header); Call 2
+      (`application/vnd.progression.add-court-document+json`, same URL, body `{courtDocument: {...,
+      documentTypeId: "f471eb51-614c-4447-bd8d-28f9c2815c9e", materials: [{id: materialId}]}}`); non-2xx/timeout
+      on either call → `ProgressionUnavailableException` (transient, must be retried, never collapsed into a
+      terminal failure)
+- [ ] T057 [P] [US3] Unit test `service/UploadCaseMaterialTaskTest.java` — reads the PDF back out of
+      `ResultNotificationBlobClient` via `destination_file_uri`; generates `material_id` once and reuses it on
+      retry (never re-generates); `NOT_STARTED → UPLOADING → UPLOADED → ATTACHED`; a Progression failure at either
+      call leaves `case_material_status` at `UPLOAD_FAILED`/`ATTACH_FAILED` without touching the row's email
+      `status`
+- [ ] T058 [P] [US3] Integration test (extend `ResultNotificationFlowIntegrationTest.java`) — the existing
+      positive path additionally asserts `case_material_status` reaches `ATTACHED` alongside `SENT` on the same
+      row
+- [ ] T059 [P] [US3] Integration test (same class, new method) — **Case Material failure-point**: stub
+      `progression-court-document` to fail; assert `case_material_status` reaches `ATTACH_FAILED` (or
+      `UPLOAD_FAILED`) while the row's email `status` still independently reaches `SENT` on the same share (FR-010
+      extended to FR-020)
+
+### Implementation for User Story 3
+
+- [ ] T060 [US3] Create Flyway migration
+      `src/main/resources/db/migration/V1.012__add_case_material_to_enforcement_result_notification.sql` —
+      `material_id` (UUID NULL), `case_material_status` (VARCHAR(20) NOT NULL DEFAULT 'NOT_STARTED'), and
+      `prosecution_case_id` (UUID NULL) on `enforcement_result_notification`
+- [ ] T061 [P] [US3] Create `entity/CaseMaterialStatus.java` (`NOT_STARTED`, `UPLOADING`, `UPLOADED`, `ATTACHED`,
+      `UPLOAD_FAILED`, `ATTACH_FAILED`) and add `material_id`/`case_material_status`/`prosecution_case_id` columns
+      to `entity/EnforcementResultNotificationEntity.java` (depends on T060)
+- [ ] T062 [US3] Amend `service/ResultNotificationStore.createRequested(...)` and
+      `service/ResolveResultNotificationTask.createRowIfSelected(...)` (both previously completed, T022/T027) to
+      additionally persist `prosecution_case_id` = `prosecutionCase.get().id()` at row-creation time, alongside the
+      already-persisted `caseUrn` — this value was available there all along but not previously stored, since
+      nothing needed it before FR-020 (depends on T061)
+- [ ] T063 [P] [US3] Add `cp.progression.*` properties (base-url, cjscppuid, timeouts) to `ClientProperties` and a
+      `progressionRestClientBuilder` bean to `RestClientConfig`, plus the new `cp.progression.*` section in
+      `application.yaml`
+- [ ] T064 [US3] Implement `client/ProgressionClient.java` + `client/ProgressionUnavailableException.java`
+      (depends on T056, T063; contract per `contracts/progression-court-document.md`)
+- [ ] T065 [US3] Add a case-material status update method to `service/ResultNotificationStore.java` (mirrors the
+      existing `markDocFailed`/`markSent`-style methods, independent of the email-path `status` column) (depends
+      on T061)
+- [ ] T066 [US3] Implement `service/UploadCaseMaterialTask.java`, queued from `DocGeneratorEventListener`'s
+      `document-available` handler alongside (not instead of) `DispatchResultNotificationEmailTask`, reusing
+      `ResultNotificationRetries`'s shape for `UPLOAD_FAILED`/`ATTACH_FAILED` (depends on T057, T062, T064, T065)
+- [ ] T067 [US3] Wire `UploadCaseMaterialTask` into `service/DocGeneratorEventListener.java`'s `document-available`
+      branch (depends on T066) — both new and existing branches must queue independently per FR-010/FR-020
+- [ ] T068 [US3] Add new WireMock stub mappings `wiremock/mappings/progression-court-document-*.json` (both
+      Call 1 and Call 2, success + failure) and write `contracts/progression-court-document.md` documenting the
+      confirmed two-call sequence (data-model.md already has the detail; this file is the contract-doc copy per
+      Principle II convention)
+
+**Checkpoint**: User Stories 1, 2, AND 3 (CIMD-4548, CIMD-4543, FR-020) all work independently and together.
+
+---
+
+## Phase 6: Polish & Cross-Cutting Concerns
+
+- [ ] T069 [P] Run `quickstart.md`'s full validation sequence (all smoke tests, including Case Material
+      attachment) against a local stack
+- [X] T070 [P] Confirm 100% unit test coverage across every new class listed in plan.md's Source Code tree
       (constitution Principle VII) — close any gap found
-- [ ] T058 [P] `./gradlew build` including PMD (`pmdMain`, `pmdTest`) clean, no suppressions without an inline
+- [ ] T071 [P] `./gradlew build` including PMD (`pmdMain`, `pmdTest`) clean, no suppressions without an inline
       justification
-- [ ] T059 Re-verify plan.md's D1 (`enforcement_area` contract), D4 (`team/CHD-2786` current HEAD), and D8
-      (Artemis selector) against their real-world state immediately before this feature's go-live
-- [ ] T060 Write the ADR required by constitution Principle IV / plan.md D2 (data-at-rest treatment for
+- [ ] T072 Re-verify plan.md's D1 (`enforcement_area` contract), D4 (`team/CHD-2786` current HEAD), D8 (Artemis
+      selector), and D13 (Progression system-user registration) against their real-world state immediately before
+      this feature's go-live
+- [ ] T073 Write the ADR required by constitution Principle IV / plan.md D2 (data-at-rest treatment for
       `result_short_codes`) before this table is first written in any real environment
-- [ ] T061 Confirm Workload Identity RBAC (plan.md D3) is granted on the new Blob container and the
+- [ ] T074 Confirm Workload Identity RBAC (plan.md D3) is granted on the new Blob container and the
       `ng-send-email`/`enforcementworkflow-notification-result` Service Bus queues before deployment to any real
       environment
-- [ ] T062 `mvn clean && ./runIntegrationTests.sh` (or this repo's documented IT command) green, per CLAUDE.md's
+- [ ] T075 `mvn clean && ./runIntegrationTests.sh` (or this repo's documented IT command) green, per CLAUDE.md's
       hard rule
 
 ---
@@ -275,7 +349,7 @@ of which shortCode(s) changed — including a reshare that only ever touched non
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: no dependencies — can start immediately.
-- **Foundational (Phase 2)**: depends on Setup; **blocks both user stories**. T004→T006→T007; clients (T008–T017)
+- **Foundational (Phase 2)**: depends on Setup; **blocks all three user stories**. T004→T006→T007; clients (T008–T017)
   are independent of each other and of the entity chain, so can run in parallel once Setup is done; T018–T037
   build up the task/listener chain in the dependency order listed (each `[P]` test task before its own
   implementation task).
@@ -284,7 +358,10 @@ of which shortCode(s) changed — including a reshare that only ever touched non
   (`MatchResultNotificationTask`, `ResultNotificationPayloadBuilder`) rather than creating new components —
   sequence US2's implementation tasks (T052–T055) after US1 is complete to avoid merge churn on the same files,
   even though nothing in US2's design *requires* US1 to be functionally complete first.
-- **Polish (Phase 5)**: depends on both user stories.
+- **User Story 3 (Phase 5)**: depends on Foundational only (specifically `DocGeneratorEventListener`, T033) — not
+  on US1 or US2 being complete, since it is a wholly new branch off `DOC_READY` touching no file either of them
+  own except `DocGeneratorEventListener`'s fan-out (T067). Can run fully in parallel with US2.
+- **Polish (Phase 6)**: depends on all three user stories.
 
 ### Parallel Opportunities
 
@@ -294,7 +371,8 @@ of which shortCode(s) changed — including a reshare that only ever touched non
   implementation task still waits for its own paired test task.
 - Within US1: T038–T043 (all test tasks) in parallel.
 - Within US2: T046–T051 (all test tasks) in parallel.
-- T056–T058 (Polish) in parallel.
+- Within US3: T056–T059 (all test tasks) in parallel; US3 as a whole can run in parallel with US2.
+- T069–T071 (Polish) in parallel.
 
 ---
 
@@ -318,6 +396,15 @@ Task: "Unit test: MatchResultNotificationTask's AMEND_RESHARE branch always proc
 Task: "Integration test: AMEND_RESHARE positive path reads the prior SENT row, not the Results cache/API"
 ```
 
+## Parallel Example: User Story 3 tests
+
+```bash
+Task: "Unit test client/ProgressionClientTest.java"
+Task: "Unit test service/UploadCaseMaterialTaskTest.java"
+Task: "Integration test: Case Material positive path reaches ATTACHED alongside SENT"
+Task: "Integration test: Case Material failure-point — Progression unavailable doesn't affect email dispatch"
+```
+
 ---
 
 ## Implementation Strategy
@@ -335,7 +422,10 @@ Task: "Integration test: AMEND_RESHARE positive path reads the prior SENT row, n
 2. Add User Story 1 → validate independently → deploy/demo (MVP).
 3. Add User Story 2 → validate independently (including that the amend-reshare path has no shortCode gate at
    all) → deploy/demo.
-4. Polish (coverage, PMD, ADR, RBAC, go-live dependency re-checks) before any real-environment release.
+4. Add User Story 3 (FR-020 Case Material attachment) → validate independently (a Progression failure must never
+   affect email dispatch, and vice versa) → deploy/demo.
+5. Polish (coverage, PMD, ADR, RBAC, go-live dependency re-checks including D13's Progression system user) before
+   any real-environment release.
 
 ## Notes
 
@@ -343,7 +433,10 @@ Task: "Integration test: AMEND_RESHARE positive path reads the prior SENT row, n
 - Every class in plan.md's Source Code tree must reach 100% unit coverage (constitution Principle VII; not
   optional in this project, unlike the tasks-template's default).
 - This feature adds **no new inbound endpoint** — CLAUDE.md's "integration test per new endpoint" rule is
-  satisfied by the 4 integration tests per new *flow* instead (T038–T041, extended by T049).
+  satisfied by the 5 integration tests per new *flow* instead (T038–T041, extended by T049; T059 for FR-020's new
+  outbound integration).
 - Do not start US2's implementation tasks (T052–T055) before US1's Foundational-dependent tests (T038–T043) are
   green, even though they touch different test methods in some shared files — avoids rebasing churn, not a hard
   technical dependency.
+- US3 (T056–T068) touches no file US1/US2 own except `DocGeneratorEventListener` (T067, an additive fan-out
+  change) — it can start as soon as Foundational (specifically T033) is green, independent of US2's progress.

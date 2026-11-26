@@ -23,7 +23,10 @@ lookup, renders a PDF via `cpp-context-system-doc-generator`'s BYO-FS path (bran
 go-live gate), and dispatches email via `cp-gov-uk-notify-gateway` over Azure Service Bus, observing its result
 on a dedicated reply queue this service owns. The reshare path has **no** shortCode gate (confirmed against
 CIMD-4543's real Jira acceptance criteria, Clarification 2026-11-26) — only the first-share path is gated by the
-trigger-shortCode list; the reshare path is scoped by case-type eligibility alone.
+trigger-shortCode list; the reshare path is scoped by case-type eligibility alone. The rendered PDF is **also**
+attached to the case's own Case Material section in CP (FR-020, a coverage gap found after initial
+implementation) via `cpp-context-progression`'s own `progression-command-api` REST tier, independently of email
+dispatch (FR-010's independence principle extends to this step too).
 
 ## Technical Context
 
@@ -40,18 +43,21 @@ exactly this).
 `result-notification/requests/{id}` (payload JSON) and `result-notification/documents/{id}.pdf` (rendered PDF,
 written by the doc-generator, never by this service).
 **Testing**: JUnit 5, Mockito, `MockRestServiceServer`/WireMock (new stubs: `enforcement_area`,
-`generate-document`), embedded Artemis (`DocGeneratorEventListener`), a `@Primary` fake Service Bus
-sender/listener in integration tests (no embedded-broker equivalent exists for Azure Service Bus in this repo),
-Azurite `GenericContainer` for the Blob integration test (`azurite-enabled=true` + test-only connection-string,
-mirroring `cpp-context-system-doc-generator`'s own precedent), real local Postgres. **100% unit test coverage**
-for every new class; **exactly 4 integration tests** (1 positive end-to-end + 3 failure-point: doc-generation
-failure, email-send failure, email validation-rejection failure).
+`generate-document`, `progression-court-document` for FR-020), embedded Artemis (`DocGeneratorEventListener`), a
+`@Primary` fake Service Bus sender/listener in integration tests (no embedded-broker equivalent exists for Azure
+Service Bus in this repo), Azurite `GenericContainer` for the Blob integration test (`azurite-enabled=true` +
+test-only connection-string, mirroring `cpp-context-system-doc-generator`'s own precedent), real local Postgres.
+**100% unit test coverage** for every new class; **exactly 5 integration tests** (1 positive end-to-end + 3
+email-failure-point: doc-generation failure, email-send failure, email validation-rejection failure + 1 new
+Case-Material-failure-point: Progression unavailable, asserting `case_material_status` reaches a failed terminal
+state independently of a successful email outcome on the same row, per FR-020/FR-010).
 **Target Platform**: Existing CP AKS deployment, internal ingress only (unchanged — no new inbound surface).
-**Project Type**: Single Spring Boot service (this repo) calling three external, independently-owned interfaces:
+**Project Type**: Single Spring Boot service (this repo) calling four external, independently-owned interfaces:
 `enforcement_area` reference-data lookup (CIMD-4389, no contract document exists yet — open dependency),
-`cpp-context-system-doc-generator`'s BYO-FS command/event pair (branch `team/CHD-2786`, unmerged), and
-`cp-gov-uk-notify-gateway`'s command/event pair (Azure Service Bus). None of these three repos are changed by
-this feature.
+`cpp-context-system-doc-generator`'s BYO-FS command/event pair (branch `team/CHD-2786`, unmerged),
+`cp-gov-uk-notify-gateway`'s command/event pair (Azure Service Bus), and `cpp-context-progression`'s
+`progression-command-api` REST tier for the Case Material attachment (FR-020). None of these four repos are
+changed by this feature.
 **Performance Goals**: Not quantified anywhere in spec.md (flagged in `checklists/pre-plan.md` CHK022) — no
 delivery-time SLA stated. The only hard constraint is SC-004: no hearing capture is ever blocked, delayed, or
 rejected by this pipeline, satisfied structurally by FR-010's independent task chain (async, non-blocking).
@@ -81,18 +87,22 @@ existing trigger endpoint verbatim (no new inbound endpoint, no Function App cha
 | IV. Personal data | FR-016 explicitly scopes logged fields (caseUrn, Division Code, team email, shortCodes, sharing user id, timestamp) — no defendant name/DOB/NINO/address/bank data. `result_short_codes` at rest (offence wording, judicial result labels, prompt values) is new persisted content this constitution principle requires an ADR for **before** it is stored — none exists yet. | Pass with dependency D2 (ADR required before this table is first written in a real environment) |
 | V. Bounded, resilient processing | Every outbound call (REST to `enforcement_area`/doc-generator, Blob, Service Bus) has explicit timeouts. A failure processing one `relatedReferenceNumber`'s row never blocks another (SC-005; FR-010's independent task chain). Every attempt ends in a recorded final state (the state machine's terminal states are all final). Automatic retry is explicitly not built (Clarification 2026-11-24) — permitted but not required by this principle even where the external system is confirmed idempotent (the gateway's send step is), so this is the conservative, compliant choice, not a gap. | Pass |
 | VI. Immutable identifiers | `relatedReferenceNumber`/`caseUrn` are read, never reformatted or truncated. Division Code is a locally **derived** classification value (a prefix read from `relatedReferenceNumber`), not a modification of the identifier itself — the identifier passed to every external system (doc-generator, gateway, blob paths) is this row's own generated `id`, never a mangled reference number. | Pass |
-| VII. Tested and clean | Unit tests first, 100% coverage of every new class; integration test per new flow (4 specified: 1 positive, 3 failure-point) — this feature adds no new endpoint, so CLAUDE.md's "IT per new endpoint" rule doesn't add a fifth. PMD must pass with no violations. | Pass |
+| VII. Tested and clean | Unit tests first, 100% coverage of every new class; integration test per new flow (5 specified: 1 positive, 4 failure-point — 3 email-path + 1 new Case-Material-path for FR-020) — this feature adds no new inbound endpoint (FR-020 is a new *outbound* integration, covered by `ProgressionClient`'s own unit tests plus the one new integration failure-point test, not a fresh "per endpoint" IT). PMD must pass with no violations. | Pass |
 | VIII. Security boundary | No new externally-reachable endpoint (reuses feature 003's existing internal trigger). New outbound-only integrations authenticate via Managed Identity/Workload Identity exclusively — no keys, no SAS. RBAC role assignment on the new Storage Account container and Service Bus namespace/queues for this workload's identity is a deployment-config dependency, not a code change — open dependency D3. | Pass with dependency D3 |
 | IX. Iterative delivery, explicit assumptions | Every open point from this session is recorded with a safe interim and an owner in the Dependencies table below (Division Code prefix length, `enforcement_area` contract shape, `team/CHD-2786` go-live gate, the offence-vanishing edge case, ADR for data-at-rest). None blocks the design silently. | Pass |
 | Architecture constraints | New `client`/`config`/`service`/`entity`/`repository` files follow the existing template package layout. Azure Blob/Service Bus SDKs are ordinary new dependencies, not changes to a `cpp-context-*` repository. `cp-task-manager`'s `jobs` table is already workflow-owned (feature 003's migrations) — no new DDL needed for the task-manager itself, only this feature's own new table. | Pass |
 | Dev workflow | Branch `dev/cct1222-email-notification` does not follow the `005-…` naming convention — same situation feature 003 already hit and justified (see Complexity Tracking). `/speckit-analyze` must report no CRITICAL/HIGH findings before `/speckit-implement`, consistent with this file's Dependencies table. | Pass (justified) |
 
-**Gate result**: passes, with twelve open dependencies (D1–D12) tracked below — none blocks `/speckit-tasks`,
+**Gate result**: passes, with fourteen open dependencies (D1–D14) tracked below — none blocks `/speckit-tasks`,
 each has a named owner and a safe interim per constitution IX. D9 (FR-008 amendment-reason source) was added
 after `/speckit-analyze` flagged it as a coverage gap and should be resolved before `/speckit-implement` closes
 out FR-008. D10 (Docmosis templates) is confirmed to be entirely `cpp-context-system-doc-generator`'s own scope,
-not a gap in this feature's tasks — tracked here only as a release dependency alongside D4. Re-checked after
-Phase 1 design (data-model.md, contracts/): no new violation introduced.
+not a gap in this feature's tasks — tracked here only as a release dependency alongside D4. D13/D14 cover FR-020
+(Case Material attachment, a coverage gap found after initial implementation against CIMD-4548/4543's real Jira
+ACs): the `documentTypeId`, auth model (system user), and case-id identity-space questions that would otherwise
+block this design are already confirmed (see spec.md Clarifications, Session 2026-11-26) — only the cross-team
+system-user registration (D13) and a low-risk blob-read detail (D14) remain open. Re-checked after Phase 1 design
+(data-model.md, contracts/): no new violation introduced.
 
 ## Project Structure
 
@@ -108,7 +118,8 @@ specs/005-cimd-4548-4543-enforcement-result-notification/
 ├── contracts/
 │   ├── gov-uk-notify-gateway-send-email.md           # + verbatim schema copies (Principle II)
 │   ├── system-doc-generator-byo-fs.md                # + verbatim schema copy once confirmed against team/CHD-2786 HEAD
-│   └── enforcement-area.md                           # new; documents the assumed shape pending CIMD-4389 (D1)
+│   ├── enforcement-area.md                           # new; documents the assumed shape pending CIMD-4389 (D1)
+│   └── progression-court-document.md                 # new; FR-020 — the two-call REST sequence, documentTypeId f471eb51-614c-4447-bd8d-28f9c2815c9e
 ├── checklists/
 │   ├── requirements.md
 │   └── pre-plan.md
@@ -123,17 +134,21 @@ src/main/java/uk/gov/hmcts/cp/
 ├── repository/ EnforcementResultNotificationRepository
 ├── service/  ResultNotificationStore, ResultNotificationTasks, ResultNotificationRetries,
 │             ResolveResultNotificationTask, MatchResultNotificationTask, DispatchResultNotificationEmailTask,
-│             DocGeneratorEventListener, ResultNotificationReplyListener, ResultNotificationPayloadBuilder,
-│             TriggerShortCodeMatcher, DivisionCode
-├── client/   EnforcementAreaClient, TeamInbox, EnforcementAreaUnavailableException,
+│             UploadCaseMaterialTask, DocGeneratorEventListener, ResultNotificationReplyListener,
+│             ResultNotificationPayloadBuilder, TriggerShortCodeMatcher, DivisionCode
+├── client/   EnforcementAreaClient, TeamInbox, TeamInboxUnavailableException,
 │             DocGeneratorClient, GenerateDocumentCommand, DocGenerationUnavailableException,
-│             ResultNotificationBlobClient, GovUkNotifyEmailSender, GovUkNotifyUnavailableException
+│             ResultNotificationBlobClient, GovUkNotifyEmailSender, GovUkNotifyUnavailableException,
+│             ProgressionClient, ProgressionUnavailableException  # FR-020, case material attachment
+├── entity/   ... (+ CaseMaterialStatus, new enum)
 ├── config/   ResultNotificationBlobProperties, ResultNotificationBlobConfig, GovUkNotifyProperties,
-│             GovUkNotifyServiceBusConfig, ResultNotificationProperties (+ extend ClientProperties, RestClientConfig)
+│             GovUkNotifyServiceBusConfig, ResultNotificationProperties (+ extend ClientProperties, RestClientConfig
+│             with ProgressionProperties/progressionRestClientBuilder)
 └── event/    HearingResultedEvent  # changed: Offence gains offenceTitle/offenceDetails; JudicialResult gains resultLabel (additive)
 
 src/main/resources/db/migration/V1.011__create_enforcement_result_notification.sql
-src/main/resources/application.yaml                   # new cp.* sections
+src/main/resources/db/migration/V1.012__add_case_material_to_enforcement_result_notification.sql  # material_id, case_material_status (FR-020)
+src/main/resources/application.yaml                   # new cp.* sections, + cp.progression.*
 
 src/test/java/uk/gov/hmcts/cp/ (unit tests per new class, 100% coverage target)
 src/test/resources/contracts/gov-uk-notify-gateway/ (verbatim schema copies, Principle II)
@@ -162,13 +177,16 @@ introduced beyond what the template already defines); this feature only adds fil
 | D10 | The two Docmosis templates (`notification_type` = FIRST_SHARE/AMEND_RESHARE) that `templateIdentifier` points at are authored and owned entirely within `cpp-context-system-doc-generator` (confirmed) — **not this repo's scope**, hence no task for them in this repo's `tasks.md`; this repo only configures the template ids (T018) and passes them through `generate-document` | FR-004/FR-008/SC-003 end-to-end verification against a real (non-stubbed) doc generator; WireMock stubs cover this repo's own tests without needing the real templates | System Doc Generator team — track as a release dependency (alongside D4) for go-live, not a gap in this feature's own tasks |
 | D11 | Confirm FR-014's Welsh-language rendering actually extends to this feature's new `cp-gov-uk-notify-gateway`/doc-generator delivery mechanism — spec.md's Assumptions claim this "reuses conventions already established for other NOWS documents," but that convention was built for the legacy Office365/NOWS pathway, not this brand-new ASB-based integration, and no task currently tests it. **FR-013's >2MB Office365 fallback is not a practical risk for this feature** (confirmed): this PDF is a short per-case result summary (one row's matched offences/shortCodes/prompts), not a full case bundle, so it will not realistically approach 2MB — no dedicated test is needed for that path | FR-014 compliance | Developer, confirm Welsh rendering with the gateway/doc-generator teams before relying on inherited behaviour |
 | D12 | **Traceability**: the Session 2026-11-24 clarification reversed FR-011/FR-012 to gate the amend-reshare path by the same trigger-shortCode list as first-share, reasoning only from an internal consistency concern (Acceptance Scenario 3's "no previous share to diff against" case) — without checking the real Jira ACs, which had not yet been fetched. That reversal is now confirmed wrong: CIMD-4543's actual acceptance criteria (fetched directly 2026-11-26) state explicitly that no shortCode gate applies to the A&R path (AC4/AC5/AC7). The original "no filter on reshare" design was correct all along; the concern that motivated the reversal was already independently handled by `ResultNotificationPayloadBuilder`'s existing `previous: null, changed: true` handling for a reshare with no prior SENT row. Corrected via Clarification 2026-11-26 across spec.md/plan.md/data-model.md/tasks.md | Avoiding repeat of this error; a reminder to ground clarifications in source tickets, not just internal consistency | Developer — closed, no further action needed beyond the correction itself |
+| D13 | FR-020 (Case Material attachment) needs a new CJSCPPUID system user registered and allow-listed on `cpp-context-progression`'s `progression-command-api`, the same shape as D1's existing `enforcement_area` dependency — no self-service path for this | `ProgressionClient` finalisation / go-live | Progression team, cross-team registration request |
+| D14 | `team/CHD-2786`-rendered PDF is read back out of this service's own Blob container (`destination_file_uri`) and re-uploaded as multipart bytes to Progression — an extra read this feature did not previously need; confirm the blob read pattern (`ResultNotificationBlobClient` extension) before coding `UploadCaseMaterialTask` | `ProgressionClient`'s Call 1 (multipart upload) | Developer, low-risk — straightforward blob download, same container already in use |
 
 Suggested iteration order (constitution IX): (1) data model + `ResolveResultNotificationTask`/
 `MatchResultNotificationTask` against WireMock stubs (positive path, FIRST_SHARE) → (2) `DocGeneratorEventListener`
 + `DispatchResultNotificationEmailTask` + `ResultNotificationReplyListener` (full positive-path integration test)
 → (3) the three failure-point integration tests → (4) AMEND_RESHARE path (no shortCode gate, case-type
-eligibility only — corrected 2026-11-26) and per-offence diff → (5) Blob/Service Bus production wiring once
-D1/D3/D4 land.
+eligibility only — corrected 2026-11-26) and per-offence diff → (5) `UploadCaseMaterialTask`/`ProgressionClient`
+(FR-020), independent of (2)–(4)'s email path, off the same `DOC_READY` fan-out → (6) Blob/Service Bus production
+wiring once D1/D3/D4/D13 land.
 
 ## Complexity Tracking
 
