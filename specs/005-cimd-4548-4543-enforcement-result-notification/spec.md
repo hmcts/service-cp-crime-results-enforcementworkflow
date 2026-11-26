@@ -83,6 +83,21 @@ result.
   identical original/new columns are self-evidently "no change" — FR-008's existing content requirements are
   sufficient as written, no new requirement added.
 
+### Session 2026-11-26
+
+- Q: The Session 2026-11-24 clarification reversed FR-011/FR-012 to gate the amend-reshare path by the same
+  trigger-shortCode list as first-share. Is that correct against the actual Jira ticket text? → A: **No —
+  corrected.** CIMD-4543's acceptance criteria were fetched directly from Jira and are explicit: "No shortCode
+  filtering applies on the A&R path... this differs from the first-share path, which continues to filter by the
+  16-code first-share trigger set." AC4/AC5 amend a non-Enforcement-only hearing with no trigger shortCode
+  involved at any point and still require **EMAIL SENT** — AC5's own rationale states this explicitly: "the
+  reversal ensures the shortCode-filter gate is not applied on the A&R email." AC7 reshares a hearing previously
+  shared under a non-trigger code (`ABDC`, never in the 16-code set, so first-share was silent) and also requires
+  **EMAIL SENT** on reshare. This supersedes the 2026-11-24 answer in full: FR-011's trigger-shortCode gate
+  applies to **first-share only**. The amend-reshare path has no shortCode gate at all — it fires on every
+  amend-and-reshare event on a case already selected as in-scope Enforcement/Confiscation, regardless of which
+  shortCodes are present, added, removed, or changed.
+
 ## Terms
 
 - **First share**: the first time a hearing result for an Enforcement/Confiscation case is shared with CP (feature
@@ -95,12 +110,12 @@ result.
   reference on the hearing, not per hearing or per defendant.
 - **Division Code**: the code used to resolve which team inbox (Enforcement or Confiscation) an Enforcement case
   belongs to, via the `enforcement_area` reference-data lookup ([CIMD-4389](https://hmcts.atlassian.net/browse/CIMD-4389)).
-- **Trigger shortCode list**: the 16 result shortCodes that gate **both** the first-share and the amend-reshare
-  email — `ACF`, `AEC`, `AEO`, `AEOC`, `CLAMPO`, `CW`, `CWN`, `FIDIC`, `FIDICT`, `FIDIP`, `FTTP`, `MPSO`, `REGF`,
-  `S136`, `TFOOUT`, `WDN` for Enforcement, plus `BPOC` (and other Confiscation-scoped codes per the NOWS matrix)
-  for Confiscation Division Codes `{45, 66, 97, 109, 110, 116}`. On a reshare, this gate is re-evaluated against
-  the hearing's *current* (post-amendment) state, not the state at the time of the original first share (see
-  FR-011).
+- **Trigger shortCode list**: the 16 result shortCodes that gate the **first-share** email only — `ACF`, `AEC`,
+  `AEO`, `AEOC`, `CLAMPO`, `CW`, `CWN`, `FIDIC`, `FIDICT`, `FIDIP`, `FTTP`, `MPSO`, `REGF`, `S136`, `TFOOUT`, `WDN`
+  for Enforcement, plus `BPOC` (and other Confiscation-scoped codes per the NOWS matrix) for Confiscation
+  Division Codes `{45, 66, 97, 109, 110, 116}`. The amend-reshare path has no shortCode gate at all: it is scoped
+  only by case-type eligibility (Enforcement/Confiscation), never by which shortCodes are present, added,
+  removed, or changed (see FR-011; corrected 2026-11-26 against CIMD-4543's real acceptance criteria).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -142,9 +157,9 @@ re-submitting the same share produces no second email.
 ### User Story 2 - Amend-and-reshare notification with before/after comparison (Priority: P1)
 
 As the Common Platform system, when a previously-shared Enforcement-type case hearing result is amended and
-reshared, and the hearing's current (post-amendment) state includes at least one trigger shortCode for that case's
-area, an email with an "Enforcement hearing result amended" PDF — showing the original result alongside the new
-one — is sent to the responsible team, so they see the current position even though no GOB payload reaches them for
+reshared, an email with an "Enforcement hearing result amended" PDF — showing the original result alongside the new
+one — is sent to the responsible team, regardless of which shortCode(s) are present on, added to, removed from, or
+amended on the reshared hearing, so they see the current position even though no GOB payload reaches them for
 this change.
 
 **Why this priority**: Equally critical to User Story 1: because an A&R never produces a GOB submission, this email
@@ -158,17 +173,15 @@ is sent with a PDF correctly comparing the original and new results, regardless 
 1. **Given** a hearing on an Enforcement case previously shared with a trigger shortCode result (e.g. `resultCode =
    CW`, `jailDays = 2 weeks`), **When** the user amends a prompt value (`jailDays` → 3 weeks) and reshares, **Then**
    CP sends an amend-reshare email to the team's inbox with subject "...: Enforcement hearing result amended" and a
-   PDF showing the original value alongside the new one (the trigger shortCode `CW` remains present in the current
-   state, so the FR-011 gate is met).
+   PDF showing the original value alongside the new one.
 2. **Given** a hearing previously shared with both an Enforcement-triggering result (e.g. `CW`) and a
    non-triggering one (e.g. `ACNOTE`), **When** the user amends only the non-triggering result's prompt and
    reshares, **Then** CP still sends an amend-reshare email showing both results' current state.
 3. **Given** a hearing previously shared with only non-trigger shortCodes (no first-share email was sent), **When**
-   the user amends it, **Then** the outcome depends on whether the amendment introduces a trigger shortCode: adding
-   an Enforcement-triggering shortCode **does** produce an amend-reshare email (the hearing's current state now
-   qualifies); adding another non-triggering shortCode, or changing an existing non-triggering result's value,
-   produces **no** email (the current state still has no trigger shortCode) — the amend-reshare path re-evaluates
-   the same trigger-shortCode gate as the first-share path, against the current state, on every reshare (FR-011).
+   the user amends it in any way — adding a trigger shortCode, adding another non-trigger shortCode, or changing an
+   existing non-trigger result's value — **Then** CP sends an amend-reshare email in every case; the amend-reshare
+   path has no shortCode gate (FR-011 applies to first-share only). This also covers the case where the amendment
+   changes a field (e.g. `enforcerCode`) on a shortCode that was never in the trigger list at all (CIMD-4543 AC7).
 4. **Given** a Confiscation-type case previously shared with any result, **When** amended and reshared, **Then** the
    email routes to the Confiscation team's inbox via the same Division Code lookup used for first share.
 5. **Given** CP's REST push of the (unrelated) GOB payload fails independently, **When** the hearing is subsequently
@@ -190,11 +203,9 @@ is sent with a PDF correctly comparing the original and new results, regardless 
   English by default.
 - A duplicate share/reshare event — the same upstream trigger call delivered more than once (user double-click,
   upstream retry), at any elapsed time — must not produce duplicate emails (FR-015).
-- A reshare that changes nothing observable from the previous share still produces an amend-reshare email,
-  provided the FR-011 trigger-shortCode gate is met (FR-012); this is distinct from a duplicate event (above),
-  which is the same share arriving twice and must not double-send.
-- A reshare whose current (post-amendment) state has no trigger shortCode present produces no email at all, even
-  though `isReshare = true` — the hearing capture is never blocked (FR-011).
+- A reshare that changes nothing observable from the previous share still produces an amend-reshare email
+  (FR-012); this is distinct from a duplicate event (above), which is the same share arriving twice and must not
+  double-send.
 
 ## Requirements *(mandatory)*
 
@@ -217,8 +228,8 @@ is sent with a PDF correctly comparing the original and new results, regardless 
 - **FR-006**: When the Division Code lookup finds no matching team inbox, the system MUST log the failure, send no
   email, and MUST NOT block or delay the hearing capture.
 - **FR-007**: On an amend-and-reshare of a previously-shared case hearing result, the system MUST send exactly one
-  notification email per unique relatedReferenceNumber to the resolved team inbox, when the trigger-shortCode gate
-  in FR-011 is met for that case's area — see FR-011.
+  notification email per unique relatedReferenceNumber to the resolved team inbox, for every such event on an
+  in-scope Enforcement/Confiscation case — see FR-011.
 - **FR-008**: The amend-reshare email MUST carry an "Enforcement hearing result amended" PDF showing the original
   result alongside the new result for each offence, the amendment reason, the original date of sentence, the
   amendment date, and the case/defendant identification.
@@ -227,17 +238,16 @@ is sent with a PDF correctly comparing the original and new results, regardless 
   comparison per step.
 - **FR-010**: Email dispatch (first-share or amend-reshare) MUST run independently of the CP→GOB payload submission:
   a failure in one path MUST NOT block or be blocked by the other, and both outcomes MUST be logged separately.
-- **FR-011**: The amend-reshare path MUST apply the same trigger-shortCode gate as the first-share path (FR-001):
-  an amend-reshare email is sent only when the hearing's **current** (post-amendment) state includes at least one
-  shortCode from the trigger list for that case's area. This gate is re-evaluated fresh on every reshare against
-  the current state — not against whether the *original* first share qualified — so an amendment that adds a
-  previously-absent trigger shortCode can turn a reshare into the hearing's first-ever email, and conversely an
-  amendment that leaves no trigger shortCode present produces no email even though `isReshare = true`.
-- **FR-012**: Once FR-011's trigger-shortCode gate is met, the amend-reshare path MUST NOT additionally suppress a
-  "no-op" reshare (one carrying no observable change from the immediately-preceding share): every amend-and-reshare
-  event that passes the FR-011 gate MUST produce an amend-reshare email regardless of whether its content differs
-  from the previous share. This rule is independent of, and applied only after, the FR-011 gate — it does not
-  reinstate suppression based on content-diff, only on the trigger-shortCode check.
+- **FR-011**: The first-share trigger-shortCode gate (FR-001) applies **only** to the first-share path. The
+  amend-reshare path MUST NOT apply any shortCode gate: an amend-reshare email MUST be sent for every
+  amend-and-reshare event on a case already selected as in-scope Enforcement/Confiscation, regardless of which
+  shortCodes are present, added, removed, or changed — including when the amendment touches only non-trigger-list
+  shortCodes or non-Enforcement result prompts (CIMD-4543 AC4/AC5/AC7). (Corrected 2026-11-26: the 2026-11-24
+  clarification's reversal of this rule was made without checking the real Jira acceptance criteria and is wrong
+  — see Clarifications, Session 2026-11-26.)
+- **FR-012**: The amend-reshare path MUST NOT suppress any in-scope amend-and-reshare event, whether or not its
+  content differs from the immediately-preceding share (no content-diff suppression) and regardless of shortCode
+  involvement.
 - **FR-013**: A PDF attachment larger than 2 MB MUST be delivered via the existing Office365 fallback path instead of
   the primary email-notification channel.
 - **FR-014**: The system MUST render the PDF attachment in Welsh when the matched result's NOWS template is
@@ -276,8 +286,8 @@ is sent with a PDF correctly comparing the original and new results, regardless 
 - **Amendment Notification PDF**: the amend-reshare document comparing the original and new result by offence,
   with amendment reason and dates.
 - **Trigger ShortCode List**: the configurable set of result shortCodes (16 Enforcement codes, plus the
-  Confiscation-scoped codes per the NOWS matrix) that gates both the first-share and the amend-reshare email,
-  re-evaluated against the hearing's current state on every reshare (FR-011).
+  Confiscation-scoped codes per the NOWS matrix) that gates the first-share email only (FR-001/FR-011); the
+  amend-reshare email has no shortCode gate.
 - **Previous Share Snapshot**: the minimal record of what was captured and sent on a hearing's immediately-preceding
   share (hearingId, hearingDate, relatedReferenceNumber, and the matched results/prompt values used to render that
   share's PDF), kept by this feature so the next amend-reshare's "original" comparison column does not depend on

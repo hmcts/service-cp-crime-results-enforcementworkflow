@@ -46,14 +46,14 @@ CREATE INDEX idx_ern_hearing_ref_prev
 
 ### State machine
 
-**Correction (R9, Clarification 2026-11-24): `SUPPRESSED` now applies to both notification types, not
-FIRST_SHARE only.** FR-011's trigger-shortCode gate is re-evaluated fresh on every reshare, so an amend-reshare
-whose current state has no trigger shortCode is suppressed exactly like a first share would be — this was not
-true in the design's first draft (where the amend-reshare path never filtered at all) and must be reflected
-here and in `MatchResultNotificationTask`'s AMEND_RESHARE branch.
+**Correction (Clarification 2026-11-26): `SUPPRESSED` applies to FIRST_SHARE only.** The Session 2026-11-24
+note that previously stood here (widening `SUPPRESSED` to both notification types, per an FR-011 reversal) is
+wrong and has been removed: CIMD-4543's real acceptance criteria (fetched directly 2026-11-26) confirm the
+amend-reshare path has no shortCode gate at all, so it can never reach `SUPPRESSED` — an amend-reshare always
+proceeds to inbox resolution regardless of which shortCodes are present in the current state.
 
 ```text
-REQUESTED ──(FR-011 gate: no trigger shortCode in current state, either notification type)──► SUPPRESSED  (final, FR-005/FR-011)
+REQUESTED ──(no trigger-list match, FIRST_SHARE only)──► SUPPRESSED  (final, FR-005)
           ──(no Division Code match)───────────────────────────────────────────────────────► INBOX_NOT_FOUND  (final, FR-006)
           ──(inbox resolved)──► DOC_REQUESTED ──► DOC_READY ──► EMAIL_REQUESTED ──► SENT   (final)
                                         │                              │
@@ -128,8 +128,8 @@ Two distinct lookups feed the PDF, and only one of them can go wrong without blo
    falling back on a miss/disabled-cache/`RedisException` to `GET
    {RESULTS_URL}/results-query-api/query/api/rest/results/hearingDetails/internal/{hearingId}` (feature 003's
    contract). Both return the current (latest) hearing result only.
-2. **Previous share** (used only for the "original" side of an AMEND_RESHARE, after the FR-011 gate is already
-   satisfied): read the most recent `enforcement_result_notification` row for the same `(hearing_id,
+2. **Previous share** (used only for the "original" side of an AMEND_RESHARE — this path has no shortCode gate
+   to satisfy first, per Clarification 2026-11-26): read the most recent `enforcement_result_notification` row for the same `(hearing_id,
    related_reference_number)` with `status = 'SENT'` (`idx_ern_hearing_ref_prev`), and use its
    `result_short_codes` — **not** the Results cache/API, which by the time an amend-reshare is processed already
    reflects the amended state.

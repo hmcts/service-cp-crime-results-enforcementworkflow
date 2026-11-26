@@ -3,11 +3,13 @@
 **Branch**: `dev/cct1222-email-notification` (branch naming deviates from `005-…`; branches managed by the
 developer — see Complexity Tracking) | **Date**: 2026-11-24 | **Spec**: [spec.md](spec.md)
 **Input**: Feature specification from `specs/005-cimd-4548-4543-enforcement-result-notification/spec.md`, with
-Clarifications 2026-11-24 (5 resolved, including the FR-011/FR-012 reshare-gating reversal) and
-`checklists/pre-plan.md`. Builds on the design doc *Enforcement Result Notifications* (DATAIN space, page
-367591581) and research into `cp-gov-uk-notify-gateway`, `cpp-context-system-doc-generator` branch
-`team/CHD-2786`, and `cpp-context-staging-dvla` branch `team/CHD-2786` (the closest working reference
-implementation of almost this same integration chain).
+Clarifications 2026-11-24 (5 resolved) and Clarification 2026-11-26 (corrects the 2026-11-24 FR-011/FR-012
+reshare-gating reversal, which was made without checking the real Jira ACs and is confirmed wrong against
+CIMD-4543's actual acceptance criteria, fetched directly 2026-11-26) and `checklists/pre-plan.md`. Builds on the
+design doc *Enforcement Result Notifications* (DATAIN space, page 367591581) and research into
+`cp-gov-uk-notify-gateway`, `cpp-context-system-doc-generator` branch `team/CHD-2786`, and
+`cpp-context-staging-dvla` branch `team/CHD-2786` (the closest working reference implementation of almost this
+same integration chain).
 
 ## Summary
 
@@ -19,9 +21,9 @@ changed result. This feature adds **no new inbound endpoint**: it hooks into fea
 (FR-010), resolves the team inbox via a locally-derived Division Code and the `enforcement_area` reference-data
 lookup, renders a PDF via `cpp-context-system-doc-generator`'s BYO-FS path (branch `team/CHD-2786`, unmerged —
 go-live gate), and dispatches email via `cp-gov-uk-notify-gateway` over Azure Service Bus, observing its result
-on a dedicated reply queue this service owns. The reshare path gates on the **same** trigger-shortCode rule as
-first share (Clarification 2026-11-24, reversing the original design's "no filter on reshare"), evaluated fresh
-against the hearing's current state on every reshare.
+on a dedicated reply queue this service owns. The reshare path has **no** shortCode gate (confirmed against
+CIMD-4543's real Jira acceptance criteria, Clarification 2026-11-26) — only the first-share path is gated by the
+trigger-shortCode list; the reshare path is scoped by case-type eligibility alone.
 
 ## Technical Context
 
@@ -73,7 +75,7 @@ existing trigger endpoint verbatim (no new inbound endpoint, no Function App cha
 
 | Principle | Check | Status |
 |---|---|---|
-| I. Logic in the workflow, thin gateway | All eligibility (FR-001/FR-011 trigger-shortCode gate), mapping (Division Code derivation, per-offence grouping) and idempotency logic live in this workflow. This feature never touches `service-cp-crime-results-enforcementgateway` or the GOB/Libra path at all (FR-010 keeps the two pipelines fully separate) — Principle I's "thin gateway" concern doesn't apply here. | Pass |
+| I. Logic in the workflow, thin gateway | All eligibility (FR-001 trigger-shortCode gate, first-share only; FR-011 confirms no gate on reshare), mapping (Division Code derivation, per-offence grouping) and idempotency logic live in this workflow. This feature never touches `service-cp-crime-results-enforcementgateway` or the GOB/Libra path at all (FR-010 keeps the two pipelines fully separate) — Principle I's "thin gateway" concern doesn't apply here. | Pass |
 | II. Compile-time contracts | None of the three external interfaces (`enforcement_area`, doc-generator, gov-uk-notify-gateway) are owned by this project, and none is the named `cpp-context-hearing-nows` exception. Applying that exception's spirit by analogy: this feature keeps verbatim copies of the gateway's three JSON schemas (`command-send-email-notification.schema.json`, `notification-sent.schema.json`, `notification-failed.schema.json`, already fetched and quoted in `research.md`/`contracts/`) marked "keep in sync; do not edit independently", validates built payloads against them in tests, and does the same for the doc-generator's `generate-document` schema once confirmed against `team/CHD-2786`'s current HEAD. `enforcement_area` has **no contract document at all yet** (CIMD-4389 owner hasn't published one) — open dependency D1. | Pass with dependency D1 (interpretation: hearing-nows-style exception applied by analogy, not literally named) |
 | III. Persistence by convention | Flyway `V1.010`, one change per file. Idempotency enforced by `UNIQUE(trigger_notification_id, related_reference_number)` — a DB constraint, not only an application check (corrected from an earlier draft that would have used the wrong key — see `research.md`). | Pass |
 | IV. Personal data | FR-016 explicitly scopes logged fields (caseUrn, Division Code, team email, shortCodes, sharing user id, timestamp) — no defendant name/DOB/NINO/address/bank data. `result_short_codes` at rest (offence wording, judicial result labels, prompt values) is new persisted content this constitution principle requires an ADR for **before** it is stored — none exists yet. | Pass with dependency D2 (ADR required before this table is first written in a real environment) |
@@ -85,7 +87,7 @@ existing trigger endpoint verbatim (no new inbound endpoint, no Function App cha
 | Architecture constraints | New `client`/`config`/`service`/`entity`/`repository` files follow the existing template package layout. Azure Blob/Service Bus SDKs are ordinary new dependencies, not changes to a `cpp-context-*` repository. `cp-task-manager`'s `jobs` table is already workflow-owned (feature 003's migrations) — no new DDL needed for the task-manager itself, only this feature's own new table. | Pass |
 | Dev workflow | Branch `dev/cct1222-email-notification` does not follow the `005-…` naming convention — same situation feature 003 already hit and justified (see Complexity Tracking). `/speckit-analyze` must report no CRITICAL/HIGH findings before `/speckit-implement`, consistent with this file's Dependencies table. | Pass (justified) |
 
-**Gate result**: passes, with eleven open dependencies (D1–D11) tracked below — none blocks `/speckit-tasks`,
+**Gate result**: passes, with twelve open dependencies (D1–D12) tracked below — none blocks `/speckit-tasks`,
 each has a named owner and a safe interim per constitution IX. D9 (FR-008 amendment-reason source) was added
 after `/speckit-analyze` flagged it as a coverage gap and should be resolved before `/speckit-implement` closes
 out FR-008. D10 (Docmosis templates) is confirmed to be entirely `cpp-context-system-doc-generator`'s own scope,
@@ -159,12 +161,14 @@ introduced beyond what the template already defines); this feature only adds fil
 | D9 | Source for FR-008's "amendment reason" — no field for this exists anywhere in `HearingResultedEvent`, the Results API wire payload, or any reference-data client found in this codebase's research; "the original date of sentence" is satisfiable from the previous snapshot's `shortCodes[].orderedDate` and "the amendment date" from this row's own `received_at`, both already in the payload, but "amendment reason" has no identified source at all | FR-008 cannot be fully satisfied as literally worded without this | Business / Results API team — interim: render the PDF without an amendment-reason line until a source is confirmed |
 | D10 | The two Docmosis templates (`notification_type` = FIRST_SHARE/AMEND_RESHARE) that `templateIdentifier` points at are authored and owned entirely within `cpp-context-system-doc-generator` (confirmed) — **not this repo's scope**, hence no task for them in this repo's `tasks.md`; this repo only configures the template ids (T018) and passes them through `generate-document` | FR-004/FR-008/SC-003 end-to-end verification against a real (non-stubbed) doc generator; WireMock stubs cover this repo's own tests without needing the real templates | System Doc Generator team — track as a release dependency (alongside D4) for go-live, not a gap in this feature's own tasks |
 | D11 | Confirm FR-014's Welsh-language rendering actually extends to this feature's new `cp-gov-uk-notify-gateway`/doc-generator delivery mechanism — spec.md's Assumptions claim this "reuses conventions already established for other NOWS documents," but that convention was built for the legacy Office365/NOWS pathway, not this brand-new ASB-based integration, and no task currently tests it. **FR-013's >2MB Office365 fallback is not a practical risk for this feature** (confirmed): this PDF is a short per-case result summary (one row's matched offences/shortCodes/prompts), not a full case bundle, so it will not realistically approach 2MB — no dedicated test is needed for that path | FR-014 compliance | Developer, confirm Welsh rendering with the gateway/doc-generator teams before relying on inherited behaviour |
+| D12 | **Traceability**: the Session 2026-11-24 clarification reversed FR-011/FR-012 to gate the amend-reshare path by the same trigger-shortCode list as first-share, reasoning only from an internal consistency concern (Acceptance Scenario 3's "no previous share to diff against" case) — without checking the real Jira ACs, which had not yet been fetched. That reversal is now confirmed wrong: CIMD-4543's actual acceptance criteria (fetched directly 2026-11-26) state explicitly that no shortCode gate applies to the A&R path (AC4/AC5/AC7). The original "no filter on reshare" design was correct all along; the concern that motivated the reversal was already independently handled by `ResultNotificationPayloadBuilder`'s existing `previous: null, changed: true` handling for a reshare with no prior SENT row. Corrected via Clarification 2026-11-26 across spec.md/plan.md/data-model.md/tasks.md | Avoiding repeat of this error; a reminder to ground clarifications in source tickets, not just internal consistency | Developer — closed, no further action needed beyond the correction itself |
 
 Suggested iteration order (constitution IX): (1) data model + `ResolveResultNotificationTask`/
 `MatchResultNotificationTask` against WireMock stubs (positive path, FIRST_SHARE) → (2) `DocGeneratorEventListener`
 + `DispatchResultNotificationEmailTask` + `ResultNotificationReplyListener` (full positive-path integration test)
-→ (3) the three failure-point integration tests → (4) AMEND_RESHARE path including the FR-011 gate reversal and
-per-offence diff → (5) Blob/Service Bus production wiring once D1/D3/D4 land.
+→ (3) the three failure-point integration tests → (4) AMEND_RESHARE path (no shortCode gate, case-type
+eligibility only — corrected 2026-11-26) and per-offence diff → (5) Blob/Service Bus production wiring once
+D1/D3/D4 land.
 
 ## Complexity Tracking
 

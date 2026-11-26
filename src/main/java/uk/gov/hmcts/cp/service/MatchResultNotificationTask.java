@@ -28,11 +28,11 @@ import static uk.gov.hmcts.cp.service.ResultNotificationTasks.MATCH_RESULT_NOTIF
 import static uk.gov.hmcts.cp.service.ResultNotificationTasks.resultNotificationIdOf;
 
 /**
- * Second stage of feature 005's own task chain: the FR-011 gate (re-evaluated fresh against the hearing's current
- * state for both notification types - Clarification 2026-11-24), Division Code resolution, the
- * {@code enforcement_area} team-inbox lookup, and - once both pass - building and uploading the render payload and
- * sending {@code generate-document}. For AMEND_RESHARE, also reads the Previous Share Snapshot (research.md R3) once
- * the gate passes, never before.
+ * Second stage of feature 005's own task chain: the FR-001 trigger-shortCode gate (FIRST_SHARE only - corrected
+ * 2026-11-26 against CIMD-4543's real acceptance criteria; AMEND_RESHARE never gates on shortCodes, per FR-011),
+ * Division Code resolution, the {@code enforcement_area} team-inbox lookup, and - once resolved - building and
+ * uploading the render payload and sending {@code generate-document}. For AMEND_RESHARE, also reads the Previous
+ * Share Snapshot (research.md R3), unconditionally.
  */
 @Slf4j
 @Component
@@ -111,7 +111,11 @@ public class MatchResultNotificationTask implements ExecutableTask {
             final ResolvedCodes resolved = resultCodeResolver.resolve(event, defendant.get());
             final DivisionCode divisionCode = DivisionCode.from(row.getRelatedReferenceNumber());
             final Area area = divisionCode.areaFor(properties);
-            next = triggerShortCodeMatcher.matches(resolved.results(), area)
+            // FR-011: the trigger-shortCode gate applies to FIRST_SHARE only; AMEND_RESHARE always proceeds,
+            // regardless of which shortCodes are present, added, removed, or changed (CIMD-4543 AC4/AC5/AC7).
+            final boolean gatePasses = row.getNotificationType() == NotificationType.AMEND_RESHARE
+                    || triggerShortCodeMatcher.matches(resolved.results(), area);
+            next = gatePasses
                     ? resolveInboxAndDispatch(executionInfo, row, defendant.get(), resolved, divisionCode, area)
                     : suppress(executionInfo, row, divisionCode, area, resolved);
         }

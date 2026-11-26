@@ -8,11 +8,12 @@
 R12. Every test task is written, and must fail, before its implementation task.
 
 **Organization**: Grouped by user story (US1 = CIMD-4548 first-share, US2 = CIMD-4543 amend-reshare). Both are
-P1. Because FR-011's Clarification 2026-11-24 reversal makes the trigger-shortCode gate identical for both
-notification types, the foundational phase delivers the **full pipeline for the current-state (FIRST_SHARE)
-shape**; US2 then **extends** the same `MatchResultNotificationTask`/`ResultNotificationPayloadBuilder` files
-with the Previous Share Snapshot lookup and the current+previous diff — an additive, same-file extension, not a
-new component, so US1 remains independently completable and testable on its own first.
+P1. The foundational phase delivers the **full pipeline for the current-state (FIRST_SHARE) shape**, including
+the FR-001/FR-011 trigger-shortCode gate; US2 then **extends** the same
+`MatchResultNotificationTask`/`ResultNotificationPayloadBuilder` files with the Previous Share Snapshot lookup
+and the current+previous diff, explicitly **skipping** that gate for AMEND_RESHARE (corrected 2026-11-26 — see
+plan.md D12) — an additive, same-file extension, not a new component, so US1 remains independently completable
+and testable on its own first.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -90,9 +91,9 @@ new component, so US1 remains independently completable and testable on its own 
       `src/main/resources/application.yaml` (`cp.enforcement-area.*`, `cp.doc-generator.*`,
       `cp.result-notification-blob.*`, `cp.gov-uk-notify.*`, `cp.result-notification.*` per plan.md's Config
       section)
-- [X] T019 [P] Unit test `service/TriggerShortCodeMatcherTest.java` — the FR-011 gate: does the hearing's
-      **current** (post-amendment) state include at least one shortCode from the trigger list for that case's
-      area; this logic is identical for FIRST_SHARE and AMEND_RESHARE (Clarification 2026-11-24)
+- [X] T019 [P] Unit test `service/TriggerShortCodeMatcherTest.java` — the FR-001 gate: does the hearing's
+      current state include at least one shortCode from the trigger list for that case's area; this matcher is
+      invoked for FIRST_SHARE only — AMEND_RESHARE never calls it (corrected 2026-11-26, plan.md D12)
 - [X] T020 Implement `service/TriggerShortCodeMatcher.java` (depends on T019, T018)
 - [X] T021 [P] Unit test `service/ResultNotificationStoreTest.java` (`REQUIRES_NEW`-per-write pattern, mirrors
       `NotificationStore`), `service/ResultNotificationTasksTest.java` (job-queueing), and
@@ -119,8 +120,8 @@ new component, so US1 remains independently completable and testable on its own 
 - [X] T029 Implement `service/ResultNotificationPayloadBuilder.java`, current-state (FIRST_SHARE) shape only
       (depends on T028, T025; confirm plan.md D6 — `ResultCodeResolver`/equivalent is independently callable,
       before coding this reuse)
-- [X] T030 [P] Unit test `service/MatchResultNotificationTaskTest.java` — the shared pipeline: FR-011 gate via
-      `TriggerShortCodeMatcher` → Division Code resolution → `EnforcementAreaClient` lookup →
+- [X] T030 [P] Unit test `service/MatchResultNotificationTaskTest.java` — the shared pipeline (FIRST_SHARE shape):
+      FR-001 gate via `TriggerShortCodeMatcher` → Division Code resolution → `EnforcementAreaClient` lookup →
       `INBOX_NOT_FOUND` on confirmed no-match only (not on transient 5xx/timeout) → build current-state payload →
       upload to blob → send `generate-document` → row → `DOC_REQUESTED`
 - [X] T031 Implement `service/MatchResultNotificationTask.java`, current-state path only (depends on T030, T009,
@@ -194,14 +195,15 @@ correct team inbox, logged, and that re-submitting the same share produces no se
 
 ## Phase 4: User Story 2 - Amend-and-reshare notification with before/after comparison (Priority: P1)
 
-**Goal**: Deliver CIMD-4543 — an amend-and-reshare whose current (post-amendment) state still passes the FR-011
-gate produces an email showing the original result alongside the new one, diffed against the immediately
-preceding share, independent of the (unrelated) GOB payload submission's own success or failure.
+**Goal**: Deliver CIMD-4543 — every amend-and-reshare event on a previously-shared, in-scope Enforcement/
+Confiscation case produces an email showing the original result alongside the new one, diffed against the
+immediately preceding share, regardless of which shortCode(s) are present/added/removed/changed, and
+independent of the (unrelated) GOB payload submission's own success or failure.
 
 **Independent Test** (spec.md User Story 2): Share a hearing result once, then amend and reshare it; verify
 exactly one amend-reshare email is sent with a PDF correctly comparing the original and new results, regardless
-of which shortCode(s) changed — and, per Clarification 2026-11-24, that a reshare whose current state has lost
-its only trigger shortCode produces **no** email at all.
+of which shortCode(s) changed — including a reshare that only ever touched non-trigger-list shortCodes
+(CIMD-4543 AC4/AC5/AC7; corrected 2026-11-26, plan.md D12: there is no shortCode gate on this path).
 
 ### Tests for User Story 2
 
@@ -212,19 +214,21 @@ its only trigger shortCode produces **no** email at all.
       shape: per-offence `current`+`previous`+`changed` merge; an offence with no match in the previous snapshot
       → `previous: null, changed: true`; top-level `amendmentDate` populated from the row's `received_at`
       (plan.md D9 — `amendmentReason` has no source and is intentionally absent from the payload)
-- [X] T048 [P] [US2] Unit test (extend `MatchResultNotificationTaskTest.java`) — the three Clarification
-      2026-11-24 sub-cases, all starting from "first share suppressed, no trigger shortCode, no email ever sent":
-      amending to **add** a trigger shortCode → proceeds (this reshare becomes the hearing's first-ever email);
-      amending to add a non-trigger shortCode, or changing an existing non-trigger value → still `SUPPRESSED`
+- [ ] T048 [P] [US2] Unit test (extend `MatchResultNotificationTaskTest.java`) — reopened/rewritten 2026-11-26
+      (plan.md D12): the AMEND_RESHARE branch never calls `TriggerShortCodeMatcher` and never reaches
+      `SUPPRESSED`. Three sub-cases, all starting from "first share suppressed, no trigger shortCode, no email
+      ever sent" (CIMD-4543 AC4/AC5/AC7): amending to **add** a trigger shortCode → proceeds; amending to add a
+      non-trigger shortCode → proceeds; changing an existing non-trigger value (no trigger shortCode involved at
+      all) → still proceeds. All three produce an email.
 - [ ] T049 [P] [US2] Integration test (extend `ResultNotificationFlowIntegrationTest.java`) — AMEND_RESHARE
       positive path: the "previous" column renders from the prior `SENT` row's `result_short_codes`, **not** the
       Results cache/API (research.md R3, since by the time an amend-reshare is processed the cache/API already
       reflect the amended state)
 - [ ] T050 [P] [US2] Unit test — three successive amend-reshares (spec.md User Story 2 Acceptance Scenario 6)
       each diff against their own immediately-preceding `SENT` row, not the original first share (FR-009)
-- [X] T051 [P] [US2] Unit test — a reshare that passes the FR-011 gate with no observable change from the
-      previous share still produces an email; no content-diff suppression (FR-012, independent of the FR-011
-      gate)
+- [ ] T051 [P] [US2] Unit test — reworded 2026-11-26 (plan.md D12): a reshare with no observable change from the
+      previous share still produces an email; no content-diff suppression (FR-012) — this path has no
+      shortCode gate to pass in the first place, so the assertion is purely about content-diff, not gate-passing
 
 ### Implementation for User Story 2
 
@@ -233,11 +237,11 @@ its only trigger shortCode produces **no** email at all.
 - [X] T053 [US2] Extend `service/ResultNotificationPayloadBuilder.java` with the AMEND_RESHARE current+previous+
       changed merge, plus the top-level `amendmentDate` field (sourced from this row's own `received_at` —
       plan.md D9) (depends on T047, T029)
-- [X] T054 [US2] Extend `service/MatchResultNotificationTask.java`'s AMEND_RESHARE branch: re-evaluate the FR-011
-      gate via `TriggerShortCodeMatcher` against the hearing's **current** state (not whether the original first
-      share qualified — the state-machine correction in data-model.md widening `SUPPRESSED` to AMEND_RESHARE
-      too), and invoke the Previous Share Snapshot lookup only once that gate passes (depends on T048, T052,
-      T053, T031)
+- [ ] T054 [US2] Rewritten 2026-11-26 (plan.md D12): extend `service/MatchResultNotificationTask.java`'s
+      AMEND_RESHARE branch to **skip** `TriggerShortCodeMatcher` entirely — AMEND_RESHARE never gates on
+      shortCodes and never reaches `SUPPRESSED` (data-model.md state machine reverted to FIRST_SHARE-only
+      `SUPPRESSED`) — and always proceed straight to the Previous Share Snapshot lookup and inbox resolution
+      (depends on T048, T052, T053, T031)
 - [X] T055 [US2] Confirm FR-010 independence end to end: an amend-reshare email is still dispatched when the
       (unrelated) GOB payload submission fails independently, with no shared failure path with
       `ProcessNotificationTask`/`PublishGobDataTask` (spec.md User Story 2 Acceptance Scenario 5) — add this as an
@@ -310,7 +314,7 @@ Task: "Unit test client/GovUkNotifyEmailSenderTest.java"
 ```bash
 Task: "Unit test: Previous Share Snapshot repository query"
 Task: "Unit test: AMEND_RESHARE payload builder current+previous+changed merge"
-Task: "Unit test: MatchResultNotificationTask's three FR-011 gate sub-cases"
+Task: "Unit test: MatchResultNotificationTask's AMEND_RESHARE branch always proceeds (no shortCode gate)"
 Task: "Integration test: AMEND_RESHARE positive path reads the prior SENT row, not the Results cache/API"
 ```
 
@@ -329,7 +333,8 @@ Task: "Integration test: AMEND_RESHARE positive path reads the prior SENT row, n
 
 1. Setup + Foundational → pipeline skeleton ready.
 2. Add User Story 1 → validate independently → deploy/demo (MVP).
-3. Add User Story 2 → validate independently (including the FR-011 gate's reversed behaviour) → deploy/demo.
+3. Add User Story 2 → validate independently (including that the amend-reshare path has no shortCode gate at
+   all) → deploy/demo.
 4. Polish (coverage, PMD, ADR, RBAC, go-live dependency re-checks) before any real-environment release.
 
 ## Notes

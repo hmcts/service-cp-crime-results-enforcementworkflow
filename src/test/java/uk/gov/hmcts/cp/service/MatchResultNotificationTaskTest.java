@@ -36,8 +36,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Feature 005 (FR-011, FR-003, FR-004, Clarification 2026-11-24): the shared gate/inbox/dispatch pipeline, identical
- * for FIRST_SHARE and AMEND_RESHARE.
+ * Feature 005 (FR-011, FR-003, FR-004; corrected 2026-11-26 against CIMD-4543's real acceptance criteria): the
+ * shared inbox/dispatch pipeline. The FR-001 trigger-shortCode gate applies to FIRST_SHARE only - AMEND_RESHARE
+ * never calls {@link TriggerShortCodeMatcher} and always proceeds to inbox resolution/dispatch.
  */
 @ExtendWith(OutputCaptureExtension.class)
 class MatchResultNotificationTaskTest {
@@ -162,9 +163,8 @@ class MatchResultNotificationTaskTest {
     }
 
     @Test
-    void amend_reshare_should_read_the_previous_share_snapshot_once_the_gate_passes() {
+    void amend_reshare_should_read_the_previous_share_snapshot_without_consulting_the_gate() {
         givenSelectedDefendant(true);
-        when(triggerShortCodeMatcher.matches(any(), eq(Area.ENFORCEMENT))).thenReturn(true);
         when(enforcementAreaClient.findTeamInbox(10)).thenReturn(Optional.of(new TeamInbox("team@example.gov.uk")));
         when(payloadBuilder.buildResultShortCodes(any(), any(), eq(Area.ENFORCEMENT))).thenReturn("[]");
         final EnforcementResultNotificationEntity previous = row(NotificationType.FIRST_SHARE, ResultNotificationStatus.SENT);
@@ -179,14 +179,35 @@ class MatchResultNotificationTaskTest {
 
         verify(store).previousShareSnapshot(HEARING_ID, REFERENCE);
         verify(docGeneratorClient).generateDocument(any());
+        verify(triggerShortCodeMatcher, never()).matches(any(), any());
     }
 
-    // FR-012: a reshare with no observable change from the previous share still produces an email once the FR-011
-    // gate is met - there is no separate content-diff suppression check anywhere in this task
+    // FR-011/CIMD-4543 AC4/AC5/AC7, corrected 2026-11-26: the amend-reshare path has no shortCode gate at all - it
+    // must dispatch even when neither the current nor the previous state ever contained a trigger shortCode
+    @Test
+    void amend_reshare_should_dispatch_even_when_no_trigger_short_code_is_present() {
+        givenSelectedDefendant(true);
+        when(enforcementAreaClient.findTeamInbox(10)).thenReturn(Optional.of(new TeamInbox("team@example.gov.uk")));
+        when(payloadBuilder.buildResultShortCodes(any(), any(), eq(Area.ENFORCEMENT))).thenReturn("[\"ABDC\"]");
+        when(store.previousShareSnapshot(HEARING_ID, REFERENCE)).thenReturn(Optional.empty());
+        when(payloadBuilder.buildDocGenPayload(eq(NotificationType.AMEND_RESHARE), eq(HEARING_ID), eq(DAY), any(), eq(REFERENCE),
+                eq("[\"ABDC\"]"), eq(null), any())).thenReturn("{}");
+        when(blobClient.uploadPayload(any(), any(), any())).thenReturn("payload-url");
+        when(blobClient.destinationUrl(ID)).thenReturn("destination-url");
+
+        task.execute(info(3));
+
+        verify(store, never()).markSuppressed(any());
+        verify(store).markDocRequested(any(), any(), any(), any(), any(), any(), any());
+        verify(docGeneratorClient).generateDocument(any());
+        verify(triggerShortCodeMatcher, never()).matches(any(), any());
+    }
+
+    // FR-012: a reshare with no observable change from the previous share still produces an email - there is no
+    // content-diff suppression check anywhere in this task
     @Test
     void amend_reshare_with_no_observable_change_should_still_dispatch_not_suppress() {
         givenSelectedDefendant(true);
-        when(triggerShortCodeMatcher.matches(any(), eq(Area.ENFORCEMENT))).thenReturn(true);
         when(enforcementAreaClient.findTeamInbox(10)).thenReturn(Optional.of(new TeamInbox("team@example.gov.uk")));
         final String identicalShortCodes = "[\"same\"]";
         when(payloadBuilder.buildResultShortCodes(any(), any(), eq(Area.ENFORCEMENT))).thenReturn(identicalShortCodes);
@@ -208,7 +229,6 @@ class MatchResultNotificationTaskTest {
     @Test
     void amend_reshare_with_no_previous_row_should_still_dispatch() {
         givenSelectedDefendant(true);
-        when(triggerShortCodeMatcher.matches(any(), eq(Area.ENFORCEMENT))).thenReturn(true);
         when(enforcementAreaClient.findTeamInbox(10)).thenReturn(Optional.of(new TeamInbox("team@example.gov.uk")));
         when(payloadBuilder.buildResultShortCodes(any(), any(), eq(Area.ENFORCEMENT))).thenReturn("[]");
         when(store.previousShareSnapshot(HEARING_ID, REFERENCE)).thenReturn(Optional.empty());
