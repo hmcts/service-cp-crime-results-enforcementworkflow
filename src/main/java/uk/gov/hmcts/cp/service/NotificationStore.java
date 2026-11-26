@@ -73,13 +73,18 @@ public class NotificationStore {
         });
     }
 
-    /** GOB data is ready for stage 2: a new submission ({@code reused=false}) or earlier GOB data reused (FR-009). */
-    public void markReadyToPublish(final UUID id, final UUID sourceSubmissionId, final UUID masterDefendantId, final boolean reused) {
+    /**
+     * GOB data is ready for stage 2: a new submission ({@code reused=false}) or earlier GOB data reused (FR-009), with the
+     * accounting division code of the defendant's enforcement area (CIMD-4640), or null when reference data has none.
+     */
+    public void markReadyToPublish(final UUID id, final UUID sourceSubmissionId, final UUID masterDefendantId, final boolean reused,
+                                   final Integer accountingDivisionCode) {
         update(id, n -> {
             n.setStatus(reused ? NotificationStatus.SKIPPED_NOTHING_NEW : NotificationStatus.SUBMITTED);
             n.setSubmissionId(sourceSubmissionId);
             n.setMasterDefendantId(masterDefendantId);
             n.setGobDataReused(reused);
+            n.setAccountingDivisionCode(accountingDivisionCode);
             n.setFailedStage(null);
             n.setLastError(null);
             n.setAttempts(0);

@@ -17,8 +17,9 @@ in either order, hearing-nows has to keep GOB's data until the NOW arrives (rese
   items it holds defendant and account details, payment and transaction history, impositions and creditors, warrant
   details and **bank details** (`ctBankDetails`).
 - `enforcement_nows_data.account_number`: the GOB account number.
-- `now_document_request.payload`: the completed NOW, with the same data in `nowContent.financialOrderDetails`
-  (`enfNowsDataItems`, `accountPaymentReference`), as hearing-nows already stores every NOW payload today.
+- `now_document_request.payload`: the completed NOW, with the same data in `nowContent.enforcementFinancialOrderDetails`
+  (`enfNowsDataItems`, `accountPaymentReference`, `accountingDivisionCode`; its own block since CIMD-4640, 2026-11-20),
+  as hearing-nows already stores every NOW payload today.
 
 ## Decision
 
@@ -39,7 +40,8 @@ with these controls:
 6. **No copy leaves hearing-nows except the document** (reviews 2026-10-12 and 2026-10-13, developer decisions):
    the public `public.hearingnows.now-document-requested` event and the query API (`/nows/hearing/{id}`,
    `/nows/material/{id}`, readable by 12 user groups including Police, Prison, Probation, YOS and LAA) return the NOW
-   without `financialOrderDetails.enfNowsDataItems`; only `accountPaymentReference` stays. The stored payload, used to
+   without `enforcementFinancialOrderDetails` (the account number included, since CIMD-4640; for a NOW completed before
+   it, without `financialOrderDetails.enfNowsDataItems`). The stored payload, used to
    generate the document, keeps it.
 
 ## Consequences

@@ -3,7 +3,7 @@
 Decisions referenced as R* are in [research.md](research.md). Builds on this service's existing schema (features
 001–004, `src/main/resources/db/migration`, next available `V1.010`); nothing already applied is edited.
 
-## `enforcement_result_notification` (new) — `V1.010__create_enforcement_result_notification.sql`
+## `enforcement_result_notification` (new) — `V1.011__create_enforcement_result_notification.sql`
 
 One row per unique `relatedReferenceNumber` per triggering share/reshare event — the per-recipient audit trail
 (the "Notification Record" key entity in spec.md), fanned out from one `POST /enforcement-notifications` trigger

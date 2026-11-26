@@ -54,13 +54,13 @@ class EnforcementAreaClientTest {
     void server_error_should_throw_unavailable_not_collapsed_into_not_found() {
         server.expect(requestTo(URL)).andRespond(withStatus(SERVICE_UNAVAILABLE));
 
-        assertThatThrownBy(() -> client.findTeamInbox(10)).isInstanceOf(EnforcementAreaUnavailableException.class);
+        assertThatThrownBy(() -> client.findTeamInbox(10)).isInstanceOf(TeamInboxUnavailableException.class);
     }
 
     @Test
     void transport_failure_should_throw_unavailable() {
         server.expect(requestTo(URL)).andRespond(withException(new java.net.SocketTimeoutException("Read timed out")));
 
-        assertThatThrownBy(() -> client.findTeamInbox(10)).isInstanceOf(EnforcementAreaUnavailableException.class);
+        assertThatThrownBy(() -> client.findTeamInbox(10)).isInstanceOf(TeamInboxUnavailableException.class);
     }
 }

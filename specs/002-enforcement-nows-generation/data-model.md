@@ -57,7 +57,7 @@ Rules:
 | `defendantId` | uuid | yes | event defendant `id` | checks/logging |
 | `prosecutionCaseId` | uuid | yes | event prosecution case `id` | checks/logging |
 | `caseUrn` | string ≤ 36 | yes | case `caseURN` | unchanged (constitution VI) |
-| `accountNumber` | string ≤ 36 | yes | `prosecutorDefendantId` sent to GOB (GOB account number) | → `financialOrderDetails.accountPaymentReference` |
+| `accountNumber` | string ≤ 36 | yes | `prosecutorDefendantId` sent to GOB (GOB account number) | → `enforcementFinancialOrderDetails.accountPaymentReference` (CIMD-4640) |
 | `nowsDataItems` | object (`nows-data-items.json`) | yes | GOB reply's `nowsDataItems`, the JSON node from the raw reply, unchanged | may be `{}` |
 | `sharedTime` | date-time | yes | event `sharedTime` (of the share being handed over: first share, later hearing day, or reshare) | versions the kept data within a hearing day in H (later replaces, R18) |
 | `gobDataReused` | boolean | yes | `true` when W did not call GOB for this share: an amend & reshare (FR-016) or a later share with nothing new or no GOB-recognised result (FR-020) | `true`: `nowsDataItems` are the most recent GOB data already received for the case and defendant; H applies the "same type of result" check (FR-017) |
@@ -98,14 +98,13 @@ Rules:
 
 | Status | Set when | Next |
 |---|---|---|
-| `WAITING_FOR_ENFORCEMENT_DATA` | An Enforcement-case NOW arrives (hold condition, plan §Key rules) and no kept data is found | `ENFORCEMENT_DATA_ADDED` (completed) or `FAILED` (by `CompleteEnforcementNowTask`: "GOB data missing totals"; by `EXPIRE_WAITING_ENFORCEMENT_NOW_TASK` at arrival + max wait: "no GOB data" or "result not sent to GOB") |
+| `WAITING_FOR_ENFORCEMENT_DATA` | An Enforcement-case NOW arrives (hold condition, plan §Key rules) and no kept data is found | `ENFORCEMENT_DATA_ADDED` (completed) or `FAILED` (by `EXPIRE_WAITING_ENFORCEMENT_NOW_TASK` at arrival + max wait: "no GOB data" or "result not sent to GOB") |
 | `ENFORCEMENT_DATA_ADDED` | GOB data merged into the payload (by whichever side wins the conditional update) | existing chain: `PAYLOAD_STORED_TO_FILE_SERVICE` → `DOCUMENT_REQUESTED` → `DOCUMENT_AVAILABLE` → … |
 
 State diagram (enforcement NOW):
 
 ```text
 SUBMITTED ──(hold condition)──> WAITING_FOR_ENFORCEMENT_DATA ──(data, covered if amended)──> ENFORCEMENT_DATA_ADDED ──> existing chain
-    │                                   ├──(data without the required totals)──> FAILED ("GOB data missing totals")
     │                                   └──(max wait)──> FAILED ("no GOB data" / "result not sent to GOB")
     └──(no master defendant id)──> FAILED ("no master defendant id")
 Kept data already present: the NOW still passes through WAITING_FOR_ENFORCEMENT_DATA; its first completion task completes it.
@@ -114,13 +113,15 @@ Non-enforcement NOW: SUBMITTED ──> existing behaviour (unchanged)
 
 `status`, `error_message` columns already exist. New columns `master_defendant_id uuid` and `enforcement_correlation_id uuid` (changeset `005-add-enforcement-columns-to-now-document-request.xml`, index on `enforcement_correlation_id, master_defendant_id, status`): `master_defendant_id` set from the request on insert; `enforcement_correlation_id` set when the NOW is held, from the NOW's `hearingId` and `nowContent.orderDate` (R4, R18 interim).
 
-`FAILED` reasons added (`error_message`): `no GOB data` (max wait passed, FR-011/FR-012), `result not sent to GOB` (amended NOW whose results the share's GOB data never covered, at the max wait, FR-017), `GOB data missing totals` (NOW without `financialOrderDetails` and GOB data without `accountBalance` / `offences.accountTotal`, OQ-1), `no master defendant id` (Enforcement-case NOW without one, R4); a jobstore task whose retries are exhausted sets `FAILED` with `<task>: <message>` (existing pattern).
+`FAILED` reasons added (`error_message`): `no GOB data` (max wait passed, FR-011/FR-012), `result not sent to GOB` (amended NOW whose results the share's GOB data never covered, at the max wait, FR-017), ~~`GOB data missing totals`~~ (removed 2026-11-20, CIMD-4640: enforcement no longer uses `financialOrderDetails`, §5), `no master defendant id` (Enforcement-case NOW without one, R4); a jobstore task whose retries are exhausted sets `FAILED` with `<task>: <message>` (existing pattern).
 
 When the enforcement check needs Progression (no case carries the enforcement code and some case has no `prosecutorOUCode`, R3), the NOW stays `SUBMITTED` while `CHECK_ENFORCEMENT_NOW_TASK` runs (retried by the jobstore), then moves to `WAITING_FOR_ENFORCEMENT_DATA`, `ENFORCEMENT_DATA_ADDED` or the existing path.
 
 ## 5. H — NOW payload after completion (CIMD-4462 data model)
 
-`nowContent.financialOrderDetails` (schema `financial-order-details.json`, PR #186):
-- `enfNowsDataItems`: the hand-over's `nowsDataItems`, unchanged.
-- `accountPaymentReference`: the hand-over's `accountNumber`.
-- When the NOW arrived without `financialOrderDetails` (non-financial NOW): created with the two fields above, plus the schema-required `totalBalance` = `enfNowsDataItems.accountBalance` and `totalAmountImposed` = `enfNowsDataItems.offences.accountTotal`; when GOB did not return both, the NOW is `FAILED` "GOB data missing totals" instead (OQ-1 answered 2026-10-12). All other `nowContent` fields stay as DF built them. The public event and the query API return the payload without `enfNowsDataItems`; only the stored payload (the document) carries it.
+`nowContent.enforcementFinancialOrderDetails` (schema `enforcement-financial-order-details.json`, CIMD-4640, agreed 2026-11-20 with the tech lead, BA, QA and the template developer; beside `financialOrderDetails`, `additionalProperties: false`):
+- `enfNowsDataItems` (required): the hand-over's `nowsDataItems`, unchanged (CIMD-4462 / PR #186 model, `nows-data-items.json`).
+- `accountPaymentReference`: the hand-over's `accountNumber`, when there is one.
+- `accountingDivisionCode` (integer; formatted to 3 digits for the document, as `financialOrderDetails`' one): the GOB data event's `accountingDivisionCode`, kept with the data (`enforcement_nows_data.accounting_division_code`, changeset 010; not GOB data, so the release leaves it). W resolves it (2026-11-23, tech lead): `accountDivisionCode` of `referencedata.query.enforcement-area` for the selected defendant's postcode, else for the hearing court's `lja.ljaCode` (`localJusticeAreaNationalCourtCode`), the order DF uses for `financialOrderDetails`; left out when reference data has no area for either (404, or 400 for a postcode it rejects). Reference data unavailable fails W's stage 1, which is retried without resending to GOB (feature 003). H no longer queries reference data for it.
+
+`financialOrderDetails` is not used by enforcement: kept exactly as DF built it, or absent; `financial-order-details.json` is back to its pre-enforcement form (totals required, no `enfNowsDataItems`). All other `nowContent` fields stay as DF built them. The public event and the query API return the payload without `enforcementFinancialOrderDetails`, and without `financialOrderDetails.enfNowsDataItems` for a NOW completed before CIMD-4640 (the earlier layout); only the stored payload (the document) carries GOB's data.

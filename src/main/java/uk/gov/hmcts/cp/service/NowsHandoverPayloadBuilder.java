@@ -32,11 +32,12 @@ public class NowsHandoverPayloadBuilder {
 
     /**
      * The GOB data event payload (feature 003, contracts/public.enforcementworkflow.enforcement-nows-data-ready.json),
-     * without the CPP envelope: the notification's NOWs of the selected defendant, the account number and GOB's
-     * {@code nowsDataItems} verbatim.HearingResultedNowsHandler
+     * without the CPP envelope: the notification's NOWs of the selected defendant, the account number, the enforcement
+     * area's accounting division code when one was found (CIMD-4640) and GOB's {@code nowsDataItems} verbatim.
      */
-    public ObjectNode build(final UUID hearingId, final List<NowRequest> nows, final String accountNumber, final JsonNode nowsDataItems,
-                            final boolean gobDataReused, final Instant sharedTime) {
+    public ObjectNode build(final UUID hearingId, final List<NowRequest> nows, final String accountNumber,
+                            final Integer accountingDivisionCode, final JsonNode nowsDataItems, final boolean gobDataReused,
+                            final Instant sharedTime) {
         final ObjectNode payload = VERBATIM.createObjectNode();
         payload.put("hearingId", hearingId.toString());
         final ArrayNode items = payload.putArray("nows");
@@ -44,6 +45,9 @@ public class NowsHandoverPayloadBuilder {
                 .put("requestId", now.requestId().toString())
                 .put("masterDefendantId", now.masterDefendantId().toString()));
         payload.put("accountNumber", accountNumber);
+        if (accountingDivisionCode != null) {
+            payload.put("accountingDivisionCode", accountingDivisionCode.intValue());
+        }
         payload.put("gobDataReused", gobDataReused);
         if (sharedTime != null) {
             payload.put("sharedTime", sharedTime.toString());

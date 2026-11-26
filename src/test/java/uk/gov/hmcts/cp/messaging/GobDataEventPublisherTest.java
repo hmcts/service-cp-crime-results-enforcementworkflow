@@ -40,7 +40,7 @@ class GobDataEventPublisherTest {
     @Test
     void event_should_be_a_cpp_envelope_with_cppname_on_the_configured_topic() throws Exception {
         final ObjectNode payload = new NowsHandoverPayloadBuilder().build(UUID.randomUUID(),
-                List.of(new NowRequest(UUID.randomUUID(), UUID.randomUUID())), "26000123A",
+                List.of(new NowRequest(UUID.randomUUID(), UUID.randomUUID())), "26000123A", 26,
                 NowsHandoverPayloadBuilder.nowsDataItemsOf("{\"nowsDataItems\":{\"accountBalance\":125.50}}").orElseThrow(), false, NOW);
         final Session session = mock(Session.class);
         final TextMessage message = mock(TextMessage.class);
@@ -67,7 +67,7 @@ class GobDataEventPublisherTest {
     @Test
     void broker_failure_should_be_rethrown_unchanged() {
         final ObjectNode payload = new NowsHandoverPayloadBuilder().build(UUID.randomUUID(),
-                List.of(new NowRequest(UUID.randomUUID(), UUID.randomUUID())), "26000123A",
+                List.of(new NowRequest(UUID.randomUUID(), UUID.randomUUID())), "26000123A", 26,
                 NowsHandoverPayloadBuilder.nowsDataItemsOf("{\"nowsDataItems\":{}}").orElseThrow(), false, NOW);
         final org.springframework.jms.UncategorizedJmsException failure = new org.springframework.jms.UncategorizedJmsException("broker down");
         org.mockito.Mockito.doThrow(failure).when(jmsTemplate).send(anyString(), any(MessageCreator.class));

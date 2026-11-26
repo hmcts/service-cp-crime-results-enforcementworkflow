@@ -1,18 +1,22 @@
 package uk.gov.hmcts.cp.service;
 
 import org.junit.jupiter.api.Test;
+import uk.gov.hmcts.cp.client.EnforcementAreaUnavailableException;
 import uk.gov.hmcts.cp.entity.NotificationStatus;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /** Feature 003 (FR-012): GOB data is marked ready to publish on the notification; never sent from here. */
@@ -24,21 +28,50 @@ class NowsHandoverTest {
     private static final SubmissionKey KEY = new SubmissionKey(NOTIFICATION_ID, UUID.randomUUID(), LocalDate.parse("2026-05-03"),
             UUID.randomUUID(), UUID.randomUUID(), "E012345678", Instant.parse("2026-05-03T14:30:00Z"));
 
+    private static final EnforcementAreaQuery AREA = new EnforcementAreaQuery("XX1 1XX", "1234");
+
     private final NotificationStore store = mock(NotificationStore.class);
-    private final NowsHandover handover = new NowsHandover(store);
+    private final AccountingDivisionCodeResolver resolver = mock(AccountingDivisionCodeResolver.class);
+    private final NowsHandover handover = new NowsHandover(store, resolver);
 
+    // CIMD-4640: kept with the enforcement area's accounting division code, which stage 2 publishes
     @Test
-    void new_gob_data_should_be_ready_to_publish() {
-        handover.handOver(SUBMISSION_ID, KEY, MASTER_DEFENDANT_ID, "26000123A", false);
+    void new_gob_data_should_be_ready_to_publish_with_the_accounting_division_code() {
+        when(resolver.resolve(AREA)).thenReturn(Optional.of(26));
 
-        verify(store).markReadyToPublish(NOTIFICATION_ID, SUBMISSION_ID, MASTER_DEFENDANT_ID, false);
+        handover.handOver(SUBMISSION_ID, KEY, MASTER_DEFENDANT_ID, "26000123A", false, AREA);
+
+        verify(store).markReadyToPublish(NOTIFICATION_ID, SUBMISSION_ID, MASTER_DEFENDANT_ID, false, 26);
     }
 
     @Test
     void reused_gob_data_should_be_ready_to_publish_as_reused() {
-        handover.handOver(SUBMISSION_ID, KEY, MASTER_DEFENDANT_ID, "26000123A", true);
+        when(resolver.resolve(AREA)).thenReturn(Optional.of(26));
 
-        verify(store).markReadyToPublish(NOTIFICATION_ID, SUBMISSION_ID, MASTER_DEFENDANT_ID, true);
+        handover.handOver(SUBMISSION_ID, KEY, MASTER_DEFENDANT_ID, "26000123A", true, AREA);
+
+        verify(store).markReadyToPublish(NOTIFICATION_ID, SUBMISSION_ID, MASTER_DEFENDANT_ID, true, 26);
+    }
+
+    // no enforcement area in reference data: GOB's data is still published, without a code
+    @Test
+    void gob_data_without_an_enforcement_area_should_be_ready_to_publish_without_a_code() {
+        when(resolver.resolve(AREA)).thenReturn(Optional.empty());
+
+        handover.handOver(SUBMISSION_ID, KEY, MASTER_DEFENDANT_ID, "26000123A", false, AREA);
+
+        verify(store).markReadyToPublish(NOTIFICATION_ID, SUBMISSION_ID, MASTER_DEFENDANT_ID, false, null);
+    }
+
+    // reference data unavailable: nothing is marked, so stage 1 is retried and the hand-over resumed (GOB not resent)
+    @Test
+    void unavailable_reference_data_should_mark_nothing() {
+        doThrow(new EnforcementAreaUnavailableException("postcode", new IllegalStateException())).when(resolver).resolve(AREA);
+
+        assertThatThrownBy(() -> handover.handOver(SUBMISSION_ID, KEY, MASTER_DEFENDANT_ID, "26000123A", false, AREA))
+                .isInstanceOf(EnforcementAreaUnavailableException.class);
+        verify(store, never()).markReadyToPublish(any(), any(), any(), anyBoolean(), any());
+        verify(store, never()).markFinal(any(), any(), any());
     }
 
     @Test
@@ -46,7 +79,7 @@ class NowsHandoverTest {
         handover.noGobData(KEY, "RESHARE_NO_GOB_DATA");
 
         verify(store).markFinal(NOTIFICATION_ID, NotificationStatus.NO_GOB_DATA, "RESHARE_NO_GOB_DATA");
-        verify(store, never()).markReadyToPublish(any(), any(), any(), anyBoolean());
+        verify(store, never()).markReadyToPublish(any(), any(), any(), anyBoolean(), any());
     }
 
     @Test
@@ -70,16 +103,17 @@ class NowsHandoverTest {
 
     @Test
     void missing_account_number_should_reject_publishing() {
-        handover.handOver(SUBMISSION_ID, KEY, MASTER_DEFENDANT_ID, null, false);
+        handover.handOver(SUBMISSION_ID, KEY, MASTER_DEFENDANT_ID, null, false, AREA);
 
         verify(store).markFinal(NOTIFICATION_ID, NotificationStatus.PUBLISH_REJECTED, "NO_ACCOUNT_NUMBER");
-        verify(store, never()).markReadyToPublish(any(), any(), any(), anyBoolean());
+        verify(store, never()).markReadyToPublish(any(), any(), any(), anyBoolean(), any());
     }
 
     @Test
     void missing_master_defendant_should_reject_publishing() {
-        handover.handOver(SUBMISSION_ID, KEY, null, "26000123A", false);
+        handover.handOver(SUBMISSION_ID, KEY, null, "26000123A", false, AREA);
 
         verify(store).markFinal(NOTIFICATION_ID, NotificationStatus.PUBLISH_REJECTED, "NO_MASTER_DEFENDANT_ID");
+        verifyNoInteractions(resolver);
     }
 }

@@ -165,8 +165,10 @@ class HearingResultedProcessorTest {
 
         processor.process(event, NOTIFICATION_ID);
 
+        // CIMD-4640: with the defendant's postcode and the hearing court's LJA, to find the enforcement area by
         verify(nowsHandover).handOver(eq(id), argThat(key -> key.hearingDay().equals(HEARING_DAY)
-                && key.correlationId().equals(NOTIFICATION_ID)), eq(MASTER_DEFENDANT_ID), eq("1234567890"), eq(false));
+                && key.correlationId().equals(NOTIFICATION_ID)), eq(MASTER_DEFENDANT_ID), eq("1234567890"), eq(false),
+                eq(new EnforcementAreaQuery("ZZ99 9ZZ", "9999")));
     }
 
     @Test
@@ -197,7 +199,7 @@ class HearingResultedProcessorTest {
         verifyNoInteractions(mapper, gateway);
         verify(store).recordSkippedNothingNew(any(), eq("nothing new to send to GOB: offences already sent 1, offences adjourned 0, "
                 + "other results already sent 0"));
-        verify(reuseHandover).handOver(any(), eq(MASTER_DEFENDANT_ID));
+        verify(reuseHandover).handOver(any(), eq(MASTER_DEFENDANT_ID), eq(new EnforcementAreaQuery("ZZ99 9ZZ", "9999")));
     }
 
     @Test
@@ -241,7 +243,7 @@ class HearingResultedProcessorTest {
 
         verify(store, times(1)).recordSending(any(), anyString(), any());
         verifyNoInteractions(gateway);
-        verify(reuseHandover).handOver(any(), eq(MASTER_DEFENDANT_ID));
+        verify(reuseHandover).handOver(any(), eq(MASTER_DEFENDANT_ID), eq(new EnforcementAreaQuery("ZZ99 9ZZ", "9999")));
     }
 
     @Test
@@ -266,7 +268,7 @@ class HearingResultedProcessorTest {
         processor.process(event, NOTIFICATION_ID);
 
         verify(nowsHandover).handOver(eq(rowId), argThat(key -> NOTIFICATION_ID.equals(key.correlationId())), eq(MASTER_DEFENDANT_ID),
-                eq("1234567890"), eq(false));
+                eq("1234567890"), eq(false), eq(new EnforcementAreaQuery("ZZ99 9ZZ", "9999")));
         verifyNoInteractions(resolver, mapper, gateway);
     }
 
@@ -289,7 +291,7 @@ class HearingResultedProcessorTest {
 
         processor.process(event, NOTIFICATION_ID);
 
-        verify(reuseHandover).handOver(any(), eq(MASTER_DEFENDANT_ID));
+        verify(reuseHandover).handOver(any(), eq(MASTER_DEFENDANT_ID), eq(new EnforcementAreaQuery("ZZ99 9ZZ", "9999")));
         verifyNoInteractions(resolver, mapper, gateway);
     }
 
@@ -473,7 +475,7 @@ class HearingResultedProcessorTest {
     void reshare_should_reuse_the_gob_data_without_contacting_gob_or_storing_a_row() {
         processor.process(Fixtures.event("hearing-resulted-reshare.json"), NOTIFICATION_ID);
 
-        verify(reuseHandover).handOver(argThat(key -> key.correlationId().equals(NOTIFICATION_ID)), eq(MASTER_DEFENDANT_ID));
+        verify(reuseHandover).handOver(argThat(key -> key.correlationId().equals(NOTIFICATION_ID)), eq(MASTER_DEFENDANT_ID), any());
         verifyNoInteractions(resolver);
         verifyNoInteractions(mapper, gateway, filter);
         verify(store, never()).recordSending(any(), any(), any());
@@ -484,7 +486,7 @@ class HearingResultedProcessorTest {
     // earlier GOB data the notification ends NO_GOB_DATA and the reshare's NOWS stay held
     @Test
     void reshare_without_earlier_gob_data_should_end_with_no_gob_data_and_not_contact_gob() {
-        when(reuseHandover.handOver(any(), any())).thenReturn(false);
+        when(reuseHandover.handOver(any(), any(), any())).thenReturn(false);
 
         processor.process(Fixtures.event("hearing-resulted-reshare.json"), NOTIFICATION_ID);
 
@@ -496,7 +498,7 @@ class HearingResultedProcessorTest {
 
     @Test
     void reshare_with_earlier_gob_data_should_not_end_with_no_gob_data() {
-        when(reuseHandover.handOver(any(), any())).thenReturn(true);
+        when(reuseHandover.handOver(any(), any(), any())).thenReturn(true);
 
         processor.process(Fixtures.event("hearing-resulted-reshare.json"), NOTIFICATION_ID);
 
@@ -520,11 +522,11 @@ class HearingResultedProcessorTest {
     @Test
     void reshare_without_shared_time_should_still_reuse_the_gob_data() {
         final HearingResultedEvent reshare = Fixtures.event("hearing-resulted-reshare.json");
-        when(reuseHandover.handOver(any(), any())).thenReturn(true);
+        when(reuseHandover.handOver(any(), any(), any())).thenReturn(true);
 
         processor.process(new HearingResultedEvent(reshare.hearing(), true, null, reshare.hearingDay()), NOTIFICATION_ID);
 
-        verify(reuseHandover).handOver(argThat(key -> key.correlationId().equals(NOTIFICATION_ID)), eq(MASTER_DEFENDANT_ID));
+        verify(reuseHandover).handOver(argThat(key -> key.correlationId().equals(NOTIFICATION_ID)), eq(MASTER_DEFENDANT_ID), any());
         verifyNoInteractions(resolver, gateway);
     }
 }

@@ -23,8 +23,17 @@ public record HearingResultedEvent(Hearing hearing, Boolean isReshare, Instant s
                           List<CourtApplication> courtApplications) {
     }
 
+    /** {@code lja} is enriched on hearing results (core {@code courtCentre.json}); its code finds the enforcement area (CIMD-4640). */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record CourtCentre(String code) {
+    public record CourtCentre(String code, Lja lja) {
+
+        public CourtCentre(final String code) {
+            this(code, null);
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Lja(String ljaCode) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

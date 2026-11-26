@@ -1,0 +1,16 @@
+{
+  "mappings": [
+    {
+      "name": "CIMD-4640: enforcement area of any postcode (synthetic accounting division code)",
+      "request": {
+        "method": "GET",
+        "urlPath": "/referencedata-query-api/query/api/rest/referencedata/enforcement-area"
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/vnd.referencedata.query.enforcement-area+json" },
+        "jsonBody": { "enforcingCourtCode": 2222, "accountDivisionCode": 26 }
+      }
+    }
+  ]
+}

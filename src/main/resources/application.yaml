@@ -121,44 +121,53 @@ cp:
     # table, column "Response entity(s) in nowsDataItems", of CIMD-4372 (BA, as written; camelCase entity -> enum name).
     # Keyed by the CP shortCode before result-code-renames: the table's DW row is CP's WC, its TFOUT / TFOOUT row both.
     # Codes not listed (e.g. NOENF, WDN, BPOCRFSD) request nothing, so nowsDataRequest is left out.
-    # Open with the BA (CIMD-4634): "Account Number" for every row needing "Account No.", "Defendant Account" for the
-    # warrant rows, and the codes not in the table.
+    # 2026-11-20 (BA): the table's "Defendant Account" means the GOB account number, so it is requested as
+    # "Account Number" (GOB's contract: "Defendant Account" is the `defendant` debtor details entity, "Account Number"
+    # is `accountNumber`); the warrant rows request it too. ABDC corrected to the account number and balance only
+    # (accountBalance is both Total Balance and Balance Outstanding). LATG / LATR are descoped (no rows).
+    # Still open with the BA: the codes not in the table.
     nows-data-items-by-short-code:
-      ABDC: [Defendant Account, Account Balance, Account Number]
-      ACF: [Defendant Account, Account Offences and Penalties, Account Terms to Pay]
-      AEC: [Defendant Account, Account Balance]
-      AEO: [Defendant Account, Account Balance, Account Terms to Pay, CT Account Bank Details]
-      AEOC: [Defendant Account, Account Balance, Account Terms to Pay]
-      BWTD: [Account Warrant Number, Warrant Contact Details, Days Before Release of Warrant, Account Balance, Account Bail Amount]
-      BWTU: [Account Warrant Number, Warrant Contact Details, Days Before Release of Warrant, Account Balance, Account Bail Amount,
-             Account Offences and Penalties, Account Date Imposed, Account Terms to Pay]
-      CLAMPO: [Account Warrant Number, Warrant Contact Details, Account Balance, Account Terms to Pay]
-      CLAMPS: [Account Warrant Number, Warrant Contact Details, Account Balance]
-      COLLO: [Defendant Account, Account Balance, Account Offences and Penalties, Account Terms to Pay]
-      CW: [Account Warrant Number, Warrant Contact Details, Days Before Release of Warrant, Account Balance, Account Bail Amount,
-           Account Offences and Penalties, Account Date Imposed, Account Terms to Pay]
-      CWN: [Defendant Account, Account Balance, Account Bail Amount]
-      FIDIC: [Defendant Account, Account Offences and Penalties]
-      FIDICT: [Defendant Account, Account Offences and Penalties]
-      FSN: [Defendant Account, Account Balance]
-      FTTP: [Defendant Account, Account Balance]
-      LATG: [Account Number]
-      LATR: [Account Number]
-      MPSO: [Defendant Account, Account Balance, Account Terms to Pay, Account History]
-      NBWT: [Account Warrant Number, Warrant Contact Details, Days Before Release of Warrant, Account Balance, Account Bail Amount,
-             Account Offences and Penalties, Account Date Imposed, Account Terms to Pay]
-      PGPAY: [Defendant Account, Account Balance, Account Offences and Penalties, Account Date Imposed, Account Terms to Pay]
-      PTNV: [Defendant Account, Account Balance, Account Offences and Penalties, Account Date Imposed, Account Terms to Pay]
-      REGF: [Defendant Account, Account Balance, Account Date Imposed]
-      REM: [Defendant Account, Account Balance]
-      S136: [Account Warrant Number, Warrant Contact Details, Account Balance, Account Bail Amount, Account Offences and Penalties,
-             Account Date Imposed]
-      SC: [Defendant Account, Account Balance, Account Offences and Penalties, Account Date Imposed, Account Terms to Pay]
-      SUMM: [Defendant Account, Account Balance, Account Offences and Penalties, Account Date Imposed]
+      ABDC: [Account Number, Account Balance]
+      ACF: [Account Number, Account Offences and Penalties, Account Terms to Pay]
+      AEC: [Account Number, Account Balance]
+      AEO: [Account Number, Account Balance, Account Terms to Pay, CT Account Bank Details]
+      AEOC: [Account Number, Account Balance, Account Terms to Pay]
+      BWTD: [Account Number, Account Warrant Number, Warrant Contact Details, Days Before Release of Warrant,
+             Account Balance, Account Bail Amount]
+      BWTU: [Account Number, Account Warrant Number, Warrant Contact Details, Days Before Release of Warrant,
+             Account Balance, Account Bail Amount, Account Offences and Penalties, Account Date Imposed,
+             Account Terms to Pay]
+      CLAMPO: [Account Number, Account Warrant Number, Warrant Contact Details, Account Balance, Account Terms to Pay]
+      CLAMPS: [Account Number, Account Warrant Number, Warrant Contact Details, Account Balance]
+      COLLO: [Account Number, Account Balance, Account Offences and Penalties, Account Terms to Pay]
+      CW: [Account Number, Account Warrant Number, Warrant Contact Details, Days Before Release of Warrant,
+           Account Balance, Account Bail Amount, Account Offences and Penalties, Account Date Imposed,
+           Account Terms to Pay]
+      CWN: [Account Number, Account Balance, Account Bail Amount]
+      FIDIC: [Account Number, Account Offences and Penalties]
+      FIDICT: [Account Number, Account Offences and Penalties]
+      FSN: [Account Number, Account Balance]
+      FTTP: [Account Number, Account Balance]
+      MPSO: [Account Number, Account Balance, Account Terms to Pay, Account History]
+      NBWT: [Account Number, Account Warrant Number, Warrant Contact Details, Days Before Release of Warrant,
+             Account Balance, Account Bail Amount, Account Offences and Penalties, Account Date Imposed,
+             Account Terms to Pay]
+      PGPAY: [Account Number, Account Balance, Account Offences and Penalties, Account Date Imposed,
+              Account Terms to Pay]
+      PTNV: [Account Number, Account Balance, Account Offences and Penalties, Account Date Imposed,
+             Account Terms to Pay]
+      REGF: [Account Number, Account Balance, Account Date Imposed]
+      REM: [Account Number, Account Balance]
+      S136: [Account Number, Account Warrant Number, Warrant Contact Details, Account Balance, Account Bail Amount,
+             Account Offences and Penalties, Account Date Imposed]
+      SC: [Account Number, Account Balance, Account Offences and Penalties, Account Date Imposed, Account Terms to Pay]
+      SUMM: [Account Number, Account Balance, Account Offences and Penalties, Account Date Imposed]
       TFOUT: [Account Balance]
       TFOOUT: [Account Balance]
-      WC: [Account Warrant Number, Warrant Contact Details, Account Balance, Account Offences and Penalties, Account Date Imposed]
-      DW: [Account Warrant Number, Warrant Contact Details, Account Balance, Account Offences and Penalties, Account Date Imposed]
+      WC: [Account Number, Account Warrant Number, Warrant Contact Details, Account Balance,
+           Account Offences and Penalties, Account Date Imposed]
+      DW: [Account Number, Account Warrant Number, Warrant Contact Details, Account Balance,
+           Account Offences and Penalties, Account Date Imposed]
     # feature 002 research R19 (OQ-13): shortCodes marking an adjournment; an offence adjourned in a share is not sent
     adjournment-result-codes: ${ADJOURNMENT_RESULT_CODES:NEXH,ADJNN}
     # research.md R19: stale SENDING -> FAILED (INTERRUPTED), never resent

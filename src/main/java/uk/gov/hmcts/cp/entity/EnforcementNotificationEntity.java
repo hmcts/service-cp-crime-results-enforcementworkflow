@@ -77,6 +77,10 @@ public class EnforcementNotificationEntity {
     @Column(name = "gob_data_reused")
     private Boolean gobDataReused;
 
+    /** The enforcement area's accounting division code published with GOB's data (CIMD-4640); null when none was found. */
+    @Column(name = "accounting_division_code")
+    private Integer accountingDivisionCode;
+
     @Column(name = "received_at", nullable = false)
     private Instant receivedAt;
 

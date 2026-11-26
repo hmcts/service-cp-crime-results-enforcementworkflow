@@ -15,7 +15,7 @@ import java.util.Optional;
  * Resolves the team inbox for a Division Code (feature 005, FR-003, contracts/enforcement-area.md - OPEN DEPENDENCY,
  * CIMD-4389, plan.md D1): mirrors {@link ReferenceDataClient}'s 404-vs-error distinction. A confirmed no-match (404)
  * is {@link Optional#empty()} (never cached - a team inbox added later must be picked up); any other failure throws
- * {@link EnforcementAreaUnavailableException}, which MUST be retried, never read as "no match".
+ * {@link TeamInboxUnavailableException}, which MUST be retried, never read as "no match".
  */
 @Slf4j
 @Component
@@ -33,7 +33,7 @@ public class EnforcementAreaClient {
         this.cjscppuid = properties.getEnforcementArea().getCjscppuid();
     }
 
-    /** @throws EnforcementAreaUnavailableException when the lookup can't be answered (never a confirmed no-match) */
+    /** @throws TeamInboxUnavailableException when the lookup can't be answered (never a confirmed no-match) */
     public Optional<TeamInbox> findTeamInbox(final int divisionCode) {
         Optional<TeamInbox> inbox;
         try {
@@ -49,12 +49,12 @@ public class EnforcementAreaClient {
         } catch (RestClientResponseException e) {
             log.warn("enforcement_area lookup failed for Division Code {}: HTTP {} {}", divisionCode,
                     e.getStatusCode().value(), e.getStatusText());
-            throw new EnforcementAreaUnavailableException("enforcement_area lookup failed for Division Code "
+            throw new TeamInboxUnavailableException("enforcement_area lookup failed for Division Code "
                     + divisionCode + ": " + e.getClass().getSimpleName(), e);
         } catch (RestClientException e) {
             log.warn("enforcement_area lookup failed for Division Code {}: {} - {}", divisionCode,
                     e.getClass().getSimpleName(), e.getMessage());
-            throw new EnforcementAreaUnavailableException("enforcement_area lookup failed for Division Code "
+            throw new TeamInboxUnavailableException("enforcement_area lookup failed for Division Code "
                     + divisionCode + ": " + e.getClass().getSimpleName(), e);
         }
         return inbox;

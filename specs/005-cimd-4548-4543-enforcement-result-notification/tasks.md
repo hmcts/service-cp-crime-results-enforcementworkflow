@@ -42,7 +42,7 @@ and testable on its own first.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [X] T004 Create Flyway migration `src/main/resources/db/migration/V1.010__create_enforcement_result_notification.sql`
+- [X] T004 Create Flyway migration `src/main/resources/db/migration/V1.011__create_enforcement_result_notification.sql`
       — the `enforcement_result_notification` table, `uq_ern_trigger_ref` unique index
       `(trigger_notification_id, related_reference_number)`, and `idx_ern_hearing_ref_prev`
       `(hearing_id, related_reference_number, received_at DESC) WHERE status='SENT'` — exact columns per

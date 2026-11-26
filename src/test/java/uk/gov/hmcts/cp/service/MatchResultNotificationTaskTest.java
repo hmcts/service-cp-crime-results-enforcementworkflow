@@ -8,10 +8,10 @@ import tools.jackson.databind.json.JsonMapper;
 import uk.gov.hmcts.cp.client.DocGenerationUnavailableException;
 import uk.gov.hmcts.cp.client.DocGeneratorClient;
 import uk.gov.hmcts.cp.client.EnforcementAreaClient;
-import uk.gov.hmcts.cp.client.EnforcementAreaUnavailableException;
 import uk.gov.hmcts.cp.client.GenerateDocumentCommand;
 import uk.gov.hmcts.cp.client.ResultNotificationBlobClient;
 import uk.gov.hmcts.cp.client.TeamInbox;
+import uk.gov.hmcts.cp.client.TeamInboxUnavailableException;
 import uk.gov.hmcts.cp.config.ResultNotificationProperties;
 import uk.gov.hmcts.cp.entity.Area;
 import uk.gov.hmcts.cp.entity.EnforcementResultNotificationEntity;
@@ -130,7 +130,7 @@ class MatchResultNotificationTaskTest {
     void transient_inbox_lookup_failure_should_be_retried_not_marked_not_found() {
         givenSelectedDefendant(false);
         when(triggerShortCodeMatcher.matches(any(), eq(Area.ENFORCEMENT))).thenReturn(true);
-        when(enforcementAreaClient.findTeamInbox(10)).thenThrow(new EnforcementAreaUnavailableException("HTTP 503", null));
+        when(enforcementAreaClient.findTeamInbox(10)).thenThrow(new TeamInboxUnavailableException("HTTP 503", null));
 
         final ExecutionInfo next = task.execute(info(2));
 

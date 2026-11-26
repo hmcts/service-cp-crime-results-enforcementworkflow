@@ -16,13 +16,18 @@ Schema: [public.enforcementworkflow.enforcement-nows-data-ready.json](public.enf
 | Not published | `SKIPPED_NO_RESULT_CODE`, `SKIPPED_NOT_ENFORCEMENT`, `NO_GOB_DATA` (incl. an amend & reshare with no earlier GOB data), `GOB_FAILED`, `PUBLISH_REJECTED` (no account number, or no notification NOW for the selected defendant's master id) (NOWS stay held, FR-016) |
 
 **Payload**: `hearingId`; `nows[] {requestId, masterDefendantId}` (the notification's NOWs whose master defendant is the defendant GOB answered for; NOWs of any other defendant stay held, see research OP-13); `accountNumber`
-(GOB account number, pass-through, constitution VI); `gobDataReused`; `sharedTime` (of the results used, optional);
+(GOB account number, pass-through, constitution VI); `accountingDivisionCode` (optional integer, CIMD-4640 2026-11-23:
+the defendant's enforcement area's `accountDivisionCode` from reference data `referencedata.query.enforcement-area`, by
+the selected defendant's postcode, else by the hearing court's `lja.ljaCode`; resolved by stage 1 when the GOB data is
+ready and kept on the notification, so a replay publishes the same code; absent when reference data has no enforcement
+area for either; reference data unavailable retries stage 1 without contacting GOB again); `gobDataReused`; `sharedTime` (of the results used, optional);
 `nowsDataItems` (GOB's reply item block, verbatim, BigDecimal-preserving, as feature 002).
 
 **H behaviour per `{requestId, masterDefendantId}`** (FR-013, R13)
 
-1. NOWs with `request_id` in `WAITING_FOR_GOB` and the same master defendant → write `nowsDataItems` into
-   `financialOrderDetails.enfNowsDataItems` and the account number (feature 002 merger) → `ENFORCEMENT_DATA_ADDED`
+1. NOWs with `request_id` in `WAITING_FOR_GOB` and the same master defendant → write `nowsDataItems`, the account number
+   and the event's accounting division code into `nowContent.enforcementFinancialOrderDetails` (feature 002
+   merger; was `financialOrderDetails.enfNowsDataItems` before CIMD-4640) → `ENFORCEMENT_DATA_ADDED`
    (conditional update; a NOW is completed once) → `PROCESS_NOW_DOCUMENT_REQUEST_TASK`.
 2. No such NOW → keep in `enforcement_nows_data` (status `KEPT`, no `release_at`) until a NOW claims it, without a time
    limit; a NOW arriving later with that request id is completed at once. The first claim sets `release_at` = claim +

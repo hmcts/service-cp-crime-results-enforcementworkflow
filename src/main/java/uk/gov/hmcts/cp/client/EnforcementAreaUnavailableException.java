@@ -1,16 +1,16 @@
 package uk.gov.hmcts.cp.client;
 
 /**
- * The {@code enforcement_area} lookup could not answer (5xx, timeout, unreachable, unexpected status) - distinct from
- * a confirmed 404 ("no such Division Code"), which is {@link java.util.Optional#empty()} and MUST NOT collapse into
- * this (feature 005 FR-006, contracts/enforcement-area.md): a transient failure is retried like every other external
- * call in this codebase, never read as {@code INBOX_NOT_FOUND}.
+ * Reference data could not answer an enforcement area lookup (5xx, timeout, unreachable, unexpected status), CIMD-4640.
+ * Unlike {@link ReferenceDataUnavailableException} it is thrown after GOB has replied, so the notification's stage 1 is
+ * retried (GOB is not contacted again for the same notification). It names the lookup's parameter and the failure's
+ * class only, and keeps no cause: the cause's message can quote the url, which carries the defendant's postcode (FR-017).
  */
 public class EnforcementAreaUnavailableException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
 
-    public EnforcementAreaUnavailableException(final String message, final Throwable cause) {
-        super(message, cause);
+    public EnforcementAreaUnavailableException(final String parameter, final Throwable cause) {
+        super("Enforcement area lookup by " + parameter + " failed: " + cause.getClass().getSimpleName());
     }
 }

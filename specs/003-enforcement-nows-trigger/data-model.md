@@ -29,6 +29,7 @@ attempt counters; never results or GOB data), `retry_attempts_remaining`, `prior
 | `next_replay_at` | TIMESTAMPTZ NULL | set by the replay schedule or by support (manual replay, R10) |
 | `submission_id` | UUID NULL FK → `hearing_result_submission.id` | the submission whose GOB data is published (new or reused) |
 | `gob_data_reused` | BOOLEAN NULL | true when FR-009 reuse applies |
+| `accounting_division_code` | INTEGER NULL | CIMD-4640 (2026-11-23): the defendant's enforcement area's `accountDivisionCode` (reference data, by postcode, else the hearing court's LJA), set with the source when GOB data is ready (stage 1) and published by stage 2; NULL when reference data has none (`V1.010`) |
 | `master_defendant_id` | UUID NULL | the defendant GOB answered for (set by stage 1, I5) |
 | `received_at`, `updated_at` | TIMESTAMPTZ NOT NULL | |
 
@@ -90,7 +91,7 @@ UUIDs, `requestId` unique within the body.
 - Add `request_id` UUID with a unique index; make `correlation_id`, `hearing_day`, `shared_time`,
   `covered_result_definition_ids` NULLable; drop the `(correlation_id, master_defendant_id)` unique constraint.
 - One row per request id: `request_id`, `master_defendant_id`, `hearing_id`, `account_number`, `nows_data_items`,
-  `gob_data_reused`, `status` (`KEPT` until a NOW claims it, without a time limit → `CLAIMED` → `RELEASED` at
+  `accounting_division_code` (the event's, CIMD-4640, changeset 010; kept after the release), `gob_data_reused`, `status` (`KEPT` until a NOW claims it, without a time limit → `CLAIMED` → `RELEASED` at
   `release_at`; `UNCLAIMED` only on feature 002 rows released by changeset 006), `user_id`, `received_at`, `claimed_at`,
   `release_at` (first claim + configurable retention; empty while `KEPT`, FR-013, R30).
 - `release_at` is NULLable (set by the first claim, R30); changed in place in changeset 004, which is not released yet (no changeset 007).

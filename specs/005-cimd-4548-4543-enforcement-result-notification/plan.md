@@ -35,7 +35,7 @@ BOM — matching how `azure-identity:1.18.1` is pinned today). This feature is t
 repo, though not in the organisation (`cpp-context-staging-dvla` branch `team/CHD-2786` already does almost
 exactly this).
 **Storage**: PostgreSQL (existing instance) — new table `enforcement_result_notification`
-(`V1.010__create_enforcement_result_notification.sql`). Azure Blob Storage (new) — **one** container
+(`V1.011__create_enforcement_result_notification.sql`). Azure Blob Storage (new) — **one** container
 (`DefaultAzureCredential`/Workload Identity, no SAS/connection strings in any real environment), path-prefixed:
 `result-notification/requests/{id}` (payload JSON) and `result-notification/documents/{id}.pdf` (rendered PDF,
 written by the doc-generator, never by this service).
@@ -132,7 +132,7 @@ src/main/java/uk/gov/hmcts/cp/
 │             GovUkNotifyServiceBusConfig, ResultNotificationProperties (+ extend ClientProperties, RestClientConfig)
 └── event/    HearingResultedEvent  # changed: Offence gains offenceTitle/offenceDetails; JudicialResult gains resultLabel (additive)
 
-src/main/resources/db/migration/V1.010__create_enforcement_result_notification.sql
+src/main/resources/db/migration/V1.011__create_enforcement_result_notification.sql
 src/main/resources/application.yaml                   # new cp.* sections
 
 src/test/java/uk/gov/hmcts/cp/ (unit tests per new class, 100% coverage target)

@@ -22,7 +22,7 @@ public class GobDataReuseHandover {
     private final NowsHandover nowsHandover;
 
     /** @return true when earlier GOB data was found and handed over */
-    public boolean handOver(final SubmissionKey key, final UUID masterDefendantId) {
+    public boolean handOver(final SubmissionKey key, final UUID masterDefendantId, final EnforcementAreaQuery enforcementArea) {
         final List<SucceededSubmission> accepted = store.findSucceeded(key.caseId(), key.defendantId());
         final Optional<SucceededSubmission> latest = accepted.stream()
                 .filter(s -> NowsHandoverPayloadBuilder.nowsDataItemsOf(s.responsePayload()).isPresent())
@@ -33,7 +33,7 @@ public class GobDataReuseHandover {
         } else {
             final SucceededSubmission source = latest.get();
             nowsHandover.handOver(source.id(), key, masterDefendantId, GobReplies.accountNumberOf(source.requestPayload()).orElse(null),
-                    true);
+                    true, enforcementArea);
         }
         return latest.isPresent();
     }
