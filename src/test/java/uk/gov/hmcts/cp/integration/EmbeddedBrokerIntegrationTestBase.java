@@ -8,6 +8,7 @@ import jakarta.jms.Message;
 import jakarta.jms.TextMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -46,8 +47,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "cp.enforcement-gateway.read-timeout=1s",
     "cp.notification.allowed-system-users=" + EmbeddedBrokerIntegrationTestBase.FUNCTION_APP_USER,
     "cp.notification.retry-durations=1s,1s,1s",
+    "cp.result-notification.retry-durations=1s,1s,1s",
     "job.executor.poll-interval=200"
 })
+@Import(ResultNotificationTestFakesConfig.class)
 public abstract class EmbeddedBrokerIntegrationTestBase extends WorkflowStubsIntegrationTestBase {
 
     protected static final String FUNCTION_APP_USER = "5f1a6c2e-0000-4000-8000-00000000fa01";

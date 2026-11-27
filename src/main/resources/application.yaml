@@ -48,7 +48,12 @@ cp:
     # AKS: public.event; the local cpp-developers-docker broker: jms.topic.public.event (auto-create off)
     public-event-topic: ${CP_MESSAGING_PUBLIC_EVENT_TOPIC:public.event}
     subscription-name: service-cp-crime-results-enforcementworkflow.public.event.logger
-    selector: "CPPNAME LIKE 'public.results%'"
+    # Feature 005 (research.md R2, plan.md D8): broadened to also receive the doc generator's own completion events
+    # on this SAME single durable subscription - spring.jms.client-id is one service-wide id, so a second
+    # @JmsListener container attempting its own connection with that same id fails (InvalidClientIDException,
+    # confirmed empirically); PublicEventLoggingListener delegates systemdocgenerator events to
+    # DocGeneratorEventListener rather than this being a second subscription.
+    selector: "CPPNAME LIKE 'public.results%' OR CPPNAME IN ('public.systemdocgenerator.events.document-available', 'public.systemdocgenerator.events.generation-failed')"
     # feature 003 research R12: consumed by cpp-context-hearing-nows; must not start with public.results
     gob-data-event-name: public.enforcementworkflow.enforcement-nows-data-ready
     # The event carries no _metadata.context.user: hearing-nows then acts as its own context system user (CppEnvelope)
@@ -94,6 +99,27 @@ cp:
     base-url: ${ENFORCEMENT_GATEWAY_URL:http://localhost:8082}
     connect-timeout: 5s
     read-timeout: 50s   # must exceed the gateway's own total towards APIM (5s + 40s)
+  # Feature 005: enforcement_area reference-data lookup (contracts/enforcement-area.md - OPEN DEPENDENCY, CIMD-4389,
+  # plan.md D1). Shape is this feature's own assumption pending confirmation.
+  enforcement-area:
+    base-url: ${ENFORCEMENT_AREA_URL:http://localhost:8081}
+    cjscppuid: ${ENFORCEMENT_AREA_CJSCPPUID:}
+    connect-timeout: 5s
+    read-timeout: 10s
+  # Feature 005: System Doc Generator BYO-FS generate-document command (contracts/system-doc-generator-byo-fs.md;
+  # branch team/CHD-2786, unmerged at time of writing - go-live gate, plan.md D4).
+  doc-generator:
+    base-url: ${DOC_GENERATOR_URL:http://localhost:8089}
+    connect-timeout: 5s
+    read-timeout: 10s
+  # Feature 005 FR-020: Case Material attachment via cpp-context-progression's progression-command-api
+  # (contracts/progression-court-document.md). cjscppuid must be registered/allow-listed on Progression's side
+  # before go-live (plan.md D13).
+  progression:
+    base-url: ${PROGRESSION_URL:http://localhost:8090}
+    cjscppuid: ${PROGRESSION_CJSCPPUID:}
+    connect-timeout: 5s
+    read-timeout: 10s
   hearing-result:
     result-code-renames:
       TFOUT: TFOOUT
@@ -180,6 +206,36 @@ cp:
       # third date form hearing itself accepts (restructure Constants.DATE_FORMATS_WITHOUT_TIME). CURR prompts carry a
       # leading £, which the parser accepts.
       date-formats: [dd/MM/yyyy, yyyy-MM-dd, dd MMM yyyy]
+  # Feature 005 (CIMD-4548, CIMD-4543): the Trigger ShortCode List (FR-001/FR-011), Confiscation Division Codes
+  # (FR-003), Docmosis template ids, and this feature's own retry schedule - independent of cp.notification.*.
+  result-notification:
+    trigger-short-codes:
+      ENFORCEMENT: ${RESULT_NOTIFICATION_ENFORCEMENT_SHORT_CODES:ACF,AEC,AEO,AEOC,CLAMPO,CW,CWN,FIDIC,FIDICT,FIDIP,FTTP,MPSO,REGF,S136,TFOOUT,WDN}
+      CONFISCATION: ${RESULT_NOTIFICATION_CONFISCATION_SHORT_CODES:BPOC}
+    confiscation-division-codes: ${RESULT_NOTIFICATION_CONFISCATION_DIVISION_CODES:45,66,97,109,110,116}
+    docmosis-template-ids:
+      FIRST_SHARE: ${RESULT_NOTIFICATION_FIRST_SHARE_TEMPLATE_ID:enforcement-result-notification-first-share}
+      AMEND_RESHARE: ${RESULT_NOTIFICATION_AMEND_RESHARE_TEMPLATE_ID:enforcement-result-notification-amend-reshare}
+    retry-durations: ${RESULT_NOTIFICATION_RETRY_DURATIONS:10s,60s,300s}
+  # Feature 005: this service's one Blob container (research.md R8) - DefaultAzureCredential/Workload Identity in
+  # every real environment; azurite-enabled is local dev/IT only (Azurite has no Azure AD support).
+  result-notification-blob:
+    endpoint: ${CP_RESULT_NOTIFICATION_BLOB_ENDPOINT:https://localhost.blob.core.windows.net}
+    container-name: ${CP_RESULT_NOTIFICATION_BLOB_CONTAINER_NAME:result-notification}
+    azurite-enabled: ${CP_RESULT_NOTIFICATION_BLOB_AZURITE_ENABLED:false}
+    connection-string: ${CP_RESULT_NOTIFICATION_BLOB_CONNECTION_STRING:}
+    connection-timeout-seconds: 10s
+    response-timeout-seconds: 30s
+    transfer-timeout-seconds: 300s
+  # Feature 005: cp-gov-uk-notify-gateway dispatch over Azure Service Bus (research.md R1, R5) - Workload Identity
+  # only; no connection strings in any real environment.
+  gov-uk-notify:
+    namespace: ${CP_GOV_UK_NOTIFY_NAMESPACE:localhost}
+    send-email-queue: ng-send-email
+    reply-to-queue: enforcementworkflow-notification-result
+    template-ids:
+      FIRST_SHARE: ${CP_GOV_UK_NOTIFY_FIRST_SHARE_TEMPLATE_ID:00000000-0000-0000-0000-000000000001}
+      AMEND_RESHARE: ${CP_GOV_UK_NOTIFY_AMEND_RESHARE_TEMPLATE_ID:00000000-0000-0000-0000-000000000002}
 
 # cp-task-manager (feature 003, research R10): its tables come from this service's migrations (V1.006, V1.007)
 taskmanager:

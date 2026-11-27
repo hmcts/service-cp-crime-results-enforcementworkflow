@@ -52,6 +52,19 @@ class HearingResultedEventTest {
                         UUID.fromString("22222222-2222-2222-2222-222222222222"));
     }
 
+    // feature 005 (research.md R7a): offenceTitle/offenceDetails/resultLabel are additive - already on the wire
+    // (results-hearing-details.json), previously silently dropped by this record's narrower field set
+    @Test
+    void enforcement_fixture_should_expose_offence_title_details_and_result_label() {
+        final HearingResultedEvent event = Fixtures.event("hearing-resulted-enforcement.json");
+        final HearingResultedEvent.Offence offence = event.hearing().prosecutionCases().getFirst()
+                .defendants().getFirst().offences().getFirst();
+
+        assertThat(offence.offenceTitle()).isEqualTo("Racially / religiously aggravated wounding / grievous bodily harm");
+        assertThat(offence.offenceDetails()).startsWith("On 21/10/2018 at Euston Train Station");
+        assertThat(offence.judicialResults().getFirst().resultLabel()).startsWith("Remanded in custody");
+    }
+
     @Test
     void reshare_fixture_should_set_is_reshare() {
         assertThat(Fixtures.event("hearing-resulted-reshare.json").isReshare()).isTrue();

@@ -21,6 +21,9 @@ public class ClientProperties {
 
     private final ReferenceData referenceData = new ReferenceData();
     private final EnforcementGateway enforcementGateway = new EnforcementGateway();
+    private final EnforcementArea enforcementArea = new EnforcementArea();
+    private final DocGenerator docGenerator = new DocGenerator();
+    private final Progression progression = new Progression();
 
     @Getter
     @Setter
@@ -42,5 +45,38 @@ public class ClientProperties {
         private Duration connectTimeout = Duration.ofSeconds(5);
         /** Must exceed the gateway's own total towards APIM (connect 5s + read 40s). */
         private Duration readTimeout = Duration.ofSeconds(50);
+    }
+
+    /** Feature 005: {@code enforcement_area} reference-data lookup (contracts/enforcement-area.md, plan.md D1). */
+    @Getter
+    @Setter
+    public static class EnforcementArea {
+        @NotBlank
+        private String baseUrl = "http://localhost:8081";
+        private String cjscppuid;
+        private Duration connectTimeout = Duration.ofSeconds(5);
+        private Duration readTimeout = Duration.ofSeconds(10);
+    }
+
+    /** Feature 005: System Doc Generator BYO-FS {@code generate-document} command (contracts/system-doc-generator-byo-fs.md). */
+    @Getter
+    @Setter
+    public static class DocGenerator {
+        @NotBlank
+        private String baseUrl = "http://localhost:8089";
+        private Duration connectTimeout = Duration.ofSeconds(5);
+        private Duration readTimeout = Duration.ofSeconds(10);
+    }
+
+    /** Feature 005 FR-020: {@code cpp-context-progression}'s {@code progression-command-api} (contracts/progression-court-document.md). */
+    @Getter
+    @Setter
+    public static class Progression {
+        @NotBlank
+        private String baseUrl = "http://localhost:8090";
+        /** This service's own registered system user (plan.md D13 - must be registered/allow-listed on Progression's side). */
+        private String cjscppuid;
+        private Duration connectTimeout = Duration.ofSeconds(5);
+        private Duration readTimeout = Duration.ofSeconds(10);
     }
 }

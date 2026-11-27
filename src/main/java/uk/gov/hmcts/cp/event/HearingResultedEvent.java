@@ -1,6 +1,7 @@
 package uk.gov.hmcts.cp.event;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -80,8 +81,15 @@ public record HearingResultedEvent(Hearing hearing, Boolean isReshare, Instant s
     public record Contact(String home, String work, String mobile) {
     }
 
+    /**
+     * {@code offenceTitle} and {@code offenceDetails} (feature 005, research.md R7a) are additive: the upstream wire
+     * payload already carries {@code offenceTitle}/{@code wording} (confirmed in
+     * {@code wiremock/mappings/results-hearing-details.json}), silently dropped until now by this record's narrower
+     * field set. Shared with the GOB pipeline; existing consumers are unaffected since nothing is renamed or removed.
+     */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Offence(UUID id, List<JudicialResult> judicialResults) {
+    public record Offence(UUID id, List<JudicialResult> judicialResults, String offenceTitle,
+                          @JsonProperty("wording") String offenceDetails) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -93,10 +101,15 @@ public record HearingResultedEvent(Hearing hearing, Boolean isReshare, Instant s
      * {@code isAdjournmentResult} and {@code nextHearing} (kept only to know whether it is present) mark an adjournment:
      * an adjourned offence is not sent to GOB (feature 002 FR-018, research R19).
      */
+    /**
+     * {@code resultLabel} (feature 005, research.md R7a) is additive: sourced from the wire's per-result
+     * {@code resultText} (the richer, instance-specific description - preferred over the already-captured generic
+     * {@code label} for a notification email), currently silently dropped.
+     */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record JudicialResult(UUID judicialResultId, UUID judicialResultTypeId, String label, LocalDate orderedDate,
                                  List<JudicialResultPrompt> judicialResultPrompts, Boolean isAdjournmentResult,
-                                 Object nextHearing) {
+                                 Object nextHearing, @JsonProperty("resultText") String resultLabel) {
 
         public boolean hasAdjournmentMarker() {
             return Boolean.TRUE.equals(isAdjournmentResult) || nextHearing != null;

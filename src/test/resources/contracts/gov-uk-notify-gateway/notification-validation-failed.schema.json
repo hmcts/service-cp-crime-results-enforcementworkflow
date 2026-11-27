@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hmcts:cp:cp-gov-uk-notify-gateway.notification-validation-failed",
+  "title": "notification-validation-failed",
+  "description": "Result event returned to the originator's reply queue (ASB subject notification-validation-failed) when a send-email or send-letter command is rejected because its payload cannot be read or fails validation. Gateway-only: legacy notification-notify answered the same case with a synchronous 400 (see ADR-002 D14). The command is not accepted, so no notificationId is issued; the originator correlates through originalEventPayload. Additive-only evolution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reason",
+    "details",
+    "originalEventPayload"
+  ],
+  "properties": {
+    "reason": {
+      "type": "string",
+      "enum": ["PAYLOAD_VALIDATION_FAILED"]
+    },
+    "details": {
+      "type": "string",
+      "description": "In the Jakarta Bean Validation form 'field: message': every violation, comma-separated and sorted by field (e.g. 'sendToAddress: must not be blank'); for a payload that could not be read, the JSON parser's message, prefixed with the field when known."
+    },
+    "originalEventPayload": {
+      "type": "string",
+      "description": "The command message body exactly as received, as a JSON string."
+    }
+  }
+}

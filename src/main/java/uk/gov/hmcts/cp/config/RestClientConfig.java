@@ -22,15 +22,17 @@ import java.time.Duration;
 @Configuration
 public class RestClientConfig {
 
+    private static final String PROTOTYPE = "prototype";
+
     @Bean(name = "referenceDataRestClientBuilder")
-    @Scope("prototype")
+    @Scope(PROTOTYPE)
     public RestClient.Builder referenceDataRestClientBuilder(final ClientProperties properties) {
         final ClientProperties.ReferenceData referenceData = properties.getReferenceData();
         return builderWithTimeouts(referenceData.getConnectTimeout(), referenceData.getReadTimeout());
     }
 
     @Bean(name = "enforcementGatewayRestClientBuilder")
-    @Scope("prototype")
+    @Scope(PROTOTYPE)
     public RestClient.Builder enforcementGatewayRestClientBuilder(final ClientProperties properties) {
         final ClientProperties.EnforcementGateway gateway = properties.getEnforcementGateway();
         return builderWithTimeouts(gateway.getConnectTimeout(), gateway.getReadTimeout());
@@ -38,10 +40,47 @@ public class RestClientConfig {
 
     /** Results query (feature 003, research R17): stage 1 reads the share's results. */
     @Bean(name = "resultsRestClientBuilder")
-    @Scope("prototype")
+    @Scope(PROTOTYPE)
     public RestClient.Builder resultsRestClientBuilder(final ResultsProperties properties) {
         final ResultsProperties.Results results = properties.getResults();
         return builderWithTimeouts(results.getConnectTimeout(), results.getReadTimeout());
+    }
+
+    /** Feature 005: {@code enforcement_area} team-inbox lookup (contracts/enforcement-area.md). */
+    @Bean(name = "enforcementAreaRestClientBuilder")
+    @Scope(PROTOTYPE)
+    public RestClient.Builder enforcementAreaRestClientBuilder(final ClientProperties properties) {
+        final ClientProperties.EnforcementArea enforcementArea = properties.getEnforcementArea();
+        return builderWithTimeouts(enforcementArea.getConnectTimeout(), enforcementArea.getReadTimeout());
+    }
+
+    /** Feature 005: System Doc Generator BYO-FS {@code generate-document} command (contracts/system-doc-generator-byo-fs.md). */
+    @Bean(name = "docGeneratorRestClientBuilder")
+    @Scope(PROTOTYPE)
+    public RestClient.Builder docGeneratorRestClientBuilder(final ClientProperties properties) {
+        final ClientProperties.DocGenerator docGenerator = properties.getDocGenerator();
+        return builderWithTimeouts(docGenerator.getConnectTimeout(), docGenerator.getReadTimeout());
+    }
+
+    /**
+     * Feature 005 FR-020: Case Material attachment via {@code cpp-context-progression}'s command-api. Forces
+     * HTTP/1.1 (unlike {@link #builderWithTimeouts}'s default H2 negotiation) - the multipart upload call was found
+     * to intermittently receive an {@code RST_STREAM} reset over H2 against a test HTTP/2 server; HTTP/1.1 is also
+     * the better match for a traditional servlet-based command-api, so this is scoped to this one client only, not
+     * a blanket change to every other client sharing {@link #builderWithTimeouts}.
+     */
+    @Bean(name = "progressionRestClientBuilder")
+    @Scope(PROTOTYPE)
+    public RestClient.Builder progressionRestClientBuilder(final ClientProperties properties) {
+        final ClientProperties.Progression progression = properties.getProgression();
+        @SuppressWarnings("PMD.CloseResource") // wrapped into requestFactory below and kept open for the bean's lifetime, not closed here
+        final HttpClient httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(progression.getConnectTimeout())
+                .build();
+        final JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(progression.getReadTimeout());
+        return RestClient.builder().requestFactory(requestFactory);
     }
 
     /* default */ static RestClient.Builder builderWithTimeouts(final Duration connectTimeout, final Duration readTimeout) {

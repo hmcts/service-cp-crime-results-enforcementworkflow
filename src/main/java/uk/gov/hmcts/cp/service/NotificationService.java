@@ -36,6 +36,7 @@ public class NotificationService {
     private final EnforcementNotificationRepository notificationRepository;
     private final EnforcementNotificationNowRepository nowRepository;
     private final NotificationTasks tasks;
+    private final ResultNotificationTasks resultNotificationTasks;
     private final TransactionTemplate transactionTemplate;
 
     /**
@@ -116,6 +117,9 @@ public class NotificationService {
                 .forEach(now -> nowRepository.saveAndFlush(
                         new EnforcementNotificationNowEntity(now.getRequestId(), entity.getId(), now.getMasterDefendantId())));
         tasks.queueProcess(entity.getId());
+        // Feature 005 (research.md R4, FR-010): a second, fully independent task chain - deliberately duplicates the
+        // Results cache/API lookup rather than sharing state with the GOB pipeline above.
+        resultNotificationTasks.queueResolve(entity.getId());
         log.info("Enforcement notification {} received for hearing {} on {} (reshare {}, {} NOW request(s)); queued",
                 entity.getId(), entity.getHearingId(), entity.getHearingDate(), entity.isReshare(), notification.getNows().size());
         return entity.getId();

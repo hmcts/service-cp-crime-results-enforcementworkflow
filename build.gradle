@@ -94,8 +94,17 @@ dependencies {
   // connection factory and a health contributor even with the cache switched off. Version from the Boot BOM.
   implementation 'io.lettuce:lettuce-core'
   implementation 'com.azure:azure-identity:1.18.1'
+
+  // --- Enforcement Result Notification Email (feature 005): one Blob container (BYO-FS payload/PDF) + one Service
+  // Bus namespace (cp-gov-uk-notify-gateway dispatch), both Workload Identity only, no SAS/connection strings in any
+  // real environment (research.md R8, R1) ---
+  implementation 'com.azure:azure-storage-blob:12.30.1'
+  implementation 'com.azure:azure-messaging-servicebus:7.17.9'
+
   testImplementation 'org.testcontainers:testcontainers'
   testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+  // No dedicated testcontainers module for Azurite: a plain GenericContainer on the
+  // mcr.microsoft.com/azure-storage/azurite image is this feature's own Blob integration test (research.md R8).
 }
 
 // Guard against legacy javax.jms on the classpath alongside Spring Boot 4's jakarta.jms.
