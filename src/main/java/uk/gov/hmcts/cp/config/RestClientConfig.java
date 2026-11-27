@@ -46,14 +46,6 @@ public class RestClientConfig {
         return builderWithTimeouts(results.getConnectTimeout(), results.getReadTimeout());
     }
 
-    /** Feature 005: {@code enforcement_area} team-inbox lookup (contracts/enforcement-area.md). */
-    @Bean(name = "enforcementAreaRestClientBuilder")
-    @Scope(PROTOTYPE)
-    public RestClient.Builder enforcementAreaRestClientBuilder(final ClientProperties properties) {
-        final ClientProperties.EnforcementArea enforcementArea = properties.getEnforcementArea();
-        return builderWithTimeouts(enforcementArea.getConnectTimeout(), enforcementArea.getReadTimeout());
-    }
-
     /** Feature 005: System Doc Generator BYO-FS {@code generate-document} command (contracts/system-doc-generator-byo-fs.md). */
     @Bean(name = "docGeneratorRestClientBuilder")
     @Scope(PROTOTYPE)

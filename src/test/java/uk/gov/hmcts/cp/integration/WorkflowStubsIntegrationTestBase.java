@@ -87,8 +87,8 @@ public abstract class WorkflowStubsIntegrationTestBase extends IntegrationTestBa
         registry.add("cp.reference-data.base-url", STUBS::baseUrl);
         registry.add("cp.enforcement-gateway.base-url", STUBS::baseUrl);
         registry.add("cp.results.base-url", STUBS::baseUrl);
-        // feature 005: same WireMock server, new paths (contracts/enforcement-area.md, system-doc-generator-byo-fs.md)
-        registry.add("cp.enforcement-area.base-url", STUBS::baseUrl);
+        // feature 005: EnforcementAreaClient's team-inbox lookup also reuses cp.reference-data.base-url above (same
+        // host, not a separate target - contracts/enforcement-area.md), new path on the same WireMock server.
         registry.add("cp.doc-generator.base-url", STUBS::baseUrl);
         // feature 005 FR-020: contracts/progression-court-document.md
         registry.add("cp.progression.base-url", STUBS::baseUrl);
