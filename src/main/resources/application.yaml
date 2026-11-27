@@ -88,7 +88,9 @@ cp:
   # Enforcement case predicate: same logic as the enforcement gateway (research.md R1)
   enforcement:
     authority-code: ${ENFORCEMENT_AUTHORITY_CODE:GAPGD00}
-  # Timeout budget (research.md R20): each hop gives up before its caller
+  # Timeout budget (research.md R20): each hop gives up before its caller. Also backs EnforcementAreaClient's
+  # team-inbox lookup (feature 005, FR-003) - enforcement_area is just another endpoint on this same host, not a
+  # separate target system, so it reuses this base-url/cjscppuid rather than its own cp.enforcement-area.* section.
   reference-data:
     base-url: ${REFERENCEDATA_URL:http://localhost:8081}
     # A System Users member. Required, no default (StartupPropertiesValidator)
@@ -99,13 +101,6 @@ cp:
     base-url: ${ENFORCEMENT_GATEWAY_URL:http://localhost:8082}
     connect-timeout: 5s
     read-timeout: 50s   # must exceed the gateway's own total towards APIM (5s + 40s)
-  # Feature 005: enforcement_area reference-data lookup (contracts/enforcement-area.md - OPEN DEPENDENCY, CIMD-4389,
-  # plan.md D1). Shape is this feature's own assumption pending confirmation.
-  enforcement-area:
-    base-url: ${ENFORCEMENT_AREA_URL:http://localhost:8081}
-    cjscppuid: ${ENFORCEMENT_AREA_CJSCPPUID:}
-    connect-timeout: 5s
-    read-timeout: 10s
   # Feature 005: System Doc Generator BYO-FS generate-document command (contracts/system-doc-generator-byo-fs.md;
   # branch team/CHD-2786, unmerged at time of writing - go-live gate, plan.md D4).
   doc-generator:
@@ -214,14 +209,14 @@ cp:
       CONFISCATION: ${RESULT_NOTIFICATION_CONFISCATION_SHORT_CODES:BPOC}
     confiscation-division-codes: ${RESULT_NOTIFICATION_CONFISCATION_DIVISION_CODES:45,66,97,109,110,116}
     docmosis-template-ids:
-      FIRST_SHARE: ${RESULT_NOTIFICATION_FIRST_SHARE_TEMPLATE_ID:enforcement-result-notification-first-share}
-      AMEND_RESHARE: ${RESULT_NOTIFICATION_AMEND_RESHARE_TEMPLATE_ID:enforcement-result-notification-amend-reshare}
+      FIRST_SHARE: ${RESULT_NOTIFICATION_FIRST_SHARE_TEMPLATE_ID:NCESNotificationForNewResultTemplate}
+      AMEND_RESHARE: ${RESULT_NOTIFICATION_AMEND_RESHARE_TEMPLATE_ID:NCESNotificationForAmendAndReshareTemplate}
     retry-durations: ${RESULT_NOTIFICATION_RETRY_DURATIONS:10s,60s,300s}
   # Feature 005: this service's one Blob container (research.md R8) - DefaultAzureCredential/Workload Identity in
   # every real environment; azurite-enabled is local dev/IT only (Azurite has no Azure AD support).
   result-notification-blob:
-    endpoint: ${CP_RESULT_NOTIFICATION_BLOB_ENDPOINT:https://localhost.blob.core.windows.net}
-    container-name: ${CP_RESULT_NOTIFICATION_BLOB_CONTAINER_NAME:result-notification}
+    endpoint: ${CP_RESULTS_ENFORCEMENTWORKFLOW_BLOB_ENDPOINT:https://localhost.blob.core.windows.net}
+    container-name: ${CP_RESULTS_ENFORCEMENTWORKFLOW_BLOB_CONTAINER_NAME:result-notification}
     azurite-enabled: ${CP_RESULT_NOTIFICATION_BLOB_AZURITE_ENABLED:false}
     connection-string: ${CP_RESULT_NOTIFICATION_BLOB_CONNECTION_STRING:}
     connection-timeout-seconds: 10s

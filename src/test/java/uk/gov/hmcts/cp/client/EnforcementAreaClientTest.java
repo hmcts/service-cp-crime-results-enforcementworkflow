@@ -28,8 +28,8 @@ class EnforcementAreaClientTest {
 
     private static ClientProperties properties() {
         final ClientProperties properties = new ClientProperties();
-        properties.getEnforcementArea().setBaseUrl(BASE_URL);
-        properties.getEnforcementArea().setCjscppuid(CJSCPPUID);
+        properties.getReferenceData().setBaseUrl(BASE_URL);
+        properties.getReferenceData().setCjscppuid(CJSCPPUID);
         return properties;
     }
 

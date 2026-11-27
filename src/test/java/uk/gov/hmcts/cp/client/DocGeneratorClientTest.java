@@ -36,7 +36,7 @@ class DocGeneratorClientTest {
     }
 
     private static GenerateDocumentCommand command() {
-        return new GenerateDocumentCommand("enforcement-result-notification-first-share",
+        return new GenerateDocumentCommand("NCESNotificationForNewResultTemplate",
                 GenerateDocumentCommand.CONVERSION_FORMAT_PDF, Instant.parse("2026-11-24T10:00:00Z"),
                 "result-notification/requests/" + CORRELATION_ID, "result-notification/documents/" + CORRELATION_ID + ".pdf",
                 "service-cp-crime-results-enforcementworkflow", CORRELATION_ID);
@@ -46,7 +46,7 @@ class DocGeneratorClientTest {
     void should_post_the_generate_document_command_with_every_required_field() {
         server.expect(requestTo(URL))
                 .andExpect(method(POST))
-                .andExpect(jsonPath("$.templateIdentifier").value("enforcement-result-notification-first-share"))
+                .andExpect(jsonPath("$.templateIdentifier").value("NCESNotificationForNewResultTemplate"))
                 .andExpect(jsonPath("$.conversionFormat").value("pdf"))
                 .andExpect(jsonPath("$.payloadFileUri").value("result-notification/requests/" + CORRELATION_ID))
                 .andExpect(jsonPath("$.destinationFileUri").value("result-notification/documents/" + CORRELATION_ID + ".pdf"))

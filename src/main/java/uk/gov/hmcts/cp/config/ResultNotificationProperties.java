@@ -44,8 +44,8 @@ public class ResultNotificationProperties {
     /** The Docmosis {@code templateIdentifier} per notification type (contracts/system-doc-generator-byo-fs.md). */
     @NotEmpty
     private Map<NotificationType, String> docmosisTemplateIds = new EnumMap<>(Map.of(
-            NotificationType.FIRST_SHARE, "enforcement-result-notification-first-share",
-            NotificationType.AMEND_RESHARE, "enforcement-result-notification-amend-reshare"));
+            NotificationType.FIRST_SHARE, "NCESNotificationForNewResultTemplate",
+            NotificationType.AMEND_RESHARE, "NCESNotificationForAmendAndReshareTemplate"));
 
     /** This feature's own retry back-off (research.md R4 - independent of {@code cp.notification.retry-durations}). */
     @NotEmpty

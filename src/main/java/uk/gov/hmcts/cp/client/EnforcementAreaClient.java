@@ -16,6 +16,11 @@ import java.util.Optional;
  * CIMD-4389, plan.md D1): mirrors {@link ReferenceDataClient}'s 404-vs-error distinction. A confirmed no-match (404)
  * is {@link Optional#empty()} (never cached - a team inbox added later must be picked up); any other failure throws
  * {@link TeamInboxUnavailableException}, which MUST be retried, never read as "no match".
+ *
+ * <p>{@code enforcement_area} is just another endpoint on the reference-data service (same host that already serves
+ * {@link ReferenceDataClient}'s own {@code enforcement-area} accounting-division-code lookup, CIMD-4640) - not a
+ * separate target system, so this reuses {@code cp.reference-data.*} (base-url, cjscppuid) rather than a duplicate
+ * {@code cp.enforcement-area.*} config section.
  */
 @Slf4j
 @Component
@@ -27,10 +32,10 @@ public class EnforcementAreaClient {
     private final RestClient restClient;
     private final String cjscppuid;
 
-    public EnforcementAreaClient(@Qualifier("enforcementAreaRestClientBuilder") final RestClient.Builder restClientBuilder,
+    public EnforcementAreaClient(@Qualifier("referenceDataRestClientBuilder") final RestClient.Builder restClientBuilder,
                                  final ClientProperties properties) {
-        this.restClient = restClientBuilder.baseUrl(properties.getEnforcementArea().getBaseUrl()).build();
-        this.cjscppuid = properties.getEnforcementArea().getCjscppuid();
+        this.restClient = restClientBuilder.baseUrl(properties.getReferenceData().getBaseUrl()).build();
+        this.cjscppuid = properties.getReferenceData().getCjscppuid();
     }
 
     /** @throws TeamInboxUnavailableException when the lookup can't be answered (never a confirmed no-match) */
